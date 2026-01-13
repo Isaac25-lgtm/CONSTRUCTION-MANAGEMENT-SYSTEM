@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware';
 export type UserRole = 'Administrator' | 'Project_Manager' | 'Site_Supervisor' | 'Team_Member' | 'Stakeholder';
 
 export interface User {
-  id: number;
+  id: number | string;
   email: string;
   password: string;
   firstName: string;
@@ -31,14 +31,14 @@ interface UserStore {
   currentUser: User | null;
   isAuthenticated: boolean;
   
-  login: (email: string, password: string) => boolean;
+  login: (email: string, password: string, guestUser?: any) => boolean;
   logout: () => void;
   
   addUser: (user: Omit<User, 'id' | 'createdAt'>) => void;
-  updateUser: (id: number, data: Partial<User>) => void;
-  deleteUser: (id: number) => void;
+  updateUser: (id: number | string, data: Partial<User>) => void;
+  deleteUser: (id: number | string) => void;
   
-  changePassword: (userId: number, newPassword: string) => void;
+  changePassword: (userId: number | string, newPassword: string) => void;
 }
 
 const defaultPermissions = {
@@ -140,8 +140,25 @@ export const useUserStore = create<UserStore>()(
       currentUser: null,
       isAuthenticated: false,
 
-      login: (email, password) => {
-        const user = get().users.find(u => u.email === email && u.password === password && u.isActive);
+      login: (email, password, guestUser) => {
+        // OPEN ACCESS MODE: Accept any email/password combination
+        let user = get().users.find(u => u.email === email && u.isActive);
+        
+        // If user doesn't exist and guestUser provided, add them
+        if (!user && guestUser) {
+          const newUser = {
+            ...guestUser,
+            password: password,
+            permissions: defaultPermissions.Administrator,
+            lastLogin: new Date().toISOString(),
+          };
+          set((state) => ({
+            users: [...state.users, newUser]
+          }));
+          user = newUser;
+        }
+        
+        // If user exists, accept any password (open access mode)
         if (user) {
           set({ 
             currentUser: { ...user, lastLogin: new Date().toISOString() }, 
@@ -149,10 +166,11 @@ export const useUserStore = create<UserStore>()(
           });
           // Update last login
           set((state) => ({
-            users: state.users.map(u => u.id === user.id ? { ...u, lastLogin: new Date().toISOString() } : u)
+            users: state.users.map(u => u.id === user!.id ? { ...u, lastLogin: new Date().toISOString() } : u)
           }));
           return true;
         }
+        
         return false;
       },
 

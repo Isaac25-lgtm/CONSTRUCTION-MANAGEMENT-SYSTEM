@@ -24,11 +24,42 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const success = login(email, password);
+    // OPEN ACCESS: Accept any email and password for now
+    // Check if user exists, if not create a guest account
+    let user = users.find(u => u.email === email);
     
-    if (success) {
-      const user = users.find(u => u.email === email);
-      if (user) {
+    if (!user) {
+      // Create a temporary guest user
+      const guestUser = {
+        id: `guest-${Date.now()}`,
+        email: email,
+        firstName: email.split('@')[0],
+        lastName: 'Guest',
+        role: 'Administrator' as const, // Give admin access to everyone
+        permissions: ['all'] as string[],
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      };
+      
+      // Login with the guest credentials
+      const loginSuccess = login(email, password, guestUser);
+      
+      if (loginSuccess) {
+        addLog({
+          userId: guestUser.id,
+          userName: `${guestUser.firstName} ${guestUser.lastName}`,
+          userEmail: guestUser.email,
+          action: 'LOGIN',
+          entityType: 'System',
+          details: 'Guest user logged into the system',
+        });
+        onLogin();
+      }
+    } else {
+      // Existing user - accept any password
+      const loginSuccess = login(email, password, user);
+      
+      if (loginSuccess) {
         addLog({
           userId: user.id,
           userName: `${user.firstName} ${user.lastName}`,
@@ -37,10 +68,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           entityType: 'System',
           details: 'User logged into the system',
         });
+        onLogin();
       }
-      onLogin();
-    } else {
-      setError('Invalid email or password');
     }
     
     setIsLoading(false);
@@ -116,22 +145,13 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             </button>
           </form>
 
-          {/* Demo Credentials */}
+          {/* Open Access Notice */}
           <div className="mt-6 pt-6 border-t border-slate-700">
-            <p className="text-sm text-slate-400 mb-3">Demo Credentials:</p>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between p-2 bg-slate-700/50 rounded-lg">
-                <span className="text-slate-300">Admin:</span>
-                <span className="text-slate-400">admin@buildpro.ug / admin123</span>
-              </div>
-              <div className="flex justify-between p-2 bg-slate-700/50 rounded-lg">
-                <span className="text-slate-300">Manager:</span>
-                <span className="text-slate-400">sarah@buildpro.ug / sarah123</span>
-              </div>
-              <div className="flex justify-between p-2 bg-slate-700/50 rounded-lg">
-                <span className="text-slate-300">Supervisor:</span>
-                <span className="text-slate-400">peter@buildpro.ug / peter123</span>
-              </div>
+            <div className="p-3 bg-green-900/30 border border-green-800 rounded-lg">
+              <p className="text-sm text-green-400 font-medium mb-1">🔓 Open Access Mode</p>
+              <p className="text-xs text-green-500">
+                Enter any email and password to access the system. All users are granted Administrator privileges for demonstration purposes.
+              </p>
             </div>
           </div>
         </div>
