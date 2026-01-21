@@ -31,7 +31,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     if (!user) {
       // Create a temporary guest user
       const guestUser = {
-        id: `guest-${Date.now()}`,
+        id: Date.now(),
         email: email,
         firstName: email.split('@')[0],
         lastName: 'Guest',

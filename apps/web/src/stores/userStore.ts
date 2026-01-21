@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware';
 export type UserRole = 'Administrator' | 'Project_Manager' | 'Site_Supervisor' | 'Team_Member' | 'Stakeholder';
 
 export interface User {
-  id: number | string;
+  id: number;
   email: string;
   password: string;
   firstName: string;
@@ -35,10 +35,10 @@ interface UserStore {
   logout: () => void;
   
   addUser: (user: Omit<User, 'id' | 'createdAt'>) => void;
-  updateUser: (id: number | string, data: Partial<User>) => void;
-  deleteUser: (id: number | string) => void;
+  updateUser: (id: number, data: Partial<User>) => void;
+  deleteUser: (id: number) => void;
   
-  changePassword: (userId: number | string, newPassword: string) => void;
+  changePassword: (userId: number, newPassword: string) => void;
 }
 
 const defaultPermissions = {
@@ -181,7 +181,7 @@ export const useUserStore = create<UserStore>()(
       addUser: (userData) => set((state) => ({
         users: [...state.users, {
           ...userData,
-          id: Math.max(...state.users.map(u => typeof u.id === 'number' ? u.id : 0), 0) + 1,
+          id: Math.max(...state.users.map(u => u.id), 0) + 1,
           createdAt: new Date().toISOString().split('T')[0],
           permissions: defaultPermissions[userData.role],
         }]
