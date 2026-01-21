@@ -9,6 +9,8 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // Base URL - use '/' for Render static site
+  base: '/',
   server: {
     port: 5000,
     proxy: {
@@ -17,5 +19,24 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'esbuild',
+    // Optimize chunk splitting for better caching
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          charts: ['recharts'],
+          ui: ['lucide-react', 'react-hot-toast'],
+        },
+      },
+    },
+  },
+  // Preview server for testing production build locally
+  preview: {
+    port: 5000,
   },
 })
