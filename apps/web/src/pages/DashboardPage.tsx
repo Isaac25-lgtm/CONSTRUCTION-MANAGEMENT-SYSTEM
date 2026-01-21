@@ -1,4 +1,4 @@
-import { Plus, Building2, CheckSquare, DollarSign, AlertTriangle, TrendingUp, TrendingDown, Check, AlertCircle } from 'lucide-react';
+import { Building2, CheckSquare, DollarSign, AlertTriangle, TrendingUp, TrendingDown, Check, AlertCircle } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useDataStore } from '../stores/dataStore';
 import StatusBadge from '../components/ui/StatusBadge';
@@ -39,16 +39,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Project Dashboard</h1>
-          <p className="text-gray-500 dark:text-gray-400">Welcome back! Here's your project overview.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">
-            <Plus size={18} /> New Project
-          </button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Project Dashboard</h1>
+        <p className="text-gray-500 dark:text-gray-400">Welcome back! Here's your project overview.</p>
       </div>
 
       {/* Stats Cards */}
