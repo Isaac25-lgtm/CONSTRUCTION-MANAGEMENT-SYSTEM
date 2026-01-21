@@ -60,6 +60,20 @@ async def global_exception_handler(request, exc: Exception):
         }
     )
 
+# Root Route
+@app.get("/")
+async def root():
+    return {
+        "service": "BuildPro API",
+        "version": "1.0.0",
+        "status": "running",
+        "endpoints": {
+            "docs": "/docs",
+            "health": "/health",
+            "api": "/api/v1"
+        }
+    }
+
 # Health Check
 @app.get("/health")
 async def health_check():
