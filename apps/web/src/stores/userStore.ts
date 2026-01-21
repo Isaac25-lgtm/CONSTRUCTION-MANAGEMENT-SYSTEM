@@ -181,7 +181,7 @@ export const useUserStore = create<UserStore>()(
       addUser: (userData) => set((state) => ({
         users: [...state.users, {
           ...userData,
-          id: Math.max(...state.users.map(u => u.id), 0) + 1,
+          id: Math.max(...state.users.map(u => typeof u.id === 'number' ? u.id : 0), 0) + 1,
           createdAt: new Date().toISOString().split('T')[0],
           permissions: defaultPermissions[userData.role],
         }]
