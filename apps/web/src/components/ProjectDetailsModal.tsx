@@ -210,7 +210,7 @@ export default function ProjectDetailsModal({ project, onClose }: ProjectDetails
             }
 
             // ========== TASKS SECTION ==========
-            addNewPageIfNeeded(40);
+            addNewPageIfNeeded(15);
             pdf.setFillColor(59, 130, 246);
             pdf.roundedRect(margin, y, contentWidth, 8, 2, 2, 'F');
             pdf.setTextColor(255, 255, 255);
@@ -256,7 +256,7 @@ export default function ProjectDetailsModal({ project, onClose }: ProjectDetails
             y += 5;
 
             // ========== RISKS SECTION ==========
-            addNewPageIfNeeded(40);
+            addNewPageIfNeeded(15);
             pdf.setFillColor(239, 68, 68);
             pdf.roundedRect(margin, y, contentWidth, 8, 2, 2, 'F');
             pdf.setTextColor(255, 255, 255);
@@ -308,7 +308,7 @@ export default function ProjectDetailsModal({ project, onClose }: ProjectDetails
             y += 5;
 
             // ========== DOCUMENTS SECTION ==========
-            addNewPageIfNeeded(40);
+            addNewPageIfNeeded(15);
             pdf.setFillColor(168, 85, 247);
             pdf.roundedRect(margin, y, contentWidth, 8, 2, 2, 'F');
             pdf.setTextColor(255, 255, 255);
@@ -343,7 +343,7 @@ export default function ProjectDetailsModal({ project, onClose }: ProjectDetails
             y += 5;
 
             // ========== EXPENSES SECTION ==========
-            addNewPageIfNeeded(40);
+            addNewPageIfNeeded(15);
             pdf.setFillColor(34, 197, 94);
             pdf.roundedRect(margin, y, contentWidth, 8, 2, 2, 'F');
             pdf.setTextColor(255, 255, 255);
@@ -382,7 +382,7 @@ export default function ProjectDetailsModal({ project, onClose }: ProjectDetails
             y += 5;
 
             // ========== MILESTONES SECTION ==========
-            addNewPageIfNeeded(40);
+            addNewPageIfNeeded(15);
             pdf.setFillColor(234, 179, 8);
             pdf.roundedRect(margin, y, contentWidth, 8, 2, 2, 'F');
             pdf.setTextColor(255, 255, 255);
