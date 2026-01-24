@@ -23,7 +23,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # CORS
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:3000", 
+        "http://localhost:5000",
+        "http://localhost:5173",
+        "https://buildpro-web.onrender.com"
+    ]
     
     # File Upload
     MAX_UPLOAD_SIZE: int = 52428800  # 50MB
@@ -33,6 +38,16 @@ class Settings(BaseSettings):
         ".jpg", ".jpeg", ".png", ".gif",
         ".dwg", ".dxf", ".zip", ".rar"
     ]
+    
+    # Cloud Storage (Cloudflare R2 / AWS S3)
+    USE_CLOUD_STORAGE: bool = True  # Set to True in production
+    R2_ACCOUNT_ID: str = ""
+    R2_ACCESS_KEY_ID: str = ""
+    R2_SECRET_ACCESS_KEY: str = ""
+    R2_BUCKET_NAME: str = "buildpro-documents"
+    R2_ENDPOINT_URL: str = ""  # e.g., https://<account_id>.r2.cloudflarestorage.com
+    R2_PUBLIC_URL: str = ""  # Public URL for accessing files
+
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 100

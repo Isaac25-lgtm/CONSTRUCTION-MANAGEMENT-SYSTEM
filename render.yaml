@@ -1,4 +1,35 @@
+databases:
+  - name: buildpro-db
+    plan: starter
+    databaseName: buildpro
+    user: buildpro
+
 services:
+  # FastAPI Backend
+  - type: web
+    name: buildpro-api
+    runtime: python
+    plan: starter
+    buildCommand: cd apps/api && pip install -r requirements.txt
+    startCommand: cd apps/api && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: buildpro-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: ALLOWED_ORIGINS
+        value: https://buildpro-web.onrender.com,http://localhost:5000
+      - key: PYTHON_VERSION
+        value: "3.11"
+
+  # React Frontend (static site)
   - type: web
     name: buildpro-web
     runtime: static
@@ -6,7 +37,7 @@ services:
     staticPublishPath: apps/web/dist
     envVars:
       - key: NODE_VERSION
-        value: 20
+        value: "20"
     headers:
       - path: /*
         name: Cache-Control

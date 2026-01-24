@@ -152,13 +152,66 @@ VITE_API_URL=http://localhost:8000
 
 ---
 
-## 🐳 Docker Compose (All Services)
+## ☁️ Render Deployment (Production)
 
-To run everything with Docker:
+### Prerequisites
+1. A [Render](https://render.com) account
+2. A [Cloudflare](https://cloudflare.com) account (for R2 document storage)
+
+### Step 1: Deploy to Render
+
+1. Push your code to GitHub/GitLab
+2. Go to [Render Dashboard](https://dashboard.render.com)
+3. Click **New** → **Blueprint**
+4. Connect your repository
+5. Render will read `render.yaml` and create:
+   - ✅ PostgreSQL database ($7/month)
+   - ✅ FastAPI backend service ($7/month)
+   - ✅ Static frontend (free)
+
+### Step 2: Set Up Cloudflare R2 (Document Storage)
+
+1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com) → **R2**
+2. Create a bucket named `buildpro-documents`
+3. Create R2 API Token with read/write permissions
+4. Add these environment variables to your Render backend service:
+
+```env
+USE_CLOUD_STORAGE=true
+R2_ACCOUNT_ID=your-cloudflare-account-id
+R2_ACCESS_KEY_ID=your-r2-access-key
+R2_SECRET_ACCESS_KEY=your-r2-secret-key
+R2_BUCKET_NAME=buildpro-documents
+R2_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com
+R2_PUBLIC_URL=https://pub-xxx.r2.dev
+```
+
+### Step 3: Verify Deployment
+
+1. **API Health**: Visit `https://buildpro-api.onrender.com/health`
+2. **Frontend**: Visit `https://buildpro-web.onrender.com`
+3. **Database**: Check Render logs for successful migration
+
+### Data Retention
+
+| Component | Retention |
+|-----------|-----------|
+| PostgreSQL | **Unlimited** - data persists as long as subscription is active |
+| Documents (R2) | **Unlimited** - 10GB free/month, then $0.015/GB |
+| Backups | Enable in Render dashboard for automatic daily backups |
+
+> **5+ Year Retention**: Data will persist indefinitely. There are no automatic expiration policies. Just keep your Render subscription active.
+
+---
+
+## 🐳 Docker Compose (Local Development)
+
+To run everything locally with Docker:
 
 ```bash
 docker-compose up
 ```
+
 
 ---
 
