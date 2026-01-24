@@ -4,6 +4,7 @@ import { useDataStore, Project } from '../stores/dataStore';
 import StatusBadge from '../components/ui/StatusBadge';
 import ProgressBar from '../components/ui/ProgressBar';
 import Modal from '../components/ui/Modal';
+import ProjectDetailsModal from '../components/ProjectDetailsModal';
 import toast from 'react-hot-toast';
 
 const formatCurrency = (amount: number) => {
@@ -30,8 +31,8 @@ export default function ProjectsPage() {
     location: '',
   });
 
-  const filteredProjects = filter === 'all' 
-    ? projects 
+  const filteredProjects = filter === 'all'
+    ? projects
     : projects.filter(p => p.status === filter);
 
   const handleCreate = () => {
@@ -128,7 +129,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Projects</h1>
           <p className="text-gray-500 dark:text-gray-400">Manage all your construction projects</p>
         </div>
-        <button 
+        <button
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
         >
@@ -142,11 +143,10 @@ export default function ProjectsPage() {
           <button
             key={status}
             onClick={() => setFilter(status)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-              filter === status 
-                ? 'bg-primary-600 text-white' 
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${filter === status
+                ? 'bg-primary-600 text-white'
                 : 'bg-white dark:bg-dark-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-700 border border-gray-200 dark:border-dark-700'
-            }`}
+              }`}
           >
             {status === 'all' ? 'All Projects' : status}
           </button>
@@ -172,21 +172,21 @@ export default function ProjectsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <StatusBadge status={project.status} />
-                <button 
+                <button
                   onClick={() => openViewModal(project)}
                   className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg"
                   title="View Details"
                 >
                   <Eye size={18} />
                 </button>
-                <button 
+                <button
                   onClick={() => openEditModal(project)}
                   className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg"
                   title="Edit"
                 >
                   <Edit size={18} />
                 </button>
-                <button 
+                <button
                   onClick={() => handleDelete(project.id)}
                   className="p-2 text-gray-400 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg"
                   title="Delete"
@@ -195,7 +195,7 @@ export default function ProjectsPage() {
                 </button>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Start Date</p>
@@ -455,82 +455,13 @@ export default function ProjectsPage() {
         </div>
       </Modal>
 
-      {/* View Modal */}
-      <Modal isOpen={showViewModal} onClose={() => setShowViewModal(false)} title="Project Details" size="xl">
-        {selectedProject && (
-          <div className="space-y-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{selectedProject.name}</h2>
-                <p className="text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
-                  <MapPin size={16} /> {selectedProject.location || 'No location specified'}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <StatusBadge status={selectedProject.status} />
-                <StatusBadge status={selectedProject.priority} />
-              </div>
-            </div>
-
-            {selectedProject.description && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</h3>
-                <p className="text-gray-600 dark:text-gray-400">{selectedProject.description}</p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-dark-700 rounded-lg">
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Manager</p>
-                <p className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-1"><Users size={14} /> {selectedProject.manager}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Timeline</p>
-                <p className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-1"><Calendar size={14} /> {selectedProject.startDate} - {selectedProject.endDate}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Budget</p>
-                <p className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(selectedProject.budget)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Spent</p>
-                <p className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(selectedProject.spent)} ({Math.round(selectedProject.spent / selectedProject.budget * 100)}%)</p>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-gray-900 dark:text-gray-100">Overall Progress</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedProject.progress}%</span>
-              </div>
-              <ProgressBar progress={selectedProject.progress} />
-            </div>
-
-            <div>
-              <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-3">Project Tasks ({getProjectTasks(selectedProject.id).length})</h3>
-              <div className="space-y-2">
-                {getProjectTasks(selectedProject.id).map(task => (
-                  <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-700 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${task.status === 'Completed' ? 'bg-green-500' : task.status === 'In Progress' ? 'bg-blue-500' : 'bg-gray-400'}`} />
-                      <span className="text-gray-900 dark:text-gray-100">{task.name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-20">
-                        <ProgressBar progress={task.progress} />
-                      </div>
-                      <StatusBadge status={task.status} />
-                    </div>
-                  </div>
-                ))}
-                {getProjectTasks(selectedProject.id).length === 0 && (
-                  <p className="text-gray-500 dark:text-gray-400 text-center py-4">No tasks yet</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* View Modal - Comprehensive Project Details */}
+      {showViewModal && selectedProject && (
+        <ProjectDetailsModal
+          project={selectedProject}
+          onClose={() => setShowViewModal(false)}
+        />
+      )}
     </div>
   );
 }
