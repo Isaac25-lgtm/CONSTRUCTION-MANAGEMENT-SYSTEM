@@ -43,8 +43,66 @@ export default function SchedulePage() {
     ? milestones
     : milestones.filter(m => m.projectId === selectedProject);
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const currentYear = 2025;
+  // Dynamic timeline based on zoom level
+  const currentYear = new Date().getFullYear();
+  const today = new Date();
+
+  // Generate timeline headers and date ranges based on zoom level
+  const getTimelineConfig = () => {
+    if (zoomLevel === 'week') {
+      // Show 8 weeks from today
+      const weeks = [];
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay()); // Start of current week
+
+      for (let i = 0; i < 8; i++) {
+        const weekStart = new Date(startOfWeek);
+        weekStart.setDate(startOfWeek.getDate() + (i * 7));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weeks.push({
+          label: `Week ${i + 1}`,
+          sublabel: `${weekStart.getDate()}/${weekStart.getMonth() + 1}`,
+          start: weekStart,
+          end: weekEnd
+        });
+      }
+      return {
+        headers: weeks,
+        rangeStart: weeks[0].start,
+        rangeEnd: weeks[weeks.length - 1].end
+      };
+    } else if (zoomLevel === 'quarter') {
+      // Show 4 quarters of the year
+      const quarters = [
+        { label: 'Q1', sublabel: 'Jan-Mar', start: new Date(currentYear, 0, 1), end: new Date(currentYear, 2, 31) },
+        { label: 'Q2', sublabel: 'Apr-Jun', start: new Date(currentYear, 3, 1), end: new Date(currentYear, 5, 30) },
+        { label: 'Q3', sublabel: 'Jul-Sep', start: new Date(currentYear, 6, 1), end: new Date(currentYear, 8, 30) },
+        { label: 'Q4', sublabel: 'Oct-Dec', start: new Date(currentYear, 9, 1), end: new Date(currentYear, 11, 31) },
+      ];
+      return {
+        headers: quarters,
+        rangeStart: quarters[0].start,
+        rangeEnd: quarters[quarters.length - 1].end
+      };
+    } else {
+      // Month view - show all 12 months
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthHeaders = months.map((month, idx) => ({
+        label: month,
+        sublabel: currentYear.toString(),
+        start: new Date(currentYear, idx, 1),
+        end: new Date(currentYear, idx + 1, 0)
+      }));
+      return {
+        headers: monthHeaders,
+        rangeStart: monthHeaders[0].start,
+        rangeEnd: monthHeaders[monthHeaders.length - 1].end
+      };
+    }
+  };
+
+  const timelineConfig = getTimelineConfig();
 
   const toggleExpand = (id: number) => {
     const newExpanded = new Set(expandedTasks);
@@ -57,18 +115,22 @@ export default function SchedulePage() {
   };
 
   const getTaskPosition = (startDate: string, dueDate: string) => {
-    const start = new Date(startDate || '2025-01-01');
+    const start = new Date(startDate || dueDate);
     const end = new Date(dueDate);
-    const yearStart = new Date('2025-01-01');
-    const yearEnd = new Date('2025-12-31');
+    const { rangeStart, rangeEnd } = timelineConfig;
 
-    const totalDays = (yearEnd.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24);
-    const startDay = Math.max(0, (start.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24));
-    const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+    const totalDays = (rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24);
+    const startDay = Math.max(0, (start.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24));
+    const endDay = Math.min(totalDays, (end.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24));
+    const duration = Math.max(1, endDay - startDay);
+
+    // Check if task is within the visible range
+    const isVisible = start <= rangeEnd && end >= rangeStart;
 
     return {
-      left: `${(startDay / totalDays) * 100}%`,
+      left: `${Math.max(0, (startDay / totalDays) * 100)}%`,
       width: `${Math.max(2, (duration / totalDays) * 100)}%`,
+      isVisible
     };
   };
 
@@ -174,12 +236,13 @@ export default function SchedulePage() {
               Task Name
             </div>
             <div className="flex-1 flex">
-              {months.map(month => (
+              {timelineConfig.headers.map((header, idx) => (
                 <div
-                  key={month}
+                  key={idx}
                   className="flex-1 p-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 border-r border-gray-100 dark:border-dark-700 last:border-r-0"
                 >
-                  {month} {currentYear}
+                  <div>{header.label}</div>
+                  <div className="text-xs text-gray-400">{header.sublabel}</div>
                 </div>
               ))}
             </div>
@@ -210,7 +273,7 @@ export default function SchedulePage() {
                 <div className="flex-1 relative py-3 px-1">
                   {/* Grid lines */}
                   <div className="absolute inset-0 flex">
-                    {months.map((_, idx) => (
+                    {timelineConfig.headers.map((_, idx) => (
                       <div key={idx} className="flex-1 border-r border-gray-100 dark:border-dark-700" />
                     ))}
                   </div>
@@ -249,7 +312,7 @@ export default function SchedulePage() {
                 </div>
                 <div className="flex-1 relative py-3 px-1">
                   <div className="absolute inset-0 flex">
-                    {months.map((_, idx) => (
+                    {timelineConfig.headers.map((_, idx) => (
                       <div key={idx} className="flex-1 border-r border-gray-100 dark:border-dark-700" />
                     ))}
                   </div>
