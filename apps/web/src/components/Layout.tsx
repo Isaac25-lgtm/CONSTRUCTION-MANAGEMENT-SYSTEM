@@ -3,6 +3,7 @@ import { Home, FolderKanban, Calendar, CheckSquare, FileText, DollarSign, AlertT
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { useAuditStore } from '../stores/auditStore';
+import { AIChatWidget } from './AIChat';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -145,6 +146,9 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
           </div>
         </footer>
       </div>
+
+      {/* AI Chat Widget */}
+      <AIChatWidget />
     </div>
   );
 }
