@@ -13,7 +13,20 @@ export interface Project {
   priority: string;
   description?: string;
   location?: string;
+  clientName?: string;
+  contractType?: string;
 }
+
+export const CONTRACT_TYPES = [
+  'Lumpsum Contract',
+  'Cost Plus Contract',
+  'Time and Materials Contract',
+  'Ad Measure Contract',
+  'Design Build Contract',
+  'Turnkey Contract',
+  'Labour Contract',
+  'Percentage Rate Contract',
+] as const;
 
 export interface Task {
   id: number;
@@ -116,9 +129,9 @@ interface DataStore {
 
 export const useDataStore = create<DataStore>((set, get) => ({
   projects: [
-    { id: 1, name: 'Kampala Office Complex', status: 'In Progress', progress: 65, budget: 2500000000, spent: 1625000000, manager: 'John Okello', startDate: '2025-01-15', endDate: '2026-06-30', priority: 'High', description: 'Modern 10-story office building in Kampala CBD with underground parking and rooftop gardens.', location: 'Kampala CBD, Uganda' },
-    { id: 2, name: 'Entebbe Highway Bridge', status: 'In Progress', progress: 42, budget: 4200000000, spent: 1764000000, manager: 'Sarah Nambi', startDate: '2025-03-01', endDate: '2026-12-15', priority: 'Critical', description: 'Major highway bridge construction connecting Entebbe to Kampala with 4 lanes.', location: 'Entebbe Road, Uganda' },
-    { id: 3, name: 'Jinja Industrial Park', status: 'Planning', progress: 15, budget: 8500000000, spent: 1275000000, manager: 'Peter Wasswa', startDate: '2025-06-01', endDate: '2027-08-30', priority: 'Medium', description: 'Large-scale industrial park development with warehouses and manufacturing facilities.', location: 'Jinja, Uganda' },
+    { id: 1, name: 'Kampala Office Complex', status: 'In Progress', progress: 65, budget: 2500000000, spent: 1625000000, manager: 'John Okello', startDate: '2025-01-15', endDate: '2026-06-30', priority: 'High', description: 'Modern 10-story office building in Kampala CBD with underground parking and rooftop gardens.', location: 'Kampala CBD, Uganda', clientName: 'Uganda Development Corporation', contractType: 'Design Build Contract' },
+    { id: 2, name: 'Entebbe Highway Bridge', status: 'In Progress', progress: 42, budget: 4200000000, spent: 1764000000, manager: 'Sarah Nambi', startDate: '2025-03-01', endDate: '2026-12-15', priority: 'Critical', description: 'Major highway bridge construction connecting Entebbe to Kampala with 4 lanes.', location: 'Entebbe Road, Uganda', clientName: 'Uganda National Roads Authority', contractType: 'Turnkey Contract' },
+    { id: 3, name: 'Jinja Industrial Park', status: 'Planning', progress: 15, budget: 8500000000, spent: 1275000000, manager: 'Peter Wasswa', startDate: '2025-06-01', endDate: '2027-08-30', priority: 'Medium', description: 'Large-scale industrial park development with warehouses and manufacturing facilities.', location: 'Jinja, Uganda', clientName: 'Uganda Investment Authority', contractType: 'Lumpsum Contract' },
   ],
 
   tasks: [

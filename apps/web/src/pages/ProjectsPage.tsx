@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, Eye, Edit, Trash2, MapPin, Calendar, Users } from 'lucide-react';
-import { useDataStore, Project } from '../stores/dataStore';
+import { useDataStore, Project, CONTRACT_TYPES } from '../stores/dataStore';
 import StatusBadge from '../components/ui/StatusBadge';
 import ProgressBar from '../components/ui/ProgressBar';
 import Modal from '../components/ui/Modal';
@@ -29,6 +29,8 @@ export default function ProjectsPage() {
     endDate: '',
     budget: '',
     location: '',
+    clientName: '',
+    contractType: '',
   });
 
   const filteredProjects = filter === 'all'
@@ -52,6 +54,8 @@ export default function ProjectsPage() {
       spent: 0,
       progress: 0,
       location: formData.location,
+      clientName: formData.clientName,
+      contractType: formData.contractType,
     });
     toast.success('Project created successfully!');
     setShowCreateModal(false);
@@ -70,6 +74,8 @@ export default function ProjectsPage() {
       endDate: formData.endDate,
       budget: parseFloat(formData.budget),
       location: formData.location,
+      clientName: formData.clientName,
+      contractType: formData.contractType,
     });
     toast.success('Project updated successfully!');
     setShowEditModal(false);
@@ -94,6 +100,8 @@ export default function ProjectsPage() {
       endDate: '',
       budget: '',
       location: '',
+      clientName: '',
+      contractType: '',
     });
   };
 
@@ -109,6 +117,8 @@ export default function ProjectsPage() {
       endDate: project.endDate,
       budget: project.budget.toString(),
       location: project.location || '',
+      clientName: project.clientName || '',
+      contractType: project.contractType || '',
     });
     setShowEditModal(true);
   };
@@ -293,6 +303,29 @@ export default function ProjectsPage() {
               placeholder="Manager name"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Client Name</label>
+            <input
+              type="text"
+              value={formData.clientName}
+              onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-lg bg-white dark:bg-dark-700 text-gray-900 dark:text-gray-100"
+              placeholder="Client or company name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contract Type</label>
+            <select
+              value={formData.contractType}
+              onChange={(e) => setFormData({ ...formData, contractType: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-lg bg-white dark:bg-dark-700 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">Select contract type</option>
+              {CONTRACT_TYPES.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date *</label>
@@ -403,6 +436,29 @@ export default function ProjectsPage() {
               onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-lg bg-white dark:bg-dark-700 text-gray-900 dark:text-gray-100"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Client Name</label>
+            <input
+              type="text"
+              value={formData.clientName}
+              onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-lg bg-white dark:bg-dark-700 text-gray-900 dark:text-gray-100"
+              placeholder="Client or company name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contract Type</label>
+            <select
+              value={formData.contractType}
+              onChange={(e) => setFormData({ ...formData, contractType: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-lg bg-white dark:bg-dark-700 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">Select contract type</option>
+              {CONTRACT_TYPES.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
