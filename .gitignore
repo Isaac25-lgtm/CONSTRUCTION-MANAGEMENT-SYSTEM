@@ -57,6 +57,9 @@ uploads/*
 *.db
 *.sqlite
 
+# Local development scripts
+run_local.py
+
 # Logs
 logs/
 *.log

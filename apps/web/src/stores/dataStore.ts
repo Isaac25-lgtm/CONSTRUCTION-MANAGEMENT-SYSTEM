@@ -78,6 +78,9 @@ export interface Expense {
   date: string;
   status: string;
   loggedBy: string;
+  receiptData?: string;    // Base64 encoded receipt file
+  receiptName?: string;    // Original receipt filename
+  receiptMimeType?: string; // MIME type of receipt (image/pdf)
 }
 
 export interface Message {
