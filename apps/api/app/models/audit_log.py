@@ -16,7 +16,7 @@ class AuditLog(Base, UUIDMixin, TimestampMixin):
     entity_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     before_state = Column(JSONB, nullable=True)
     after_state = Column(JSONB, nullable=True)
-    metadata = Column(JSONB, nullable=True)  # {ip_address, user_agent, api_endpoint, etc.}
+    details = Column(JSONB, nullable=True)  # {ip_address, user_agent, api_endpoint, etc.}
     description = Column(Text, nullable=True)
     
     # Relationships
