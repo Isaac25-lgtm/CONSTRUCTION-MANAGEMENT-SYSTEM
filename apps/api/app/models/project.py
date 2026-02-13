@@ -25,10 +25,11 @@ class ProjectPriority(str, enum.Enum):
 class Project(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "projects"
     
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     parent_project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
     project_name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
-    status = Column(SQLEnum(ProjectStatus), default=ProjectStatus.PLANNING, nullable=False)
+    status = Column(SQLEnum(ProjectStatus), default=ProjectStatus.PLANNING, nullable=False, index=True)
     priority = Column(SQLEnum(ProjectPriority), default=ProjectPriority.MEDIUM, nullable=False)
     manager_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     start_date = Column(Date, nullable=False)
@@ -36,8 +37,11 @@ class Project(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     total_budget = Column(Numeric(15, 2), nullable=False)
     location = Column(Text, nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    client_name = Column(String, nullable=True)
+    contract_type = Column(String, nullable=True)
     
     # Relationships
+    organization = relationship("Organization", back_populates="projects")
     parent_project = relationship("Project", remote_side="Project.id", backref="child_projects")
     manager = relationship("User", back_populates="managed_projects", foreign_keys=[manager_id])
     creator = relationship("User", back_populates="created_projects", foreign_keys=[created_by])
@@ -46,7 +50,6 @@ class Project(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     milestones = relationship("Milestone", back_populates="project")
     documents = relationship("Document", back_populates="project")
     expenses = relationship("Expense", back_populates="project")
-    budget_allocations = relationship("BudgetAllocation", back_populates="project")
     risks = relationship("Risk", back_populates="project")
     messages = relationship("Message", back_populates="project")
 

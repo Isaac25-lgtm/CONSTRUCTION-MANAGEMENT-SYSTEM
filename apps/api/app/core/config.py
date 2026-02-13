@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     ]
     
     # Cloud Storage (Cloudflare R2 / AWS S3)
-    USE_CLOUD_STORAGE: bool = True  # Set to True in production
+    USE_CLOUD_STORAGE: bool = False  # Set to True in production with R2 credentials
     R2_ACCOUNT_ID: str = ""
     R2_ACCESS_KEY_ID: str = ""
     R2_SECRET_ACCESS_KEY: str = ""

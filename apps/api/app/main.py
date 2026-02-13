@@ -8,6 +8,9 @@ from app.core.config import settings
 from app.core.errors import APIError
 from app.api.v1.router import api_router
 from app.logging import setup_logging
+from app.middleware.audit import AuditLoggingMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.csrf import CSRFMiddleware
 
 # Setup logging
 setup_logging()
@@ -21,7 +24,8 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS Configuration
+# Middleware (order matters — outermost runs first)
+# 1. CORS (must be outermost)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -29,6 +33,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 2. Rate Limiting
+app.add_middleware(RateLimitMiddleware)
+
+# 3. CSRF Protection
+app.add_middleware(CSRFMiddleware)
+
+# 4. Audit Logging (innermost — runs after auth)
+app.add_middleware(AuditLoggingMiddleware)
 
 # Exception Handlers
 @app.exception_handler(APIError)

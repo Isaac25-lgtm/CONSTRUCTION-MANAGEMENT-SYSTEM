@@ -1,255 +1,296 @@
-# BuildPro Setup Instructions
+# BuildPro - Production Setup Guide
 
-## 🚀 Quick Start Guide
+## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 20+
-- PostgreSQL 15+
-- Redis 7+
+- Python 3.9+
+- Node.js 18+
+- PostgreSQL 14+
+- Redis (optional, for background jobs)
 
 ---
 
-## Backend Setup (Python FastAPI)
+## Backend Setup
 
-### 1. Navigate to API directory
+### 1. Database Setup
+
+```bash
+# Create PostgreSQL database
+createdb buildpro
+
+# Or using psql
+psql -U postgres
+CREATE DATABASE buildpro;
+\q
+```
+
+### 2. Environment Configuration
+
 ```bash
 cd apps/api
+
+# Create .env file
+cp .env.example .env
+
+# Edit .env with your settings:
+# DATABASE_URL=postgresql://user:password@localhost/buildpro
+# SECRET_KEY=your-secret-key-here
+# ALLOWED_ORIGINS=http://localhost:5173
 ```
 
-### 2. Create virtual environment
+### 3. Install Dependencies
+
 ```bash
+# Create virtual environment
 python -m venv venv
 
-# Activate (Windows)
-venv\Scripts\activate
-
-# Activate (Mac/Linux)
+# Activate virtual environment
+# Windows:
+.\venv\Scripts\activate
+# Linux/Mac:
 source venv/bin/activate
-```
 
-### 3. Install dependencies
-```bash
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 4. Setup database
-Make sure PostgreSQL and Redis are running (via Docker or locally):
+### 4. Run Migrations
 
 ```bash
-# Using Docker Compose (recommended)
-cd ../..
-docker-compose up postgres redis -d
-```
-
-### 5. Run migrations
-```bash
-cd apps/api
+# Run database migrations
 alembic upgrade head
-```
 
-### 6. Seed database
-```bash
+# Seed database with sample data
 python -m app.db.init_db
 ```
 
-### 7. Start API server
+### 5. Start API Server
+
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Development
+uvicorn app.main:app --reload --port 8000
+
+# Production
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-✅ API running at: http://localhost:8000  
-📖 API docs at: http://localhost:8000/docs
+API will be available at: `http://localhost:8000`
+API docs: `http://localhost:8000/docs`
 
 ---
 
-## Frontend Setup (React + Vite)
+## Frontend Setup
 
-### 1. Navigate to web directory
+### 1. Install Dependencies
+
 ```bash
 cd apps/web
-```
-
-### 2. Install dependencies
-```bash
 npm install
 ```
 
-### 3. Start development server
+### 2. Environment Configuration
+
+```bash
+# Create .env.local
+cp .env.example .env.local
+
+# Edit .env.local:
+VITE_API_URL=http://localhost:8000
+```
+
+### 3. Start Development Server
+
 ```bash
 npm run dev
 ```
 
-✅ Frontend running at: http://localhost:3000
+Frontend will be available at: `http://localhost:5173`
 
 ---
 
-## 🔐 Default Login Credentials
+## Default Credentials
 
-After seeding the database, use these credentials:
-
-**Email:** `admin@buildpro.ug`  
-**Password:** `Admin@123456`
-
----
-
-## 🎨 Features
-
-✅ **Dark Mode by Default** (toggle with Sun/Moon icon)  
-✅ Full **Role-Based Access Control** (Admin, PM, Site Supervisor, Team Member, Stakeholder)  
-✅ **Dashboard** with KPIs, charts, and analytics  
-✅ **Project Management** with hierarchy support  
-✅ **Task Tracking** with progress indicators  
-✅ **Document Management** with version control  
-✅ **Budget Tracking** and expense approval  
-✅ **Risk Register** with mitigation planning  
-✅ **Real-time Communication** hub  
-✅ **Comprehensive Reports**
+**Admin User:**
+- Email: `admin@buildpro.ug`
+- Password: `Admin@123456`
+- Organization: `BuildPro Construction`
+- Role: `Org_Admin`
 
 ---
 
-## 📁 Project Structure
+## Production Deployment
 
-```
-buildpro/
-├── apps/
-│   ├── api/                  # Python FastAPI backend
-│   │   ├── app/
-│   │   │   ├── api/          # API routes
-│   │   │   ├── core/         # Security, config, RBAC
-│   │   │   ├── db/           # Database session & seed
-│   │   │   ├── models/       # SQLAlchemy models
-│   │   │   └── schemas/      # Pydantic schemas
-│   │   ├── alembic/          # Database migrations
-│   │   └── requirements.txt
-│   │
-│   └── web/                  # React frontend
-│       ├── src/
-│       │   ├── pages/        # Dashboard, Login
-│       │   ├── stores/       # Zustand state (auth, theme)
-│       │   └── lib/          # Axios client
-│       └── package.json
-│
-├── docker-compose.yml        # PostgreSQL + Redis
-└── README.md
-```
+### Backend (Render.com)
 
----
+1. **Create PostgreSQL Database**
+   - Go to Render Dashboard
+   - Create new PostgreSQL database
+   - Copy internal database URL
 
-## 🔧 Environment Variables
+2. **Create Web Service**
+   - Connect your GitHub repository
+   - Set build command: `cd apps/api && pip install -r requirements.txt`
+   - Set start command: `cd apps/api && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - Add environment variables:
+     ```
+     DATABASE_URL=<your-postgres-url>
+     SECRET_KEY=<generate-random-key>
+     ALLOWED_ORIGINS=https://your-frontend.onrender.com
+     ENVIRONMENT=production
+     ```
 
-### Backend (.env in apps/api/)
-```
-DATABASE_URL=postgresql://buildpro:buildpro_dev_password@localhost:5432/buildpro_db
-REDIS_URL=redis://localhost:6379/0
-SECRET_KEY=your-secret-key-min-32-chars
-```
+3. **Run Migrations**
+   - In Render shell:
+     ```bash
+     cd apps/api
+     alembic upgrade head
+     python -m app.db.init_db
+     ```
 
-### Frontend (.env in apps/web/)
-```
-VITE_API_URL=http://localhost:8000
-```
+### Frontend (Render.com)
+
+1. **Create Static Site**
+   - Connect your GitHub repository
+   - Set build command: `cd apps/web && npm install && npm run build`
+   - Set publish directory: `apps/web/dist`
+   - Add environment variable:
+     ```
+     VITE_API_URL=https://your-api.onrender.com
+     ```
 
 ---
 
-## ☁️ Render Deployment (Production)
+## File Storage Configuration
 
-### Prerequisites
-1. A [Render](https://render.com) account
-2. A [Cloudflare](https://cloudflare.com) account (for R2 document storage)
+### Local Storage (Development)
 
-### Step 1: Deploy to Render
+Already configured by default. Files stored in `apps/api/uploads/`
 
-1. Push your code to GitHub/GitLab
-2. Go to [Render Dashboard](https://dashboard.render.com)
-3. Click **New** → **Blueprint**
-4. Connect your repository
-5. Render will read `render.yaml` and create:
-   - ✅ PostgreSQL database ($7/month)
-   - ✅ FastAPI backend service ($7/month)
-   - ✅ Static frontend (free)
+### Cloudflare R2 (Production)
 
-### Step 2: Set Up Cloudflare R2 (Document Storage)
+1. **Create R2 Bucket**
+   - Go to Cloudflare Dashboard
+   - Create R2 bucket
+   - Generate API tokens
 
-1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com) → **R2**
-2. Create a bucket named `buildpro-documents`
-3. Create R2 API Token with read/write permissions
-4. Add these environment variables to your Render backend service:
-
-```env
-USE_CLOUD_STORAGE=true
-R2_ACCOUNT_ID=your-cloudflare-account-id
-R2_ACCESS_KEY_ID=your-r2-access-key
-R2_SECRET_ACCESS_KEY=your-r2-secret-key
-R2_BUCKET_NAME=buildpro-documents
-R2_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com
-R2_PUBLIC_URL=https://pub-xxx.r2.dev
-```
-
-### Step 3: Verify Deployment
-
-1. **API Health**: Visit `https://buildpro-api.onrender.com/health`
-2. **Frontend**: Visit `https://buildpro-web.onrender.com`
-3. **Database**: Check Render logs for successful migration
-
-### Data Retention
-
-| Component | Retention |
-|-----------|-----------|
-| PostgreSQL | **Unlimited** - data persists as long as subscription is active |
-| Documents (R2) | **Unlimited** - 10GB free/month, then $0.015/GB |
-| Backups | Enable in Render dashboard for automatic daily backups |
-
-> **5+ Year Retention**: Data will persist indefinitely. There are no automatic expiration policies. Just keep your Render subscription active.
+2. **Update .env**
+   ```
+   USE_CLOUD_STORAGE=true
+   R2_ENDPOINT_URL=https://your-account-id.r2.cloudflarestorage.com
+   R2_ACCESS_KEY_ID=your-access-key
+   R2_SECRET_ACCESS_KEY=your-secret-key
+   R2_BUCKET_NAME=buildpro-files
+   R2_PUBLIC_URL=https://your-bucket.r2.dev
+   ```
 
 ---
 
-## 🐳 Docker Compose (Local Development)
+## Testing
 
-To run everything locally with Docker:
+### Backend Tests
 
-```bash
-docker-compose up
-```
-
-
----
-
-## 🧪 Testing
-
-### Backend
 ```bash
 cd apps/api
 pytest
 ```
 
-### Frontend
+### Frontend Tests
+
 ```bash
 cd apps/web
 npm test
 ```
 
----
+### Manual Testing
 
-## 📝 Next Steps
-
-1. ✅ Login to the system
-2. ✅ Toggle dark/light mode (Sun/Moon icon in top right)
-3. ✅ Explore the dashboard
-4. ✅ Create projects, tasks, and manage budgets
-5. Customize roles and permissions as needed
-6. Add more features (Gantt chart interactions, offline sync, etc.)
+1. **Login**: `http://localhost:5173/login`
+2. **Create Project**: Navigate to Projects → New Project
+3. **Add Task**: Select project → Tasks → New Task
+4. **Upload Document**: Documents → Upload
+5. **Approve Expense**: Budget → Expenses → Approve
 
 ---
 
-## 👤 Author
+## Troubleshooting
 
-**Limo Jesse Mwanga**  
-MSc Civil Engineering Research Project  
-Designed for Uganda's Construction Industry
+### Database Connection Error
+```bash
+# Check PostgreSQL is running
+pg_isready
+
+# Verify DATABASE_URL in .env
+echo $DATABASE_URL
+```
+
+### Migration Error
+```bash
+# Reset database (WARNING: deletes all data)
+alembic downgrade base
+alembic upgrade head
+python -m app.db.init_db
+```
+
+### CORS Error
+```bash
+# Verify ALLOWED_ORIGINS in backend .env
+# Should match frontend URL exactly
+```
+
+### Token Refresh Error
+```bash
+# Clear browser cookies and localStorage
+# Re-login
+```
 
 ---
 
-## 📄 License
+## Monitoring
 
-© 2025 Limo Jesse Mwanga
+### Health Check
+```bash
+curl http://localhost:8000/health
+```
+
+### Logs
+```bash
+# Backend logs
+tail -f apps/api/logs/app.log
+
+# Frontend logs
+# Check browser console
+```
+
+---
+
+## Security Checklist
+
+- [ ] Change default admin password
+- [ ] Set strong SECRET_KEY
+- [ ] Enable HTTPS in production
+- [ ] Configure CORS properly
+- [ ] Set secure cookie flags
+- [ ] Enable rate limiting
+- [ ] Regular database backups
+- [ ] Monitor audit logs
+
+---
+
+## Support
+
+For issues or questions:
+- Check documentation: `/docs`
+- Review API docs: `http://localhost:8000/docs`
+- Check logs for errors
+
+---
+
+## Next Steps
+
+1. ✅ Complete backend setup
+2. ✅ Complete frontend setup
+3. ✅ Test login flow
+4. ✅ Create sample project
+5. ⏳ Deploy to production
+6. ⏳ Configure custom domain
+7. ⏳ Set up monitoring
+8. ⏳ Configure backups

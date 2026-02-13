@@ -1,53 +1,79 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: buildpro_postgres
+  # PostgreSQL Database
+  db:
+    image: postgres:14-alpine
+    container_name: buildpro-db
     environment:
+      POSTGRES_DB: buildpro
       POSTGRES_USER: buildpro
-      POSTGRES_PASSWORD: buildpro_dev_password
-      POSTGRES_DB: buildpro_db
+      POSTGRES_PASSWORD: buildpro123
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - buildpro_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U buildpro"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Redis
   redis:
     image: redis:7-alpine
-    container_name: buildpro_redis
+    container_name: buildpro-redis
     ports:
       - "6379:6379"
-    networks:
-      - buildpro_network
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Backend API
   api:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
-    container_name: buildpro_api
+    container_name: buildpro-api
     environment:
-      DATABASE_URL: postgresql://buildpro:buildpro_dev_password@postgres:5432/buildpro_db
+      DATABASE_URL: postgresql://buildpro:buildpro123@db:5432/buildpro
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: dev_secret_key_change_in_production
+      SECRET_KEY: dev-secret-key-change-in-production
+      ALLOWED_ORIGINS: http://localhost:5173
       ENVIRONMENT: development
     ports:
       - "8000:8000"
     volumes:
       - ./apps/api:/app
-      - ./uploads:/app/uploads
+      - ./apps/api/uploads:/app/uploads
     depends_on:
-      - postgres
-      - redis
-    networks:
-      - buildpro_network
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: buildpro-web
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    command: npm run dev -- --host
 
 volumes:
   postgres_data:
-
-networks:
-  buildpro_network:
-    driver: bridge
+  redis_data:

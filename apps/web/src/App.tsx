@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import { useThemeStore } from './stores/themeStore';
 import { useUserStore } from './stores/userStore';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProjectsPage from './pages/ProjectsPage';
@@ -72,30 +73,32 @@ function App() {
 
   if (!showApp) {
     return (
-      <>
+      <ErrorBoundary>
         <Toaster position="top-right" />
         <LoginPage onLogin={handleLogin} />
-      </>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <>
-      <Toaster 
+    <ErrorBoundary>
+      <Toaster
         position="top-right"
         toastOptions={{
           className: 'dark:bg-dark-800 dark:text-gray-100',
           duration: 3000,
         }}
       />
-      <Layout 
-        activeSection={activeSection} 
+      <Layout
+        activeSection={activeSection}
         onSectionChange={setActiveSection}
         onLogout={handleLogout}
       >
-        {renderPage()}
+        <ErrorBoundary>
+          {renderPage()}
+        </ErrorBoundary>
       </Layout>
-    </>
+    </ErrorBoundary>
   );
 }
 

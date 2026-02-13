@@ -1,10 +1,16 @@
 import logging
 from sqlalchemy.orm import Session
 from datetime import date
+import uuid
 
 from app.db.session import SessionLocal
 from app.models.user import User, RoleModel
+from app.models.organization import Organization, OrganizationMember, OrgRole, MembershipStatus
 from app.models.project import Project, ProjectMember, ProjectStatus, ProjectPriority
+from app.models.task import Task, TaskStatus, TaskPriority
+from app.models.expense import Expense, ExpenseStatus
+from app.models.risk import Risk, RiskLevel, RiskStatus
+from app.models.milestone import Milestone, MilestoneStatus
 from app.core.security import hash_password
 from app.core.rbac import Role, ROLE_PERMISSIONS
 
@@ -28,7 +34,27 @@ def init_roles(db: Session):
     db.commit()
 
 
-def init_admin_user(db: Session):
+def init_organization(db: Session) -> Organization:
+    """Create default organization"""
+    existing_org = db.query(Organization).filter(Organization.slug == "buildpro-construction").first()
+    if not existing_org:
+        org = Organization(
+            name="BuildPro Construction",
+            slug="buildpro-construction",
+            subscription_tier="professional",
+            max_projects=100,
+            max_users=50,
+            is_active=True
+        )
+        db.add(org)
+        db.commit()
+        db.refresh(org)
+        logger.info("Created default organization: BuildPro Construction")
+        return org
+    return existing_org
+
+
+def init_admin_user(db: Session, org: Organization):
     """Create default admin user"""
     admin_role = db.query(RoleModel).filter(RoleModel.role_name == Role.ADMINISTRATOR).first()
     
@@ -45,11 +71,40 @@ def init_admin_user(db: Session):
         )
         db.add(admin_user)
         db.commit()
+        db.refresh(admin_user)
+        
+        # Add to organization
+        org_member = OrganizationMember(
+            organization_id=org.id,
+            user_id=admin_user.id,
+            org_role=OrgRole.ORG_ADMIN,
+            status=MembershipStatus.ACTIVE
+        )
+        db.add(org_member)
+        db.commit()
+        
         logger.info("Created admin user: admin@buildpro.ug / Admin@123456")
+        return admin_user
+    else:
+        # Ensure admin is in org
+        existing_membership = db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == org.id,
+            OrganizationMember.user_id == existing_admin.id
+        ).first()
+        if not existing_membership:
+            org_member = OrganizationMember(
+                organization_id=org.id,
+                user_id=existing_admin.id,
+                org_role=OrgRole.ORG_ADMIN,
+                status=MembershipStatus.ACTIVE
+            )
+            db.add(org_member)
+            db.commit()
+        return existing_admin
 
 
-def init_sample_data(db: Session):
-    """Create sample projects and users"""
+def init_sample_data(db: Session, org: Organization):
+    """Create sample projects, tasks, and users"""
     # Create PM user
     pm_role = db.query(RoleModel).filter(RoleModel.role_name == Role.PROJECT_MANAGER).first()
     
@@ -66,26 +121,149 @@ def init_sample_data(db: Session):
         )
         db.add(pm_user)
         db.commit()
+        db.refresh(pm_user)
+        
+        # Add to organization
+        org_member = OrganizationMember(
+            organization_id=org.id,
+            user_id=pm_user.id,
+            org_role=OrgRole.MEMBER,
+            status=MembershipStatus.ACTIVE
+        )
+        db.add(org_member)
+        db.commit()
+        
         logger.info("Created PM user: john.okello@buildpro.ug / Password@123")
     
     # Create sample project
-    existing_project = db.query(Project).filter(Project.project_name == "Kampala Office Complex").first()
+    existing_project = db.query(Project).filter(
+        Project.project_name == "Kampala Office Complex",
+        Project.organization_id == org.id
+    ).first()
+    
     if not existing_project:
         project = Project(
+            organization_id=org.id,
             project_name="Kampala Office Complex",
-            description="Modern 10-story office building in Kampala CBD",
+            description="Modern 10-story office building in Kampala CBD with underground parking",
             status=ProjectStatus.IN_PROGRESS,
             priority=ProjectPriority.HIGH,
             manager_id=pm_user.id,
             start_date=date(2025, 1, 15),
             end_date=date(2026, 6, 30),
             total_budget=2500000000,
-            location="Kampala, Uganda",
+            location="Kampala CBD, Uganda",
+            client_name="Uganda Development Corporation",
+            contract_type="Design Build Contract",
             created_by=pm_user.id
         )
         db.add(project)
         db.commit()
+        db.refresh(project)
         logger.info("Created sample project: Kampala Office Complex")
+        
+        # Add sample tasks
+        task1 = Task(
+            organization_id=org.id,
+            project_id=project.id,
+            name="Foundation Excavation",
+            description="Complete foundation excavation for basement levels",
+            status=TaskStatus.COMPLETED,
+            priority=TaskPriority.HIGH,
+            assignee_id=pm_user.id,
+            reporter_id=pm_user.id,
+            start_date=date(2025, 1, 20),
+            due_date=date(2025, 2, 28),
+            progress=100
+        )
+        
+        task2 = Task(
+            organization_id=org.id,
+            project_id=project.id,
+            name="Steel Framework Installation",
+            description="Install steel framework for floors 1-5",
+            status=TaskStatus.IN_PROGRESS,
+            priority=TaskPriority.HIGH,
+            assignee_id=pm_user.id,
+            reporter_id=pm_user.id,
+            start_date=date(2025, 3, 1),
+            due_date=date(2025, 4, 15),
+            progress=68
+        )
+        
+        db.add_all([task1, task2])
+        
+        # Add sample expenses
+        expense1 = Expense(
+            organization_id=org.id,
+            project_id=project.id,
+            description="Steel reinforcement bars",
+            category="Materials",
+            amount=45000000,
+            vendor="Uganda Steel Mills",
+            expense_date=date(2025, 1, 8),
+            status=ExpenseStatus.APPROVED,
+            logged_by_id=pm_user.id,
+            approved_by_id=pm_user.id
+        )
+        
+        expense2 = Expense(
+            organization_id=org.id,
+            project_id=project.id,
+            description="Concrete mix delivery",
+            category="Materials",
+            amount=28000000,
+            vendor="Tororo Cement",
+            expense_date=date(2025, 1, 10),
+            status=ExpenseStatus.APPROVED,
+            logged_by_id=pm_user.id,
+            approved_by_id=pm_user.id
+        )
+        
+        db.add_all([expense1, expense2])
+        
+        # Add sample risks
+        risk1 = Risk(
+            organization_id=org.id,
+            project_id=project.id,
+            description="Delayed steel delivery from supplier",
+            category="Supply Chain",
+            probability=RiskLevel.HIGH,
+            impact=RiskLevel.HIGH,
+            status=RiskStatus.ACTIVE,
+            mitigation_plan="Source alternative suppliers, maintain buffer stock",
+            owner_id=pm_user.id,
+            identified_date=date(2025, 1, 15)
+        )
+        
+        db.add(risk1)
+        
+        # Add sample milestones
+        milestone1 = Milestone(
+            organization_id=org.id,
+            project_id=project.id,
+            name="Foundation Complete",
+            description="All foundation work completed and inspected",
+            target_date=date(2025, 3, 15),
+            status=MilestoneStatus.COMPLETED,
+            completion_percentage=100,
+            actual_date=date(2025, 3, 14)
+        )
+        
+        milestone2 = Milestone(
+            organization_id=org.id,
+            project_id=project.id,
+            name="Structure Complete",
+            description="Main building structure completed",
+            target_date=date(2025, 6, 30),
+            status=MilestoneStatus.ON_TRACK,
+            completion_percentage=45
+        )
+        
+        db.add_all([milestone1, milestone2])
+        
+        db.commit()
+        logger.info("Created sample tasks, expenses, risks, and milestones")
 
 
 def init_db():
@@ -94,11 +272,16 @@ def init_db():
     try:
         logger.info("Starting database initialization...")
         init_roles(db)
-        init_admin_user(db)
-        init_sample_data(db)
+        org = init_organization(db)
+        admin = init_admin_user(db, org)
+        init_sample_data(db, org)
         logger.info("Database initialization complete!")
+        logger.info(f"Default Organization: {org.name} (ID: {org.id})")
+        logger.info("Login credentials: admin@buildpro.ug / Admin@123456")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
+        import traceback
+        traceback.print_exc()
         db.rollback()
     finally:
         db.close()

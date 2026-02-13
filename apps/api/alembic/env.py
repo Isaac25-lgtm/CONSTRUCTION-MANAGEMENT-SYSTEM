@@ -4,8 +4,7 @@ from alembic import context
 
 # Import Base and all models
 from app.db.session import Base
-from app.models.user import User, RoleModel
-from app.models.project import Project, ProjectMember
+from app.models import *  # Import all models
 from app.core.config import settings
 
 # this is the Alembic Config object

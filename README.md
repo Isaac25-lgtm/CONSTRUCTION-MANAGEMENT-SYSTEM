@@ -1,429 +1,368 @@
-# BuildPro - AI-Powered Construction Project Management System
+# BuildPro - Construction Project Management SaaS
 
-![BuildPro Banner](https://img.shields.io/badge/BuildPro-Construction%20PM-blue)
-![AI Powered](https://img.shields.io/badge/AI-Gemini%202.0-purple)
-![Python](https://img.shields.io/badge/Python-3.11+-green)
-![React](https://img.shields.io/badge/React-18-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-Latest-teal)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)
+> **Production-Ready Multi-Tenant SaaS Platform for Construction Project Management**
 
-A comprehensive, **AI-powered** web-based Construction Project Management System designed specifically for Uganda's construction industry. Features an intelligent AI assistant that provides real-time project insights, risk analysis, and budget recommendations.
+BuildPro is a comprehensive construction project management platform built for the Ugandan market, featuring multi-tenancy, robust authentication, file management, and real-time collaboration.
 
 ---
 
-## 🤖 AI-Powered Features
+## 🚀 Features
 
-### BuildPro AI Assistant
+### Core Functionality
+- ✅ **Multi-Tenant Architecture** - Organizations with role-based access control
+- ✅ **Project Management** - Complete project lifecycle management
+- ✅ **Task Tracking** - Kanban-style task management with dependencies
+- ✅ **Budget Management** - Expense tracking with approval workflows
+- ✅ **Document Management** - File upload/download with versioning
+- ✅ **Risk Management** - Risk assessment with mitigation plans
+- ✅ **Milestone Tracking** - Project milestones with dependencies
+- ✅ **Team Collaboration** - Real-time messaging and notifications
+- ✅ **Audit Logging** - Complete audit trail for compliance
 
-BuildPro integrates **Google Gemini 2.0 Flash** as an intelligent construction project assistant. The AI system demonstrates advanced **prompt engineering**, **context injection**, and **domain-specific knowledge integration**.
-
-#### How the AI Works
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    BuildPro AI Architecture                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────┐    ┌─────────────────┐    ┌───────────────┐  │
-│  │ User Query   │───▶│ Context Builder │───▶│ Gemini 2.0    │  │
-│  │              │    │                 │    │ Flash API     │  │
-│  └──────────────┘    └─────────────────┘    └───────────────┘  │
-│                              │                      │           │
-│                              ▼                      ▼           │
-│                    ┌─────────────────┐    ┌───────────────┐    │
-│                    │ Project Data    │    │ AI Response   │    │
-│                    │ - Tasks         │    │ - Analysis    │    │
-│                    │ - Budgets       │    │ - Insights    │    │
-│                    │ - Risks         │    │ - Actions     │    │
-│                    │ - Milestones    │    └───────────────┘    │
-│                    └─────────────────┘                          │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-#### Technical Implementation
-
-**1. Prompt Engineering**
-```typescript
-// System prompt with domain-specific knowledge injection
-const SYSTEM_PROMPT = `You are BuildPro AI, an intelligent construction
-project management assistant for Uganda's construction industry...
-
-CAPABILITIES:
-1. Project Analysis: Analyze timelines, budgets, tasks, milestones
-2. Risk Assessment: Identify risks, suggest mitigation, calculate scores
-3. Budget Advice: Track spending, predict overruns, cost-saving measures
-4. Schedule Optimization: Critical paths, task reordering, delay flags
-
-UGANDA CONSTRUCTION KNOWLEDGE:
-- Currency: Uganda Shillings (UGX)
-- Regulatory bodies: UNRA, KCCA, Ministry of Works
-- Seasonal challenges: Rainy seasons (March-May, Sept-Nov)
-- Major suppliers: Roofings Group, Hima Cement, Steel & Tube...`;
-```
-
-**2. Context Injection**
-```typescript
-// Real-time project data is injected into each AI query
-const fullPrompt = `${SYSTEM_PROMPT}
-
-PROJECT CONTEXT:
-${JSON.stringify({
-  projects: currentProjects,
-  tasks: activeTasks,
-  expenses: recentExpenses,
-  risks: identifiedRisks,
-  budgetUtilization: calculateUtilization()
-}, null, 2)}
-
-USER QUESTION: ${userMessage}`;
-```
-
-**3. Response Generation**
-- Temperature: 0.7 (balanced creativity/accuracy)
-- Max tokens: 1024 (comprehensive responses)
-- Model: Gemini 2.0 Flash (fast, accurate)
-
-#### AI Capabilities
-
-| Feature | Description | Data Science Technique |
-|---------|-------------|----------------------|
-| **Risk Analysis** | Identifies project risks and suggests mitigations | Pattern recognition, probability assessment |
-| **Budget Forecasting** | Predicts cost overruns based on spending patterns | Time-series analysis, trend detection |
-| **Schedule Optimization** | Suggests task reordering for efficiency | Critical path method, dependency analysis |
-| **Anomaly Detection** | Flags unusual spending or delays | Statistical outlier detection |
-| **Natural Language Queries** | Understands complex project questions | NLP, semantic understanding |
-
-#### Sample AI Interactions
-
-```
-User: "What are the main risks for the Kampala Office Complex?"
-
-BuildPro AI: Based on the project data, I've identified these key risks:
-
-1. **Supply Chain Risk (HIGH)**
-   - Steel delivery delays from Uganda Steel Mills
-   - Mitigation: Source alternative suppliers, maintain 2-week buffer stock
-
-2. **Weather Risk (MEDIUM)**
-   - Upcoming rainy season (March-May) may impact foundation work
-   - Mitigation: Accelerate current phase, prepare dewatering equipment
-
-3. **Budget Risk (MEDIUM)**
-   - Current spend rate: 65% budget, 60% timeline
-   - Projected overrun: 8-12% if trend continues
-   - Action: Review subcontractor rates, optimize material procurement
-```
+### Technical Features
+- ✅ **JWT Authentication** - Secure token-based auth with refresh tokens
+- ✅ **File Storage** - Local + Cloudflare R2 support
+- ✅ **RESTful API** - Complete OpenAPI documentation
+- ✅ **Type-Safe Frontend** - TypeScript with Zustand state management
+- ✅ **Responsive Design** - Mobile-first UI with Tailwind CSS
+- ✅ **Database Migrations** - Alembic for schema management
+- ✅ **Docker Support** - Full containerization
 
 ---
 
-## ✨ Features
-
-### 🎨 **Modern UI with Dark Mode**
-- Dark mode enabled by default
-- Light/dark theme toggle
-- Responsive design for desktop, tablet, and mobile
-- Tailwind CSS with custom design system
-
-### 🔐 **Role-Based Access Control (RBAC)**
-- **Administrator**: Full system access
-- **Project Manager**: Project and team management
-- **Site Supervisor**: Field operations focused
-- **Team Member**: Task execution
-- **Stakeholder**: High-level monitoring
-
-### 📊 **Dashboard & Analytics**
-- Real-time KPI tracking (SPI, CPI, progress)
-- Interactive charts (Recharts)
-- Project health indicators
-- Budget utilization tracking
-
-### 📁 **Project Management**
-- Project hierarchy (parent/child projects)
-- Status tracking (Planning → Completed)
-- Budget management
-- Team assignment
-- Client and contract type tracking
-
-### ✅ **Task & Milestone Tracking**
-- Task dependencies
-- Progress tracking
-- Gantt chart visualization with zoom (Week/Month/Quarter)
-- Critical path highlighting
-
-### 💰 **Budget & Finance** (NEW)
-- **Receipt Attachment**: Upload receipts (images/PDFs) when logging expenses
-- **Receipt Viewing**: View and download attached receipts
-- **Expense Reports**: Generate PDF reports with filters
-- **Advanced Filtering**: Filter by project, status, category, date range
-- Expense tracking with approval workflows
-- Budget allocation by category
-- Financial analytics
-
-### ⚠️ **Risk Management**
-- Risk register
-- Probability × Impact matrix
-- AI-powered risk suggestions
-- Mitigation planning
-
-### 📄 **Document Management**
-- File upload with version control
-- Support for drawings, reports, photos, CAD files
-- Base64 storage with cloud support (Cloudflare R2)
-
-### 💬 **Communication Hub**
-- Team messaging
-- Real-time notifications (WebSocket ready)
-- Announcement system
-
-### 📈 **Reports & Analytics**
-- Weekly progress reports
-- Monthly financial summaries
-- Risk assessment reports
-- Export to PDF
-
----
-
-## 🧠 Data Science & AI Skills Demonstrated
-
-This project showcases the following data science and AI/ML competencies:
-
-### 1. **Large Language Model Integration**
-- Integration with Google Gemini 2.0 API
-- Prompt engineering for domain-specific responses
-- Context window management for large project datasets
-
-### 2. **Natural Language Processing**
-- Query understanding and intent extraction
-- Structured data to natural language conversion
-- Multi-turn conversation handling
-
-### 3. **Data Engineering**
-- ETL pipelines for project data
-- Real-time data aggregation for AI context
-- State management with Zustand
-
-### 4. **Analytics & Visualization**
-- KPI calculation (SPI, CPI, EVM metrics)
-- Interactive charting with Recharts
-- Statistical summaries and trend analysis
-
-### 5. **Domain Knowledge Engineering**
-- Construction industry terminology
-- Uganda-specific regulatory knowledge
-- Risk assessment frameworks
-
-### 6. **API Design & Integration**
-- RESTful API architecture
-- Async/await patterns for API calls
-- Error handling and fallback strategies
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js 20+
-- Python 3.11+ (for full backend)
-- Docker (optional, for database)
-
-### Option 1: Frontend Only (Quick Demo)
-```bash
-cd apps/web
-npm install
-npm run dev
-```
-Access at: http://localhost:5000
-
-### Option 2: Full Stack Setup
-```bash
-# Windows
-start.bat
-
-# Mac/Linux
-chmod +x start.sh
-./start.sh
-```
-
-### Option 3: Docker
-```bash
-docker-compose up
-```
-
----
-
-## 🛠️ Tech Stack
+## 📋 Tech Stack
 
 ### Backend
-- **Python 3.11+** with FastAPI
-- **PostgreSQL** for data storage
-- **Redis** for caching
-- **SQLAlchemy 2.0** ORM
-- **Alembic** migrations
-- **JWT** authentication
+- **Framework**: FastAPI (Python 3.11)
+- **Database**: PostgreSQL 14
+- **ORM**: SQLAlchemy
+- **Migrations**: Alembic
+- **Cache**: Redis
+- **Authentication**: JWT (python-jose)
+- **File Storage**: Cloudflare R2 / Local
 
 ### Frontend
-- **React 18** with TypeScript
-- **Vite** build tool
-- **Tailwind CSS** styling
-- **Zustand** state management
-- **Recharts** data visualization
-- **html2canvas + jsPDF** for exports
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **State Management**: Zustand
+- **HTTP Client**: Axios
+- **Routing**: React Router v6
+- **Icons**: Lucide React
 
-### AI/ML
-- **Google Gemini 2.0 Flash** - LLM for intelligent assistance
-- **Prompt Engineering** - Domain-specific prompt design
-- **Context Injection** - Real-time project data integration
+### Infrastructure
+- **Deployment**: Render.com
+- **Containerization**: Docker + Docker Compose
+- **CI/CD**: GitHub Actions (planned)
 
 ---
 
-## 📦 Project Structure
+## 🏃 Quick Start
+
+### Prerequisites
+- Python 3.9+
+- Node.js 18+
+- PostgreSQL 14+
+- Redis (optional)
+
+### 1. Clone Repository
+```bash
+git clone https://github.com/yourusername/buildpro.git
+cd buildpro
+```
+
+### 2. Backend Setup
+```bash
+cd apps/api
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Windows: .\venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Setup environment
+cp .env.example .env
+# Edit .env with your database credentials
+
+# Run migrations
+alembic upgrade head
+
+# Seed database
+python -m app.db.init_db
+
+# Start server
+uvicorn app.main:app --reload
+```
+
+Backend runs at: `http://localhost:8000`  
+API Docs: `http://localhost:8000/docs`
+
+### 3. Frontend Setup
+```bash
+cd apps/web
+
+# Install dependencies
+npm install
+
+# Setup environment
+cp .env.example .env.local
+# Edit VITE_API_URL=http://localhost:8000
+
+# Start dev server
+npm run dev
+```
+
+Frontend runs at: `http://localhost:5173`
+
+### 4. Login
+- Email: `admin@buildpro.ug`
+- Password: `Admin@123456`
+
+---
+
+## 📚 Documentation
+
+- [Setup Guide](./SETUP.md) - Detailed setup instructions
+- [API Documentation](http://localhost:8000/docs) - OpenAPI/Swagger docs
+- [Architecture Overview](./docs/architecture.md) - System architecture
+- [Deployment Guide](./docs/deployment.md) - Production deployment
+
+---
+
+## 🏗️ Project Structure
 
 ```
 buildpro/
 ├── apps/
-│   ├── api/                    # Python FastAPI backend
+│   ├── api/                    # Backend FastAPI application
 │   │   ├── app/
-│   │   │   ├── api/            # API routes & endpoints
-│   │   │   ├── core/           # Security, config, RBAC
-│   │   │   ├── db/             # Database session & seed
-│   │   │   ├── models/         # SQLAlchemy models
-│   │   │   └── schemas/        # Pydantic schemas
+│   │   │   ├── api/           # API routes
+│   │   │   ├── core/          # Core utilities (auth, config)
+│   │   │   ├── db/            # Database setup
+│   │   │   ├── models/        # SQLAlchemy models
+│   │   │   ├── schemas/       # Pydantic schemas
+│   │   │   └── services/      # Business logic
+│   │   ├── alembic/           # Database migrations
 │   │   └── requirements.txt
 │   │
-│   └── web/                    # React + TypeScript frontend
+│   └── web/                   # Frontend React application
 │       ├── src/
-│       │   ├── components/
-│       │   │   └── AIChat/     # 🤖 AI Assistant components
-│       │   │       ├── AIChatWidget.tsx
-│       │   │       ├── ChatWindow.tsx
-│       │   │       ├── ChatMessage.tsx
-│       │   │       └── QuickActions.tsx
-│       │   ├── services/
-│       │   │   └── geminiService.ts  # 🧠 Gemini AI integration
-│       │   ├── pages/          # Application pages
-│       │   ├── stores/         # Zustand state management
-│       │   └── App.tsx
+│       │   ├── components/    # React components
+│       │   ├── pages/         # Page components
+│       │   ├── stores/        # Zustand stores
+│       │   ├── lib/           # Utilities (API client)
+│       │   └── styles/        # CSS files
 │       └── package.json
 │
-├── docker-compose.yml
+├── docker-compose.yml         # Docker orchestration
+├── render.yaml               # Render deployment config
 └── README.md
 ```
 
 ---
 
-## 🔐 Default Credentials
-
-**Email:** `admin@buildpro.ug`
-**Password:** `Admin@123456`
-
----
-
-## 🌐 Access Points
-
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:5000 |
-| Backend API | http://localhost:8000 |
-| API Docs | http://localhost:8000/docs |
-
----
-
-## 🔧 Environment Variables
-
-### Frontend (.env.local)
-```env
-VITE_API_URL=http://localhost:8000
-VITE_GEMINI_API_KEY=your_gemini_api_key  # For AI features
-```
+## 🔑 Environment Variables
 
 ### Backend (.env)
-```env
-DATABASE_URL=postgresql://buildpro:password@localhost:5432/buildpro_db
+```bash
+DATABASE_URL=postgresql://user:pass@localhost/buildpro
 REDIS_URL=redis://localhost:6379/0
-SECRET_KEY=your-secret-key-min-32-chars
+SECRET_KEY=your-secret-key-here
+ALLOWED_ORIGINS=http://localhost:5173
+ENVIRONMENT=development
+
+# File Storage (Optional)
+USE_CLOUD_STORAGE=false
+R2_ENDPOINT_URL=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=
+```
+
+### Frontend (.env.local)
+```bash
+VITE_API_URL=http://localhost:8000
 ```
 
 ---
 
-## 📸 Screenshots
+## 🐳 Docker Deployment
 
-### AI Assistant
-The floating AI button (bottom-right) opens an intelligent chat interface that:
-- Analyzes real-time project data
-- Provides construction-specific advice
-- Suggests risk mitigations
-- Offers budget optimization tips
+```bash
+# Start all services
+docker-compose up -d
 
-### Expense Management with Receipts
-- Upload hardware receipts when logging expenses
-- View receipts directly in the application
-- Generate filtered expense reports as PDFs
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+Services:
+- API: `http://localhost:8000`
+- Frontend: `http://localhost:5173`
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
+
+---
+
+## 🚀 Production Deployment
+
+### Render.com (Recommended)
+
+1. **Push to GitHub**
+   ```bash
+   git push origin main
+   ```
+
+2. **Connect to Render**
+   - Go to [Render Dashboard](https://dashboard.render.com)
+   - Click "New" → "Blueprint"
+   - Connect your repository
+   - Render will auto-detect `render.yaml`
+
+3. **Configure Environment Variables**
+   - Set `ALLOWED_ORIGINS` to your frontend URL
+   - Generate strong `SECRET_KEY`
+   - Configure R2 credentials (optional)
+
+4. **Deploy**
+   - Render will automatically deploy
+   - Run migrations in shell: `alembic upgrade head`
+   - Seed database: `python -m app.db.init_db`
+
+See [SETUP.md](./SETUP.md) for detailed deployment instructions.
+
+---
+
+## 📊 API Endpoints
+
+### Authentication
+- `POST /v1/auth/login` - Login
+- `POST /v1/auth/refresh` - Refresh token
+- `GET /v1/auth/me` - Current user
+- `POST /v1/auth/logout` - Logout
+
+### Projects
+- `GET /v1/projects` - List projects
+- `POST /v1/projects` - Create project
+- `GET /v1/projects/{id}` - Get project
+- `PUT /v1/projects/{id}` - Update project
+- `DELETE /v1/projects/{id}` - Delete project
+
+### Tasks
+- `GET /v1/projects/{project_id}/tasks` - List tasks
+- `POST /v1/projects/{project_id}/tasks` - Create task
+- `PUT /v1/projects/{project_id}/tasks/{id}/status` - Update status
+- `PUT /v1/projects/{project_id}/tasks/{id}/progress` - Update progress
+
+### Expenses
+- `GET /v1/projects/{project_id}/expenses` - List expenses
+- `POST /v1/projects/{project_id}/expenses` - Create expense
+- `POST /v1/projects/{project_id}/expenses/{id}/approve` - Approve
+- `POST /v1/projects/{project_id}/expenses/{id}/reject` - Reject
+
+### Documents
+- `POST /v1/projects/{project_id}/documents` - Upload file
+- `GET /v1/projects/{project_id}/documents/{id}/download` - Download
+
+Full API documentation: `http://localhost:8000/docs`
 
 ---
 
 ## 🧪 Testing
 
+### Backend Tests
 ```bash
-# Backend
-cd apps/api && pytest
-
-# Frontend
-cd apps/web && npm test
+cd apps/api
+pytest
 ```
+
+### Frontend Tests
+```bash
+cd apps/web
+npm test
+```
+
+### Manual Testing
+1. Login with demo credentials
+2. Create a new project
+3. Add tasks to the project
+4. Upload documents
+5. Track expenses
+6. Test approval workflows
 
 ---
 
-## 🚢 Deployment
+## 🔒 Security
 
-### Render.com (Production)
-The project includes `render.yaml` for easy deployment:
-- PostgreSQL database
-- FastAPI backend
-- React static site
-
-### Environment Setup
-1. Configure Cloudflare R2 for document storage
-2. Set Gemini API key for AI features
-3. Configure SMTP for email notifications
+- ✅ JWT authentication with refresh tokens
+- ✅ Password hashing with bcrypt
+- ✅ CORS protection
+- ✅ SQL injection prevention (SQLAlchemy)
+- ✅ XSS protection (React)
+- ✅ CSRF protection (planned)
+- ✅ Rate limiting (planned)
+- ✅ Audit logging
 
 ---
 
 ## 🤝 Contributing
 
-This is a research project demonstrating full-stack development with AI integration.
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
-## 📄 License
+## 📝 License
 
-© 2025 Limo Jesse Mwanga
-MSc Civil Engineering Research Project
-Designed for Uganda's Construction Industry
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 👤 Author
+## 👥 Team
 
-**Limo Jesse Mwanga**
-MSc Civil Engineering Candidate
-Focus: AI-Powered Construction Project Management Systems
-
-### Skills Demonstrated
-- Full-Stack Development (React, FastAPI, PostgreSQL)
-- AI/ML Integration (LLMs, Prompt Engineering)
-- Data Science (Analytics, Visualization, ETL)
-- Cloud Architecture (Docker, Render, Cloudflare R2)
-- Domain Expertise (Construction Management)
+Built with ❤️ for the Ugandan construction industry.
 
 ---
 
-## 🙏 Acknowledgments
+## 📞 Support
 
-- **Google Gemini API** - AI capabilities
-- **Uganda Construction Industry** - Domain knowledge
-- Built with modern web technologies for real-world impact
+For issues or questions:
+- Open an issue on GitHub
+- Email: support@buildpro.ug
+- Documentation: [SETUP.md](./SETUP.md)
 
 ---
 
-**BuildPro** - AI-powered construction management for the modern era.
+## 🎯 Roadmap
+
+- [x] Multi-tenant architecture
+- [x] Project & task management
+- [x] Budget tracking
+- [x] Document management
+- [x] Risk management
+- [ ] Real-time notifications
+- [ ] Mobile app (React Native)
+- [ ] AI-powered insights
+- [ ] Advanced analytics
+- [ ] Gantt charts
+- [ ] Resource planning
+- [ ] Time tracking
+- [ ] Invoice generation
+
+---
+
+## ⭐ Show Your Support
+
+Give a ⭐️ if this project helped you!
+
+---
+
+**Built with FastAPI, React, and PostgreSQL**

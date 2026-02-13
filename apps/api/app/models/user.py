@@ -23,6 +23,7 @@ class User(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     
     # Relationships
     role = relationship("RoleModel", back_populates="users")
+    org_memberships = relationship("OrganizationMember", back_populates="user")
     created_projects = relationship("Project", back_populates="creator", foreign_keys="Project.created_by")
     managed_projects = relationship("Project", back_populates="manager", foreign_keys="Project.manager_id")
     project_memberships = relationship("ProjectMember", back_populates="user")

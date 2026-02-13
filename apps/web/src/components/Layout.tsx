@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Home, FolderKanban, Calendar, CheckSquare, FileText, DollarSign, AlertTriangle, MessageSquare, BarChart3, Bell, Search, Menu, Sun, Moon, Wifi, WifiOff, HardHat, Settings, LogOut } from 'lucide-react';
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { useAuditStore } from '../stores/auditStore';
+import { useDataStore } from '../stores/dataStore';
 import { AIChatWidget } from './AIChat';
+
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,10 +16,16 @@ interface LayoutProps {
 
 export default function Layout({ children, activeSection, onSectionChange, onLogout }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [isOnline, setIsOnline] = useState(true);
   const { isDark, toggleTheme } = useThemeStore();
   const { currentUser, logout } = useUserStore();
   const { addLog } = useAuditStore();
+  const { syncFromAPI, isApiConnected, isLoading: isSyncing } = useDataStore();
+
+  useEffect(() => {
+    syncFromAPI();
+  }, [syncFromAPI]);
+
+  const isOnline = isApiConnected;
 
   const handleLogout = () => {
     if (currentUser) {
@@ -101,10 +109,10 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
               <button onClick={toggleTheme} className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg">
                 {isDark ? <Sun size={20} /> : <Moon size={20} />}
               </button>
-              <button onClick={() => setIsOnline(!isOnline)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${isOnline ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'}`}>
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${isOnline ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'}`}>
                 {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
-                {isOnline ? 'Online' : 'Offline'}
-              </button>
+                {isSyncing ? 'Syncing...' : isOnline ? 'API Connected' : 'Demo Mode'}
+              </div>
               <button className="relative p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg">
                 <Bell size={20} />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
@@ -121,7 +129,7 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
                     {currentUser?.email || 'Not logged in'}
                   </p>
                 </div>
-                <button 
+                <button
                   onClick={handleLogout}
                   className="p-2 text-gray-400 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg"
                   title="Logout"

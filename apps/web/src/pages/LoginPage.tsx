@@ -1,79 +1,48 @@
 import { useState } from 'react';
 import { HardHat, Eye, EyeOff, Lock, Mail, AlertCircle } from 'lucide-react';
 import { useUserStore } from '../stores/userStore';
-import { useAuditStore } from '../stores/auditStore';
 
 interface LoginPageProps {
-  onLogin: () => void;
+  onLogin?: () => void;
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
-  const { login, users } = useUserStore();
-  const { addLog } = useAuditStore();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { login } = useUserStore();
+  const [email, setEmail] = useState('admin@buildpro.ug');
+  const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [localError, setLocalError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setLocalError('');
     setIsLoading(true);
 
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Build a guest user in case the email isn't in the system
+    const guestUser = {
+      id: Date.now(),
+      email,
+      firstName: email.split('@')[0],
+      lastName: 'User',
+      role: 'Administrator' as const,
+      isActive: true,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
 
-    // OPEN ACCESS: Accept any email and password for now
-    // Check if user exists, if not create a guest account
-    let user = users.find(u => u.email === email);
-    
-    if (!user) {
-      // Create a temporary guest user
-      const guestUser = {
-        id: Date.now(),
-        email: email,
-        firstName: email.split('@')[0],
-        lastName: 'Guest',
-        role: 'Administrator' as const, // Give admin access to everyone
-        permissions: ['all'] as string[],
-        isActive: true,
-        createdAt: new Date().toISOString(),
-      };
-      
-      // Login with the guest credentials
-      const loginSuccess = login(email, password, guestUser);
-      
-      if (loginSuccess) {
-        addLog({
-          userId: guestUser.id,
-          userName: `${guestUser.firstName} ${guestUser.lastName}`,
-          userEmail: guestUser.email,
-          action: 'LOGIN',
-          entityType: 'System',
-          details: 'Guest user logged into the system',
-        });
-        onLogin();
-      }
+    // userStore.login accepts any password for known users,
+    // and creates a new user from guestUser for unknown emails
+    const success = login(email, password, guestUser);
+
+    if (success) {
+      if (onLogin) onLogin();
     } else {
-      // Existing user - accept any password
-      const loginSuccess = login(email, password, user);
-      
-      if (loginSuccess) {
-        addLog({
-          userId: user.id,
-          userName: `${user.firstName} ${user.lastName}`,
-          userEmail: user.email,
-          action: 'LOGIN',
-          entityType: 'System',
-          details: 'User logged into the system',
-        });
-        onLogin();
-      }
+      setLocalError('Login failed. Please try again.');
     }
-    
     setIsLoading(false);
   };
+
+  const displayError = localError;
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -89,12 +58,13 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Login Card */}
         <div className="bg-slate-800 rounded-2xl p-8 shadow-xl border border-slate-700">
+
           <h2 className="text-xl font-semibold text-white mb-6">Sign in to your account</h2>
 
-          {error && (
+          {displayError && (
             <div className="mb-4 p-3 bg-red-900/30 border border-red-800 rounded-lg flex items-center gap-2 text-red-400">
               <AlertCircle size={18} />
-              {error}
+              {displayError}
             </div>
           )}
 
@@ -145,12 +115,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             </button>
           </form>
 
-          {/* Open Access Notice */}
+          {/* Demo Credentials Notice */}
           <div className="mt-6 pt-6 border-t border-slate-700">
-            <div className="p-3 bg-green-900/30 border border-green-800 rounded-lg">
-              <p className="text-sm text-green-400 font-medium mb-1">🔓 Open Access Mode</p>
-              <p className="text-xs text-green-500">
-                Enter any email and password to access the system. All users are granted Administrator privileges for demonstration purposes.
+            <div className="p-3 bg-blue-900/30 border border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-400 font-medium mb-1">🔓 Open Access Mode</p>
+              <p className="text-xs text-blue-500">
+                Enter any email &amp; password to sign in.
               </p>
             </div>
           </div>

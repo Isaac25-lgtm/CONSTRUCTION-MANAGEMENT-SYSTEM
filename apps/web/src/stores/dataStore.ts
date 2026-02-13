@@ -1,7 +1,12 @@
 import { create } from 'zustand';
+import {
+  projectsAPI, tasksAPI, expensesAPI, risksAPI,
+  milestonesAPI, messagesAPI, documentsAPI, analyticsAPI
+} from '../lib/api';
 
 export interface Project {
   id: number;
+  _uuid?: string; // Backend UUID
   name: string;
   status: string;
   progress: number;
@@ -30,9 +35,11 @@ export const CONTRACT_TYPES = [
 
 export interface Task {
   id: number;
+  _uuid?: string;
   name: string;
   project: string;
   projectId: number;
+  _projectUuid?: string;
   assignee: string;
   status: string;
   priority: string;
@@ -44,6 +51,7 @@ export interface Task {
 
 export interface Risk {
   id: number;
+  _uuid?: string;
   description: string;
   probability: string;
   impact: string;
@@ -51,40 +59,46 @@ export interface Risk {
   mitigation: string;
   owner: string;
   projectId: number;
+  _projectUuid?: string;
   category?: string;
 }
 
 export interface Document {
   id: number;
+  _uuid?: string;
   name: string;
   type: string;
   project: string;
   projectId: number;
+  _projectUuid?: string;
   uploadedBy: string;
   date: string;
   size: string;
-  fileData?: string; // Base64 encoded file data for downloads
-  mimeType?: string; // MIME type of the file
+  fileData?: string;
+  mimeType?: string;
 }
 
 export interface Expense {
   id: number;
+  _uuid?: string;
   description: string;
   category: string;
   amount: number;
   projectId: number;
+  _projectUuid?: string;
   project: string;
   vendor: string;
   date: string;
   status: string;
   loggedBy: string;
-  receiptData?: string;    // Base64 encoded receipt file
-  receiptName?: string;    // Original receipt filename
-  receiptMimeType?: string; // MIME type of receipt (image/pdf)
+  receiptData?: string;
+  receiptName?: string;
+  receiptMimeType?: string;
 }
 
 export interface Message {
   id: number;
+  _uuid?: string;
   sender: string;
   message: string;
   time: string;
@@ -94,10 +108,12 @@ export interface Message {
 
 export interface Milestone {
   id: number;
+  _uuid?: string;
   name: string;
   date: string;
   status: string;
   projectId: number;
+  _projectUuid?: string;
 }
 
 interface DataStore {
@@ -108,6 +124,12 @@ interface DataStore {
   expenses: Expense[];
   messages: Message[];
   milestones: Milestone[];
+  isLoading: boolean;
+  isApiConnected: boolean;
+  error: string | null;
+
+  // Sync with backend
+  syncFromAPI: () => Promise<void>;
 
   addProject: (project: Omit<Project, 'id'>) => void;
   updateProject: (id: number, data: Partial<Project>) => void;
@@ -130,115 +152,490 @@ interface DataStore {
   addMessage: (message: Omit<Message, 'id'>) => void;
 }
 
+// Helper: Map backend project to frontend format
+const mapProject = (p: any, idx: number): Project => ({
+  id: idx + 1,
+  _uuid: p.id,
+  name: p.project_name || p.name,
+  status: p.status?.replace('_', ' ') || 'Planning',
+  progress: p.progress || 0,
+  budget: Number(p.total_budget) || 0,
+  spent: Number(p.spent_budget) || 0,
+  manager: p.manager_name || 'Unassigned',
+  startDate: p.start_date || '',
+  endDate: p.end_date || '',
+  priority: p.priority || 'Medium',
+  description: p.description || '',
+  location: p.location || '',
+  clientName: p.client_name || '',
+  contractType: p.contract_type || '',
+});
+
+const mapTask = (t: any, idx: number, projects: Project[]): Task => {
+  const project = projects.find(p => p._uuid === t.project_id);
+  return {
+    id: idx + 1,
+    _uuid: t.id,
+    name: t.title || t.name,
+    project: project?.name || '',
+    projectId: project?.id || 0,
+    _projectUuid: t.project_id,
+    assignee: t.assignee_name || 'Unassigned',
+    status: t.status?.replace('_', ' ') || 'Pending',
+    priority: t.priority || 'Medium',
+    dueDate: t.due_date || '',
+    progress: t.progress || 0,
+    description: t.description || '',
+    startDate: t.start_date || '',
+  };
+};
+
+const mapExpense = (e: any, idx: number, projects: Project[]): Expense => {
+  const project = projects.find(p => p._uuid === e.project_id);
+  return {
+    id: idx + 1,
+    _uuid: e.id,
+    description: e.description || '',
+    category: e.category || 'Materials',
+    amount: Number(e.amount) || 0,
+    projectId: project?.id || 0,
+    _projectUuid: e.project_id,
+    project: project?.name || '',
+    vendor: e.vendor || '',
+    date: e.date || e.created_at?.split('T')[0] || '',
+    status: e.status || 'Pending',
+    loggedBy: e.submitted_by_name || '',
+  };
+};
+
+const mapRisk = (r: any, idx: number, projects: Project[]): Risk => {
+  const project = projects.find(p => p._uuid === r.project_id);
+  return {
+    id: idx + 1,
+    _uuid: r.id,
+    description: r.title || r.description || '',
+    probability: r.probability || 'Medium',
+    impact: r.impact || 'Medium',
+    status: r.status || 'Open',
+    mitigation: r.mitigation_plan || '',
+    owner: r.owner_name || 'Unassigned',
+    projectId: project?.id || 0,
+    _projectUuid: r.project_id,
+    category: r.category || '',
+  };
+};
+
+const mapDocument = (d: any, idx: number, projects: Project[]): Document => {
+  const project = projects.find(p => p._uuid === d.project_id);
+  return {
+    id: idx + 1,
+    _uuid: d.id,
+    name: d.filename || d.name || '',
+    type: d.category || 'Document',
+    project: project?.name || '',
+    projectId: project?.id || 0,
+    _projectUuid: d.project_id,
+    uploadedBy: d.uploader_name || 'Unknown',
+    date: d.created_at?.split('T')[0] || '',
+    size: d.file_size ? `${(d.file_size / 1024 / 1024).toFixed(1)} MB` : '0 MB',
+    mimeType: d.mime_type || '',
+  };
+};
+
+const mapMilestone = (m: any, idx: number, projects: Project[]): Milestone => {
+  const project = projects.find(p => p._uuid === m.project_id);
+  return {
+    id: idx + 1,
+    _uuid: m.id,
+    name: m.name || '',
+    date: m.due_date || '',
+    status: m.status?.replace('_', ' ') || 'Pending',
+    projectId: project?.id || 0,
+    _projectUuid: m.project_id,
+  };
+};
+
+const mapMessage = (msg: any, idx: number): Message => ({
+  id: idx + 1,
+  _uuid: msg.id,
+  sender: msg.sender_name || 'System',
+  message: msg.content || '',
+  time: msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+  avatar: (msg.sender_name || 'SY').split(' ').map((n: string) => n[0]).join('').slice(0, 2),
+  projectId: undefined,
+});
+
+// Fallback mock data for when API is not available
+const MOCK_PROJECTS: Project[] = [
+  { id: 1, name: 'Kampala Office Complex', status: 'In Progress', progress: 65, budget: 2500000000, spent: 1625000000, manager: 'John Okello', startDate: '2025-01-15', endDate: '2026-06-30', priority: 'High', description: 'Modern 10-story office building in Kampala CBD with underground parking and rooftop gardens.', location: 'Kampala CBD, Uganda', clientName: 'Uganda Development Corporation', contractType: 'Design Build Contract' },
+  { id: 2, name: 'Entebbe Highway Bridge', status: 'In Progress', progress: 42, budget: 4200000000, spent: 1764000000, manager: 'Sarah Nambi', startDate: '2025-03-01', endDate: '2026-12-15', priority: 'Critical', description: 'Major highway bridge construction connecting Entebbe to Kampala with 4 lanes.', location: 'Entebbe Road, Uganda', clientName: 'Uganda National Roads Authority', contractType: 'Turnkey Contract' },
+  { id: 3, name: 'Jinja Industrial Park', status: 'Planning', progress: 15, budget: 8500000000, spent: 1275000000, manager: 'Peter Wasswa', startDate: '2025-06-01', endDate: '2027-08-30', priority: 'Medium', description: 'Large-scale industrial park development with warehouses and manufacturing facilities.', location: 'Jinja, Uganda', clientName: 'Uganda Investment Authority', contractType: 'Lumpsum Contract' },
+];
+
+const MOCK_TASKS: Task[] = [
+  { id: 1, name: 'Foundation Excavation', project: 'Kampala Office Complex', projectId: 1, assignee: 'Site Team A', status: 'Completed', priority: 'High', dueDate: '2025-02-28', progress: 100, startDate: '2025-01-20' },
+  { id: 2, name: 'Steel Framework Installation', project: 'Kampala Office Complex', projectId: 1, assignee: 'Steel Contractors', status: 'In Progress', priority: 'High', dueDate: '2025-04-15', progress: 68, startDate: '2025-03-01' },
+  { id: 3, name: 'Concrete Pouring - Level 2', project: 'Kampala Office Complex', projectId: 1, assignee: 'Site Team B', status: 'In Progress', priority: 'Medium', dueDate: '2025-03-20', progress: 45, startDate: '2025-03-05' },
+  { id: 4, name: 'Electrical Conduit Layout', project: 'Kampala Office Complex', projectId: 1, assignee: 'Electricians', status: 'Pending', priority: 'Medium', dueDate: '2025-05-01', progress: 0, startDate: '2025-04-20' },
+  { id: 5, name: 'Bridge Pillar Construction', project: 'Entebbe Highway Bridge', projectId: 2, assignee: 'Heavy Works Team', status: 'In Progress', priority: 'Critical', dueDate: '2025-06-30', progress: 35, startDate: '2025-03-15' },
+  { id: 6, name: 'Site Survey & Marking', project: 'Jinja Industrial Park', projectId: 3, assignee: 'Survey Team', status: 'Completed', priority: 'High', dueDate: '2025-06-15', progress: 100, startDate: '2025-06-01' },
+  { id: 7, name: 'Environmental Assessment', project: 'Jinja Industrial Park', projectId: 3, assignee: 'NEMA Consultant', status: 'In Progress', priority: 'High', dueDate: '2025-07-01', progress: 60, startDate: '2025-06-10' },
+];
+
+const MOCK_RISKS: Risk[] = [
+  { id: 1, description: 'Delayed steel delivery from supplier', probability: 'High', impact: 'High', status: 'Active', mitigation: 'Source alternative suppliers, maintain buffer stock', owner: 'John Okello', projectId: 1, category: 'Supply Chain' },
+  { id: 2, description: 'Heavy rainfall during foundation work', probability: 'Medium', impact: 'High', status: 'Monitoring', mitigation: 'Arrange dewatering pumps, adjust schedule', owner: 'Sarah Nambi', projectId: 2, category: 'Environmental' },
+  { id: 3, description: 'Labor shortage during peak season', probability: 'Medium', impact: 'Medium', status: 'Active', mitigation: 'Pre-book labor, offer competitive wages', owner: 'Peter Wasswa', projectId: 3, category: 'Resource' },
+  { id: 4, description: 'Currency fluctuation affecting material costs', probability: 'High', impact: 'Medium', status: 'Monitoring', mitigation: 'Lock in prices with suppliers, budget contingency', owner: 'Finance Team', projectId: 1, category: 'Financial' },
+];
+
+const MOCK_DOCUMENTS: Document[] = [
+  { id: 1, name: 'Architectural Plans v2.3.pdf', type: 'Drawing', project: 'Kampala Office Complex', projectId: 1, uploadedBy: 'Arch. Mukasa', date: '2025-01-10', size: '15.2 MB' },
+  { id: 2, name: 'Structural Engineering Report.pdf', type: 'Report', project: 'Kampala Office Complex', projectId: 1, uploadedBy: 'Eng. Tumwine', date: '2025-01-08', size: '8.4 MB' },
+  { id: 3, name: 'Site Progress Photos - Week 12.zip', type: 'Photos', project: 'Kampala Office Complex', projectId: 1, uploadedBy: 'Site Supervisor', date: '2025-01-12', size: '45.6 MB' },
+  { id: 4, name: 'Bridge Foundation Specs.dwg', type: 'Drawing', project: 'Entebbe Highway Bridge', projectId: 2, uploadedBy: 'Eng. Kato', date: '2025-01-05', size: '22.1 MB' },
+  { id: 5, name: 'Environmental Impact Assessment.pdf', type: 'Report', project: 'Jinja Industrial Park', projectId: 3, uploadedBy: 'NEMA Consultant', date: '2024-12-20', size: '5.8 MB' },
+];
+
+const MOCK_EXPENSES: Expense[] = [
+  { id: 1, description: 'Steel reinforcement bars', category: 'Materials', amount: 45000000, projectId: 1, project: 'Kampala Office Complex', vendor: 'Uganda Steel Mills', date: '2025-01-08', status: 'Approved', loggedBy: 'John Okello' },
+  { id: 2, description: 'Concrete mix delivery', category: 'Materials', amount: 28000000, projectId: 1, project: 'Kampala Office Complex', vendor: 'Tororo Cement', date: '2025-01-10', status: 'Approved', loggedBy: 'Site Team A' },
+  { id: 3, description: 'Crane rental - January', category: 'Equipment', amount: 15000000, projectId: 1, project: 'Kampala Office Complex', vendor: 'Heavy Lift Uganda', date: '2025-01-05', status: 'Approved', loggedBy: 'John Okello' },
+  { id: 4, description: 'Labor wages - Week 2', category: 'Labor', amount: 8500000, projectId: 1, project: 'Kampala Office Complex', vendor: 'N/A', date: '2025-01-12', status: 'Pending', loggedBy: 'Site Supervisor' },
+  { id: 5, description: 'Bridge piling materials', category: 'Materials', amount: 120000000, projectId: 2, project: 'Entebbe Highway Bridge', vendor: 'Construction Supplies Ltd', date: '2025-01-15', status: 'Approved', loggedBy: 'Sarah Nambi' },
+];
+
+const MOCK_MESSAGES: Message[] = [
+  { id: 1, sender: 'John Okello', message: 'Steel delivery confirmed for Monday. Please prepare the site.', time: '10:30 AM', avatar: 'JO', projectId: 1 },
+  { id: 2, sender: 'Sarah Nambi', message: 'Bridge pillar inspection passed. We can proceed to next phase.', time: '9:15 AM', avatar: 'SN', projectId: 2 },
+  { id: 3, sender: 'Site Supervisor', message: 'Need additional 20 workers for concrete pouring tomorrow.', time: 'Yesterday', avatar: 'SS', projectId: 1 },
+  { id: 4, sender: 'Finance Team', message: 'Budget approval for Q2 materials has been processed.', time: 'Yesterday', avatar: 'FT' },
+  { id: 5, sender: 'Peter Wasswa', message: 'Environmental assessment report submitted to NEMA.', time: '2 days ago', avatar: 'PW', projectId: 3 },
+];
+
+const MOCK_MILESTONES: Milestone[] = [
+  { id: 1, name: 'Foundation Complete', date: '2025-03-15', status: 'Completed', projectId: 1 },
+  { id: 2, name: 'Structure Complete', date: '2025-06-30', status: 'On Track', projectId: 1 },
+  { id: 3, name: 'MEP Complete', date: '2025-09-15', status: 'On Track', projectId: 1 },
+  { id: 4, name: 'Handover', date: '2025-12-30', status: 'Pending', projectId: 1 },
+  { id: 5, name: 'Bridge Deck Complete', date: '2026-06-30', status: 'On Track', projectId: 2 },
+];
+
 export const useDataStore = create<DataStore>((set, get) => ({
-  projects: [
-    { id: 1, name: 'Kampala Office Complex', status: 'In Progress', progress: 65, budget: 2500000000, spent: 1625000000, manager: 'John Okello', startDate: '2025-01-15', endDate: '2026-06-30', priority: 'High', description: 'Modern 10-story office building in Kampala CBD with underground parking and rooftop gardens.', location: 'Kampala CBD, Uganda', clientName: 'Uganda Development Corporation', contractType: 'Design Build Contract' },
-    { id: 2, name: 'Entebbe Highway Bridge', status: 'In Progress', progress: 42, budget: 4200000000, spent: 1764000000, manager: 'Sarah Nambi', startDate: '2025-03-01', endDate: '2026-12-15', priority: 'Critical', description: 'Major highway bridge construction connecting Entebbe to Kampala with 4 lanes.', location: 'Entebbe Road, Uganda', clientName: 'Uganda National Roads Authority', contractType: 'Turnkey Contract' },
-    { id: 3, name: 'Jinja Industrial Park', status: 'Planning', progress: 15, budget: 8500000000, spent: 1275000000, manager: 'Peter Wasswa', startDate: '2025-06-01', endDate: '2027-08-30', priority: 'Medium', description: 'Large-scale industrial park development with warehouses and manufacturing facilities.', location: 'Jinja, Uganda', clientName: 'Uganda Investment Authority', contractType: 'Lumpsum Contract' },
-  ],
+  projects: MOCK_PROJECTS,
+  tasks: MOCK_TASKS,
+  risks: MOCK_RISKS,
+  documents: MOCK_DOCUMENTS,
+  expenses: MOCK_EXPENSES,
+  messages: MOCK_MESSAGES,
+  milestones: MOCK_MILESTONES,
+  isLoading: false,
+  isApiConnected: false,
+  error: null,
 
-  tasks: [
-    { id: 1, name: 'Foundation Excavation', project: 'Kampala Office Complex', projectId: 1, assignee: 'Site Team A', status: 'Completed', priority: 'High', dueDate: '2025-02-28', progress: 100, startDate: '2025-01-20' },
-    { id: 2, name: 'Steel Framework Installation', project: 'Kampala Office Complex', projectId: 1, assignee: 'Steel Contractors', status: 'In Progress', priority: 'High', dueDate: '2025-04-15', progress: 68, startDate: '2025-03-01' },
-    { id: 3, name: 'Concrete Pouring - Level 2', project: 'Kampala Office Complex', projectId: 1, assignee: 'Site Team B', status: 'In Progress', priority: 'Medium', dueDate: '2025-03-20', progress: 45, startDate: '2025-03-05' },
-    { id: 4, name: 'Electrical Conduit Layout', project: 'Kampala Office Complex', projectId: 1, assignee: 'Electricians', status: 'Pending', priority: 'Medium', dueDate: '2025-05-01', progress: 0, startDate: '2025-04-20' },
-    { id: 5, name: 'Bridge Pillar Construction', project: 'Entebbe Highway Bridge', projectId: 2, assignee: 'Heavy Works Team', status: 'In Progress', priority: 'Critical', dueDate: '2025-06-30', progress: 35, startDate: '2025-03-15' },
-    { id: 6, name: 'Site Survey & Marking', project: 'Jinja Industrial Park', projectId: 3, assignee: 'Survey Team', status: 'Completed', priority: 'High', dueDate: '2025-06-15', progress: 100, startDate: '2025-06-01' },
-    { id: 7, name: 'Environmental Assessment', project: 'Jinja Industrial Park', projectId: 3, assignee: 'NEMA Consultant', status: 'In Progress', priority: 'High', dueDate: '2025-07-01', progress: 60, startDate: '2025-06-10' },
-  ],
+  syncFromAPI: async () => {
+    const accessToken = localStorage.getItem('access_token');
+    if (!accessToken) {
+      // Not logged in, keep mock data
+      return;
+    }
 
-  risks: [
-    { id: 1, description: 'Delayed steel delivery from supplier', probability: 'High', impact: 'High', status: 'Active', mitigation: 'Source alternative suppliers, maintain buffer stock', owner: 'John Okello', projectId: 1, category: 'Supply Chain' },
-    { id: 2, description: 'Heavy rainfall during foundation work', probability: 'Medium', impact: 'High', status: 'Monitoring', mitigation: 'Arrange dewatering pumps, adjust schedule', owner: 'Sarah Nambi', projectId: 2, category: 'Environmental' },
-    { id: 3, description: 'Labor shortage during peak season', probability: 'Medium', impact: 'Medium', status: 'Active', mitigation: 'Pre-book labor, offer competitive wages', owner: 'Peter Wasswa', projectId: 3, category: 'Resource' },
-    { id: 4, description: 'Currency fluctuation affecting material costs', probability: 'High', impact: 'Medium', status: 'Monitoring', mitigation: 'Lock in prices with suppliers, budget contingency', owner: 'Finance Team', projectId: 1, category: 'Financial' },
-  ],
+    set({ isLoading: true, error: null });
 
-  documents: [
-    { id: 1, name: 'Architectural Plans v2.3.pdf', type: 'Drawing', project: 'Kampala Office Complex', projectId: 1, uploadedBy: 'Arch. Mukasa', date: '2025-01-10', size: '15.2 MB' },
-    { id: 2, name: 'Structural Engineering Report.pdf', type: 'Report', project: 'Kampala Office Complex', projectId: 1, uploadedBy: 'Eng. Tumwine', date: '2025-01-08', size: '8.4 MB' },
-    { id: 3, name: 'Site Progress Photos - Week 12.zip', type: 'Photos', project: 'Kampala Office Complex', projectId: 1, uploadedBy: 'Site Supervisor', date: '2025-01-12', size: '45.6 MB' },
-    { id: 4, name: 'Bridge Foundation Specs.dwg', type: 'Drawing', project: 'Entebbe Highway Bridge', projectId: 2, uploadedBy: 'Eng. Kato', date: '2025-01-05', size: '22.1 MB' },
-    { id: 5, name: 'Environmental Impact Assessment.pdf', type: 'Report', project: 'Jinja Industrial Park', projectId: 3, uploadedBy: 'NEMA Consultant', date: '2024-12-20', size: '5.8 MB' },
-  ],
+    try {
+      // Fetch projects first (needed to map other entities)
+      const projectsData = await projectsAPI.list({ page_size: 100 });
+      const projects = (projectsData.items || []).map(mapProject);
 
-  expenses: [
-    { id: 1, description: 'Steel reinforcement bars', category: 'Materials', amount: 45000000, projectId: 1, project: 'Kampala Office Complex', vendor: 'Uganda Steel Mills', date: '2025-01-08', status: 'Approved', loggedBy: 'John Okello' },
-    { id: 2, description: 'Concrete mix delivery', category: 'Materials', amount: 28000000, projectId: 1, project: 'Kampala Office Complex', vendor: 'Tororo Cement', date: '2025-01-10', status: 'Approved', loggedBy: 'Site Team A' },
-    { id: 3, description: 'Crane rental - January', category: 'Equipment', amount: 15000000, projectId: 1, project: 'Kampala Office Complex', vendor: 'Heavy Lift Uganda', date: '2025-01-05', status: 'Approved', loggedBy: 'John Okello' },
-    { id: 4, description: 'Labor wages - Week 2', category: 'Labor', amount: 8500000, projectId: 1, project: 'Kampala Office Complex', vendor: 'N/A', date: '2025-01-12', status: 'Pending', loggedBy: 'Site Supervisor' },
-    { id: 5, description: 'Bridge piling materials', category: 'Materials', amount: 120000000, projectId: 2, project: 'Entebbe Highway Bridge', vendor: 'Construction Supplies Ltd', date: '2025-01-15', status: 'Approved', loggedBy: 'Sarah Nambi' },
-  ],
+      // Fetch all other entities in parallel
+      const results = await Promise.allSettled(
+        projects.map(async (p) => {
+          const uuid = p._uuid!;
+          const [tasksRes, expensesRes, risksRes, docsRes, milestonesRes] = await Promise.allSettled([
+            tasksAPI.list(uuid, { page_size: 100 }),
+            expensesAPI.list(uuid, { page_size: 100 }),
+            risksAPI.list(uuid, { page_size: 100 }),
+            documentsAPI.list(uuid, { page_size: 100 }),
+            milestonesAPI.list(uuid, { page_size: 100 }),
+          ]);
+          return {
+            tasks: tasksRes.status === 'fulfilled' ? tasksRes.value.items || [] : [],
+            expenses: expensesRes.status === 'fulfilled' ? expensesRes.value.items || [] : [],
+            risks: risksRes.status === 'fulfilled' ? risksRes.value.items || [] : [],
+            documents: docsRes.status === 'fulfilled' ? docsRes.value.items || [] : [],
+            milestones: milestonesRes.status === 'fulfilled' ? milestonesRes.value.items || [] : [],
+          };
+        })
+      );
 
-  messages: [
-    { id: 1, sender: 'John Okello', message: 'Steel delivery confirmed for Monday. Please prepare the site.', time: '10:30 AM', avatar: 'JO', projectId: 1 },
-    { id: 2, sender: 'Sarah Nambi', message: 'Bridge pillar inspection passed. We can proceed to next phase.', time: '9:15 AM', avatar: 'SN', projectId: 2 },
-    { id: 3, sender: 'Site Supervisor', message: 'Need additional 20 workers for concrete pouring tomorrow.', time: 'Yesterday', avatar: 'SS', projectId: 1 },
-    { id: 4, sender: 'Finance Team', message: 'Budget approval for Q2 materials has been processed.', time: 'Yesterday', avatar: 'FT' },
-    { id: 5, sender: 'Peter Wasswa', message: 'Environmental assessment report submitted to NEMA.', time: '2 days ago', avatar: 'PW', projectId: 3 },
-  ],
+      // Flatten all entity arrays
+      const allTasks: any[] = [];
+      const allExpenses: any[] = [];
+      const allRisks: any[] = [];
+      const allDocuments: any[] = [];
+      const allMilestones: any[] = [];
 
-  milestones: [
-    { id: 1, name: 'Foundation Complete', date: '2025-03-15', status: 'Completed', projectId: 1 },
-    { id: 2, name: 'Structure Complete', date: '2025-06-30', status: 'On Track', projectId: 1 },
-    { id: 3, name: 'MEP Complete', date: '2025-09-15', status: 'On Track', projectId: 1 },
-    { id: 4, name: 'Handover', date: '2025-12-30', status: 'Pending', projectId: 1 },
-    { id: 5, name: 'Bridge Deck Complete', date: '2026-06-30', status: 'On Track', projectId: 2 },
-  ],
+      results.forEach((r) => {
+        if (r.status === 'fulfilled') {
+          allTasks.push(...r.value.tasks);
+          allExpenses.push(...r.value.expenses);
+          allRisks.push(...r.value.risks);
+          allDocuments.push(...r.value.documents);
+          allMilestones.push(...r.value.milestones);
+        }
+      });
 
-  addProject: (project) => set((state) => ({
-    projects: [...state.projects, { ...project, id: Math.max(...state.projects.map(p => p.id), 0) + 1 }]
-  })),
+      // Try to fetch messages
+      let allMessages: any[] = [];
+      try {
+        const msgsData = await messagesAPI.list({ page_size: 100 });
+        allMessages = msgsData.items || [];
+      } catch { /* messages endpoint may not have data yet */ }
 
-  updateProject: (id, data) => set((state) => ({
-    projects: state.projects.map(p => p.id === id ? { ...p, ...data } : p)
-  })),
+      // Map everything to frontend format
+      set({
+        projects: projects.length > 0 ? projects : MOCK_PROJECTS,
+        tasks: allTasks.length > 0 ? allTasks.map((t, i) => mapTask(t, i, projects)) : MOCK_TASKS,
+        expenses: allExpenses.length > 0 ? allExpenses.map((e, i) => mapExpense(e, i, projects)) : MOCK_EXPENSES,
+        risks: allRisks.length > 0 ? allRisks.map((r, i) => mapRisk(r, i, projects)) : MOCK_RISKS,
+        documents: allDocuments.length > 0 ? allDocuments.map((d, i) => mapDocument(d, i, projects)) : MOCK_DOCUMENTS,
+        milestones: allMilestones.length > 0 ? allMilestones.map((m, i) => mapMilestone(m, i, projects)) : MOCK_MILESTONES,
+        messages: allMessages.length > 0 ? allMessages.map(mapMessage) : MOCK_MESSAGES,
+        isLoading: false,
+        isApiConnected: true,
+      });
+    } catch (err: any) {
+      console.warn('API sync failed, using mock data:', err.message);
+      set({
+        isLoading: false,
+        isApiConnected: false,
+        error: 'Could not connect to API. Using demo data.',
+      });
+    }
+  },
 
-  deleteProject: (id) => set((state) => ({
-    projects: state.projects.filter(p => p.id !== id)
-  })),
+  addProject: (project) => {
+    const state = get();
+    const p = state.projects.find(p => p._uuid);
+    if (state.isApiConnected && p?._uuid) {
+      // API mode: create via API then sync
+      projectsAPI.create({
+        project_name: project.name,
+        description: project.description,
+        status: project.status?.replace(' ', '_'),
+        priority: project.priority,
+        total_budget: project.budget,
+        start_date: project.startDate,
+        end_date: project.endDate,
+        location: project.location,
+        client_name: project.clientName,
+        contract_type: project.contractType,
+      }).then(() => state.syncFromAPI()).catch(console.error);
+    } else {
+      set((s) => ({
+        projects: [...s.projects, { ...project, id: Math.max(...s.projects.map(p => p.id), 0) + 1 }]
+      }));
+    }
+  },
 
-  addTask: (task) => set((state) => ({
-    tasks: [...state.tasks, { ...task, id: Math.max(...state.tasks.map(t => t.id), 0) + 1 }]
-  })),
+  updateProject: (id, data) => {
+    const state = get();
+    const project = state.projects.find(p => p.id === id);
+    if (state.isApiConnected && project?._uuid) {
+      const updateData: any = {};
+      if (data.name) updateData.project_name = data.name;
+      if (data.description !== undefined) updateData.description = data.description;
+      if (data.status) updateData.status = data.status.replace(' ', '_');
+      if (data.priority) updateData.priority = data.priority;
+      if (data.budget !== undefined) updateData.total_budget = data.budget;
+      if (data.startDate) updateData.start_date = data.startDate;
+      if (data.endDate) updateData.end_date = data.endDate;
+      if (data.location !== undefined) updateData.location = data.location;
+      if (data.clientName !== undefined) updateData.client_name = data.clientName;
+      if (data.contractType !== undefined) updateData.contract_type = data.contractType;
+      projectsAPI.update(project._uuid, updateData).then(() => state.syncFromAPI()).catch(console.error);
+    }
+    // Always update locally for immediate UI feedback
+    set((s) => ({
+      projects: s.projects.map(p => p.id === id ? { ...p, ...data } : p)
+    }));
+  },
 
-  updateTask: (id, data) => set((state) => ({
-    tasks: state.tasks.map(t => t.id === id ? { ...t, ...data } : t)
-  })),
+  deleteProject: (id) => {
+    const state = get();
+    const project = state.projects.find(p => p.id === id);
+    if (state.isApiConnected && project?._uuid) {
+      projectsAPI.delete(project._uuid).catch(console.error);
+    }
+    set((s) => ({
+      projects: s.projects.filter(p => p.id !== id)
+    }));
+  },
 
-  deleteTask: (id) => set((state) => ({
-    tasks: state.tasks.filter(t => t.id !== id)
-  })),
+  addTask: (task) => {
+    const state = get();
+    const project = state.projects.find(p => p.id === task.projectId);
+    if (state.isApiConnected && project?._uuid) {
+      tasksAPI.create(project._uuid, {
+        title: task.name,
+        description: task.description,
+        status: task.status?.replace(' ', '_'),
+        priority: task.priority,
+        due_date: task.dueDate,
+        start_date: task.startDate,
+        progress: task.progress,
+      }).then(() => state.syncFromAPI()).catch(console.error);
+    } else {
+      set((s) => ({
+        tasks: [...s.tasks, { ...task, id: Math.max(...s.tasks.map(t => t.id), 0) + 1 }]
+      }));
+    }
+  },
 
-  addRisk: (risk) => set((state) => ({
-    risks: [...state.risks, { ...risk, id: Math.max(...state.risks.map(r => r.id), 0) + 1 }]
-  })),
+  updateTask: (id, data) => {
+    const state = get();
+    const task = state.tasks.find(t => t.id === id);
+    const project = task ? state.projects.find(p => p.id === task.projectId) : null;
+    if (state.isApiConnected && task?._uuid && project?._uuid) {
+      const updateData: any = {};
+      if (data.name) updateData.title = data.name;
+      if (data.description !== undefined) updateData.description = data.description;
+      if (data.status) updateData.status = data.status.replace(' ', '_');
+      if (data.priority) updateData.priority = data.priority;
+      if (data.dueDate) updateData.due_date = data.dueDate;
+      if (data.progress !== undefined) updateData.progress = data.progress;
+      tasksAPI.update(project._uuid, task._uuid, updateData).catch(console.error);
+    }
+    set((s) => ({
+      tasks: s.tasks.map(t => t.id === id ? { ...t, ...data } : t)
+    }));
+  },
 
-  updateRisk: (id, data) => set((state) => ({
-    risks: state.risks.map(r => r.id === id ? { ...r, ...data } : r)
-  })),
+  deleteTask: (id) => {
+    const state = get();
+    const task = state.tasks.find(t => t.id === id);
+    const project = task ? state.projects.find(p => p.id === task.projectId) : null;
+    if (state.isApiConnected && task?._uuid && project?._uuid) {
+      tasksAPI.delete(project._uuid, task._uuid).catch(console.error);
+    }
+    set((s) => ({
+      tasks: s.tasks.filter(t => t.id !== id)
+    }));
+  },
 
-  deleteRisk: (id) => set((state) => ({
-    risks: state.risks.filter(r => r.id !== id)
-  })),
+  addRisk: (risk) => {
+    const state = get();
+    const project = state.projects.find(p => p.id === risk.projectId);
+    if (state.isApiConnected && project?._uuid) {
+      risksAPI.create(project._uuid, {
+        title: risk.description,
+        description: risk.description,
+        category: risk.category || 'Other',
+        probability: risk.probability,
+        impact: risk.impact,
+        status: risk.status,
+        mitigation_plan: risk.mitigation,
+      }).then(() => state.syncFromAPI()).catch(console.error);
+    } else {
+      set((s) => ({
+        risks: [...s.risks, { ...risk, id: Math.max(...s.risks.map(r => r.id), 0) + 1 }]
+      }));
+    }
+  },
 
-  addDocument: (doc) => set((state) => ({
-    documents: [...state.documents, { ...doc, id: Math.max(...state.documents.map(d => d.id), 0) + 1 }]
-  })),
+  updateRisk: (id, data) => {
+    const state = get();
+    const risk = state.risks.find(r => r.id === id);
+    const project = risk ? state.projects.find(p => p.id === risk.projectId) : null;
+    if (state.isApiConnected && risk?._uuid && project?._uuid) {
+      const updateData: any = {};
+      if (data.description) updateData.title = data.description;
+      if (data.probability) updateData.probability = data.probability;
+      if (data.impact) updateData.impact = data.impact;
+      if (data.status) updateData.status = data.status;
+      if (data.mitigation) updateData.mitigation_plan = data.mitigation;
+      if (data.category) updateData.category = data.category;
+      risksAPI.update(project._uuid, risk._uuid, updateData).catch(console.error);
+    }
+    set((s) => ({
+      risks: s.risks.map(r => r.id === id ? { ...r, ...data } : r)
+    }));
+  },
 
-  deleteDocument: (id) => set((state) => ({
-    documents: state.documents.filter(d => d.id !== id)
-  })),
+  deleteRisk: (id) => {
+    const state = get();
+    const risk = state.risks.find(r => r.id === id);
+    const project = risk ? state.projects.find(p => p.id === risk.projectId) : null;
+    if (state.isApiConnected && risk?._uuid && project?._uuid) {
+      risksAPI.delete(project._uuid, risk._uuid).catch(console.error);
+    }
+    set((s) => ({
+      risks: s.risks.filter(r => r.id !== id)
+    }));
+  },
 
-  addExpense: (expense) => set((state) => ({
-    expenses: [...state.expenses, { ...expense, id: Math.max(...state.expenses.map(e => e.id), 0) + 1 }]
-  })),
+  addDocument: (doc) => {
+    set((s) => ({
+      documents: [...s.documents, { ...doc, id: Math.max(...s.documents.map(d => d.id), 0) + 1 }]
+    }));
+  },
 
-  updateExpense: (id, data) => set((state) => ({
-    expenses: state.expenses.map(e => e.id === id ? { ...e, ...data } : e)
-  })),
+  deleteDocument: (id) => {
+    const state = get();
+    const doc = state.documents.find(d => d.id === id);
+    const project = doc ? state.projects.find(p => p.id === doc.projectId) : null;
+    if (state.isApiConnected && doc?._uuid && project?._uuid) {
+      documentsAPI.delete(project._uuid, doc._uuid).catch(console.error);
+    }
+    set((s) => ({
+      documents: s.documents.filter(d => d.id !== id)
+    }));
+  },
 
-  addMessage: (message) => set((state) => ({
-    messages: [{ ...message, id: Math.max(...state.messages.map(m => m.id), 0) + 1 }, ...state.messages]
-  })),
+  addExpense: (expense) => {
+    const state = get();
+    const project = state.projects.find(p => p.id === expense.projectId);
+    if (state.isApiConnected && project?._uuid) {
+      expensesAPI.create(project._uuid, {
+        description: expense.description,
+        category: expense.category,
+        amount: expense.amount,
+        vendor: expense.vendor,
+        date: expense.date,
+      }).then(() => state.syncFromAPI()).catch(console.error);
+    } else {
+      set((s) => ({
+        expenses: [...s.expenses, { ...expense, id: Math.max(...s.expenses.map(e => e.id), 0) + 1 }]
+      }));
+    }
+  },
+
+  updateExpense: (id, data) => {
+    const state = get();
+    const expense = state.expenses.find(e => e.id === id);
+    const project = expense ? state.projects.find(p => p.id === expense.projectId) : null;
+    if (state.isApiConnected && expense?._uuid && project?._uuid) {
+      if (data.status === 'Approved') {
+        expensesAPI.approve(project._uuid, expense._uuid).catch(console.error);
+      } else if (data.status === 'Rejected') {
+        expensesAPI.reject(project._uuid, expense._uuid, 'Rejected').catch(console.error);
+      }
+    }
+    set((s) => ({
+      expenses: s.expenses.map(e => e.id === id ? { ...e, ...data } : e)
+    }));
+  },
+
+  addMessage: (message) => {
+    const state = get();
+    if (state.isApiConnected) {
+      messagesAPI.create({
+        content: message.message,
+      }).then(() => state.syncFromAPI()).catch(console.error);
+    } else {
+      set((s) => ({
+        messages: [{ ...message, id: Math.max(...s.messages.map(m => m.id), 0) + 1 }, ...s.messages]
+      }));
+    }
+  },
 }));
