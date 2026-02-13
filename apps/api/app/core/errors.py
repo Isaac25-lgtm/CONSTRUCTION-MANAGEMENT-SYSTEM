@@ -86,3 +86,8 @@ class InvalidStateTransitionError(APIError):
 class RateLimitError(APIError):
     def __init__(self, message: str = "Rate limit exceeded"):
         super().__init__(message, "RATE_LIMIT_EXCEEDED", 429)
+
+
+# Aliases
+UnauthorizedError = AuthenticationError
+ForbiddenError = PermissionDeniedError
