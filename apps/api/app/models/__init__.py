@@ -5,7 +5,7 @@ from app.models.project import Project, ProjectMember, ProjectStatus, ProjectPri
 from app.models.task import Task, TaskStatus, TaskPriority
 from app.models.expense import Expense, ExpenseStatus
 from app.models.document import Document
-from app.models.risk import Risk, RiskLevel, RiskStatus
+from app.models.risk import Risk, RiskProbability, RiskImpact, RiskStatus
 from app.models.milestone import Milestone, MilestoneStatus
 from app.models.message import Message
 from app.models.audit_log import AuditLog
@@ -30,7 +30,8 @@ __all__ = [
     "ExpenseStatus",
     "Document",
     "Risk",
-    "RiskLevel",
+    "RiskProbability",
+    "RiskImpact",
     "RiskStatus",
     "Milestone",
     "MilestoneStatus",

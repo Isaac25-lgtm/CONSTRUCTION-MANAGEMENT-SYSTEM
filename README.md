@@ -1,179 +1,165 @@
-# BuildPro - Construction Project Management SaaS
+# BuildPro - Construction Project Management System
 
-> **Production-Ready Multi-Tenant SaaS Platform for Construction Project Management**
+A full-stack construction project management platform built with FastAPI and React. Designed for managing projects, tasks, budgets, documents, and team collaboration in the construction industry.
 
-BuildPro is a comprehensive construction project management platform built for the Ugandan market, featuring multi-tenancy, robust authentication, file management, and real-time collaboration.
-
----
-
-## 🚀 Features
-
-### Core Functionality
-- ✅ **Multi-Tenant Architecture** - Organizations with role-based access control
-- ✅ **Project Management** - Complete project lifecycle management
-- ✅ **Task Tracking** - Kanban-style task management with dependencies
-- ✅ **Budget Management** - Expense tracking with approval workflows
-- ✅ **Document Management** - File upload/download with versioning
-- ✅ **Risk Management** - Risk assessment with mitigation plans
-- ✅ **Milestone Tracking** - Project milestones with dependencies
-- ✅ **Team Collaboration** - Real-time messaging and notifications
-- ✅ **Audit Logging** - Complete audit trail for compliance
-
-### Technical Features
-- ✅ **JWT Authentication** - Secure token-based auth with refresh tokens
-- ✅ **File Storage** - Local + Cloudflare R2 support
-- ✅ **RESTful API** - Complete OpenAPI documentation
-- ✅ **Type-Safe Frontend** - TypeScript with Zustand state management
-- ✅ **Responsive Design** - Mobile-first UI with Tailwind CSS
-- ✅ **Database Migrations** - Alembic for schema management
-- ✅ **Docker Support** - Full containerization
+![Python](https://img.shields.io/badge/Python-3.9+-blue?logo=python&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688?logo=fastapi&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14-336791?logo=postgresql&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white)
 
 ---
 
-## 📋 Tech Stack
+## Features
 
-### Backend
-- **Framework**: FastAPI (Python 3.11)
-- **Database**: PostgreSQL 14
-- **ORM**: SQLAlchemy
-- **Migrations**: Alembic
-- **Cache**: Redis
-- **Authentication**: JWT (python-jose)
-- **File Storage**: Cloudflare R2 / Local
+**Project Management** — Create and track construction projects with status, priority, budgets, timelines, client info, and contract types.
 
-### Frontend
-- **Framework**: React 18 + TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS
-- **State Management**: Zustand
-- **HTTP Client**: Axios
-- **Routing**: React Router v6
-- **Icons**: Lucide React
+**Task Tracking** — Kanban-style task management with assignees, priorities, dependencies, and progress tracking.
 
-### Infrastructure
-- **Deployment**: Render.com
-- **Containerization**: Docker + Docker Compose
-- **CI/CD**: GitHub Actions (planned)
+**Budget & Expenses** — Track project expenses with receipt attachments, approval/rejection workflows, and budget vs. actual reporting.
+
+**Document Management** — Upload, version, and download project documents with file storage (local or Cloudflare R2).
+
+**Risk Assessment** — Identify project risks with probability/impact scoring, mitigation plans, and status tracking.
+
+**Scheduling & Milestones** — Gantt chart visualization with week/month/quarter zoom, milestone tracking, and dependency management.
+
+**Team Collaboration** — Real-time messaging, role-based access control (Admin, Project Manager, Supervisor, Team Member, Stakeholder).
+
+**Reports & PDF Export** — Generate and export project reports as PDF documents.
+
+**Multi-Tenant SaaS** — Organization-based multi-tenancy with subscription tiers and membership management.
+
+**Audit Logging** — Complete audit trail of all actions for compliance and accountability.
 
 ---
 
-## 🏃 Quick Start
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | FastAPI, SQLAlchemy, Alembic, PostgreSQL, Redis |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Zustand |
+| Auth | JWT with refresh tokens (python-jose), bcrypt |
+| Charts | Recharts |
+| Deployment | Docker Compose, Render.com |
+
+---
+
+## Quick Start
 
 ### Prerequisites
+
 - Python 3.9+
 - Node.js 18+
-- PostgreSQL 14+
-- Redis (optional)
+- Git
 
-### 1. Clone Repository
+### 1. Clone and setup
+
 ```bash
-git clone https://github.com/yourusername/buildpro.git
-cd buildpro
+git clone https://github.com/Isaac25-lgtm/CONSTRUCTION-MANAGEMENT-SYSTEM.git
+cd CONSTRUCTION-MANAGEMENT-SYSTEM
 ```
 
-### 2. Backend Setup
+### 2. Start the backend
+
 ```bash
 cd apps/api
-
-# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: .\venv\Scripts\activate
 
-# Install dependencies
+# Activate virtual environment
+source venv/bin/activate        # Linux/Mac
+.\venv\Scripts\activate         # Windows
+
 pip install -r requirements.txt
 
-# Setup environment
-cp .env.example .env
-# Edit .env with your database credentials
-
-# Run migrations
-alembic upgrade head
-
-# Seed database
-python -m app.db.init_db
-
-# Start server
-uvicorn app.main:app --reload
+# Run with SQLite (no PostgreSQL needed)
+python run_local.py
 ```
 
-Backend runs at: `http://localhost:8000`  
-API Docs: `http://localhost:8000/docs`
+The API starts at **http://localhost:8000** with auto-generated docs at **http://localhost:8000/docs**.
 
-### 3. Frontend Setup
+### 3. Start the frontend
+
 ```bash
 cd apps/web
-
-# Install dependencies
 npm install
-
-# Setup environment
-cp .env.example .env.local
-# Edit VITE_API_URL=http://localhost:8000
-
-# Start dev server
 npm run dev
 ```
 
-Frontend runs at: `http://localhost:5173`
+The frontend starts at **http://localhost:5000**.
 
 ### 4. Login
-- Email: `admin@buildpro.ug`
-- Password: `Admin@123456`
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@buildpro.ug` | `Admin@123456` |
+| Project Manager | `pm@buildpro.ug` | `Password@123` |
 
 ---
 
-## 📚 Documentation
+## Docker Deployment
 
-- [Setup Guide](./SETUP.md) - Detailed setup instructions
-- [API Documentation](http://localhost:8000/docs) - OpenAPI/Swagger docs
-- [Architecture Overview](./docs/architecture.md) - System architecture
-- [Deployment Guide](./docs/deployment.md) - Production deployment
-
----
-
-## 🏗️ Project Structure
-
-```
-buildpro/
-├── apps/
-│   ├── api/                    # Backend FastAPI application
-│   │   ├── app/
-│   │   │   ├── api/           # API routes
-│   │   │   ├── core/          # Core utilities (auth, config)
-│   │   │   ├── db/            # Database setup
-│   │   │   ├── models/        # SQLAlchemy models
-│   │   │   ├── schemas/       # Pydantic schemas
-│   │   │   └── services/      # Business logic
-│   │   ├── alembic/           # Database migrations
-│   │   └── requirements.txt
-│   │
-│   └── web/                   # Frontend React application
-│       ├── src/
-│       │   ├── components/    # React components
-│       │   ├── pages/         # Page components
-│       │   ├── stores/        # Zustand stores
-│       │   ├── lib/           # Utilities (API client)
-│       │   └── styles/        # CSS files
-│       └── package.json
-│
-├── docker-compose.yml         # Docker orchestration
-├── render.yaml               # Render deployment config
-└── README.md
-```
-
----
-
-## 🔑 Environment Variables
-
-### Backend (.env)
 ```bash
+# Start all services (PostgreSQL, Redis, API, Frontend)
+docker-compose up -d
+
+# Stop
+docker-compose down
+```
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| API | http://localhost:8000 |
+| API Docs | http://localhost:8000/docs |
+| PostgreSQL | localhost:5432 |
+| Redis | localhost:6379 |
+
+---
+
+## Project Structure
+
+```
+├── apps/
+│   ├── api/                  # FastAPI backend
+│   │   ├── app/
+│   │   │   ├── api/v1/       # API routes & dependencies
+│   │   │   ├── core/         # Config, auth, RBAC, security
+│   │   │   ├── db/           # Database session & base models
+│   │   │   ├── models/       # SQLAlchemy models
+│   │   │   ├── schemas/      # Pydantic request/response schemas
+│   │   │   └── services/     # Business logic layer
+│   │   ├── alembic/          # Database migrations
+│   │   └── run_local.py      # Local dev runner (SQLite)
+│   │
+│   └── web/                  # React frontend
+│       └── src/
+│           ├── components/   # Reusable UI components
+│           ├── pages/        # Page components (Dashboard, Projects, Tasks, etc.)
+│           ├── stores/       # Zustand state management
+│           └── lib/          # API client & utilities
+│
+├── docker-compose.yml
+├── render.yaml               # Render.com deployment config
+└── start.bat                 # Windows quick-start script
+```
+
+---
+
+## Environment Variables
+
+### Backend (`apps/api/.env`)
+
+```env
 DATABASE_URL=postgresql://user:pass@localhost/buildpro
 REDIS_URL=redis://localhost:6379/0
-SECRET_KEY=your-secret-key-here
+SECRET_KEY=your-secret-key
 ALLOWED_ORIGINS=http://localhost:5173
 ENVIRONMENT=development
 
-# File Storage (Optional)
+# Cloud storage (optional)
 USE_CLOUD_STORAGE=false
 R2_ENDPOINT_URL=
 R2_ACCESS_KEY_ID=
@@ -181,188 +167,47 @@ R2_SECRET_ACCESS_KEY=
 R2_BUCKET_NAME=
 ```
 
-### Frontend (.env.local)
-```bash
+### Frontend (`apps/web/.env.local`)
+
+```env
 VITE_API_URL=http://localhost:8000
 ```
 
----
-
-## 🐳 Docker Deployment
-
-```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-```
-
-Services:
-- API: `http://localhost:8000`
-- Frontend: `http://localhost:5173`
-- PostgreSQL: `localhost:5432`
-- Redis: `localhost:6379`
+> For local development with SQLite, no `.env` configuration is needed — `run_local.py` handles everything.
 
 ---
 
-## 🚀 Production Deployment
+## API Endpoints
 
-### Render.com (Recommended)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/auth/login` | Login |
+| POST | `/v1/auth/refresh` | Refresh token |
+| GET | `/v1/auth/me` | Current user |
+| GET/POST | `/v1/projects` | List / Create projects |
+| GET/PUT/DELETE | `/v1/projects/{id}` | Get / Update / Delete project |
+| GET/POST | `/v1/projects/{id}/tasks` | List / Create tasks |
+| GET/POST | `/v1/projects/{id}/expenses` | List / Create expenses |
+| POST | `/v1/projects/{id}/documents` | Upload document |
+| GET/POST | `/v1/projects/{id}/risks` | List / Create risks |
+| GET/POST | `/v1/projects/{id}/milestones` | List / Create milestones |
 
-1. **Push to GitHub**
-   ```bash
-   git push origin main
-   ```
-
-2. **Connect to Render**
-   - Go to [Render Dashboard](https://dashboard.render.com)
-   - Click "New" → "Blueprint"
-   - Connect your repository
-   - Render will auto-detect `render.yaml`
-
-3. **Configure Environment Variables**
-   - Set `ALLOWED_ORIGINS` to your frontend URL
-   - Generate strong `SECRET_KEY`
-   - Configure R2 credentials (optional)
-
-4. **Deploy**
-   - Render will automatically deploy
-   - Run migrations in shell: `alembic upgrade head`
-   - Seed database: `python -m app.db.init_db`
-
-See [SETUP.md](./SETUP.md) for detailed deployment instructions.
+Full interactive documentation available at `/docs` when the server is running.
 
 ---
 
-## 📊 API Endpoints
+## Deployment
 
-### Authentication
-- `POST /v1/auth/login` - Login
-- `POST /v1/auth/refresh` - Refresh token
-- `GET /v1/auth/me` - Current user
-- `POST /v1/auth/logout` - Logout
+### Render.com
 
-### Projects
-- `GET /v1/projects` - List projects
-- `POST /v1/projects` - Create project
-- `GET /v1/projects/{id}` - Get project
-- `PUT /v1/projects/{id}` - Update project
-- `DELETE /v1/projects/{id}` - Delete project
-
-### Tasks
-- `GET /v1/projects/{project_id}/tasks` - List tasks
-- `POST /v1/projects/{project_id}/tasks` - Create task
-- `PUT /v1/projects/{project_id}/tasks/{id}/status` - Update status
-- `PUT /v1/projects/{project_id}/tasks/{id}/progress` - Update progress
-
-### Expenses
-- `GET /v1/projects/{project_id}/expenses` - List expenses
-- `POST /v1/projects/{project_id}/expenses` - Create expense
-- `POST /v1/projects/{project_id}/expenses/{id}/approve` - Approve
-- `POST /v1/projects/{project_id}/expenses/{id}/reject` - Reject
-
-### Documents
-- `POST /v1/projects/{project_id}/documents` - Upload file
-- `GET /v1/projects/{project_id}/documents/{id}/download` - Download
-
-Full API documentation: `http://localhost:8000/docs`
+1. Push to GitHub
+2. Connect repo on [Render Dashboard](https://dashboard.render.com)
+3. Render auto-detects `render.yaml` and provisions services
+4. Set environment variables in Render dashboard
+5. Run migrations: `alembic upgrade head`
 
 ---
 
-## 🧪 Testing
+## License
 
-### Backend Tests
-```bash
-cd apps/api
-pytest
-```
-
-### Frontend Tests
-```bash
-cd apps/web
-npm test
-```
-
-### Manual Testing
-1. Login with demo credentials
-2. Create a new project
-3. Add tasks to the project
-4. Upload documents
-5. Track expenses
-6. Test approval workflows
-
----
-
-## 🔒 Security
-
-- ✅ JWT authentication with refresh tokens
-- ✅ Password hashing with bcrypt
-- ✅ CORS protection
-- ✅ SQL injection prevention (SQLAlchemy)
-- ✅ XSS protection (React)
-- ✅ CSRF protection (planned)
-- ✅ Rate limiting (planned)
-- ✅ Audit logging
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 👥 Team
-
-Built with ❤️ for the Ugandan construction industry.
-
----
-
-## 📞 Support
-
-For issues or questions:
-- Open an issue on GitHub
-- Email: support@buildpro.ug
-- Documentation: [SETUP.md](./SETUP.md)
-
----
-
-## 🎯 Roadmap
-
-- [x] Multi-tenant architecture
-- [x] Project & task management
-- [x] Budget tracking
-- [x] Document management
-- [x] Risk management
-- [ ] Real-time notifications
-- [ ] Mobile app (React Native)
-- [ ] AI-powered insights
-- [ ] Advanced analytics
-- [ ] Gantt charts
-- [ ] Resource planning
-- [ ] Time tracking
-- [ ] Invoice generation
-
----
-
-## ⭐ Show Your Support
-
-Give a ⭐️ if this project helped you!
-
----
-
-**Built with FastAPI, React, and PostgreSQL**
+MIT
