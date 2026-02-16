@@ -5,6 +5,12 @@ from typing import List
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 
+DEFAULT_ALLOWED_ORIGINS = [
+    "https://buildpro-web.onrender.com",
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+
 
 def normalize_database_url(database_url: str) -> str:
     """Normalize provider URLs for SQLAlchemy compatibility."""
@@ -33,7 +39,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # CORS
-    ALLOWED_ORIGINS: List[str] | str = "http://localhost:5173"
+    ALLOWED_ORIGINS: List[str] | str = DEFAULT_ALLOWED_ORIGINS
     
     # File Upload
     MAX_UPLOAD_SIZE: int = 52428800  # 50MB
@@ -87,7 +93,7 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             raw = value.strip()
             if not raw:
-                return []
+                return DEFAULT_ALLOWED_ORIGINS
 
             if raw.startswith("["):
                 try:
@@ -103,8 +109,17 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_cors_configuration(self):
-        normalized = [origin.strip().rstrip("/") for origin in self.ALLOWED_ORIGINS if origin.strip()]
-        self.ALLOWED_ORIGINS = normalized
+        configured = [origin.strip().rstrip("/") for origin in self.ALLOWED_ORIGINS if origin.strip()]
+        if not configured:
+            configured = DEFAULT_ALLOWED_ORIGINS.copy()
+
+        merged = []
+        for origin in [*DEFAULT_ALLOWED_ORIGINS, *configured]:
+            cleaned = origin.strip().rstrip("/")
+            if cleaned and cleaned not in merged:
+                merged.append(cleaned)
+
+        self.ALLOWED_ORIGINS = merged
 
         if self.ENVIRONMENT.lower() == "production" and "*" in self.ALLOWED_ORIGINS:
             raise ValueError(

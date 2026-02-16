@@ -2,7 +2,8 @@ import axios from 'axios'
 import { handleSessionExpired } from './session'
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/+$/, '')
-const API_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`
+const normalizedV1 = rawApiUrl.replace(/\/api\/v1$/i, '/api')
+const API_URL = normalizedV1.endsWith('/api') ? normalizedV1 : `${normalizedV1}/api`
 
 export const api = axios.create({
   baseURL: API_URL,

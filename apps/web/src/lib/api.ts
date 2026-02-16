@@ -4,12 +4,13 @@ import { handleSessionExpired } from './session';
 function normalizeApiBaseUrl(rawUrl: string): string {
     const trimmed = rawUrl.trim().replace(/\/+$/, '');
     const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+    const normalizedV1 = withProtocol.replace(/\/api\/v1$/i, '/api');
 
-    if (withProtocol.endsWith('/api')) {
-        return withProtocol;
+    if (normalizedV1.endsWith('/api')) {
+        return normalizedV1;
     }
 
-    return `${withProtocol}/api`;
+    return `${normalizedV1}/api`;
 }
 
 // Canonical API base URL (must resolve to .../api)

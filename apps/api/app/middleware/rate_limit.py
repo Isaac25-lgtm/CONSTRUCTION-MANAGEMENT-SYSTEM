@@ -101,6 +101,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
 
+        # Always allow CORS preflight requests.
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Skip exempt paths
         if path in EXEMPT_PATHS:
             return await call_next(request)
