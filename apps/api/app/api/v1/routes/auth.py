@@ -1,5 +1,8 @@
-from fastapi import APIRouter, Depends, Response, status, Cookie
+import logging
+
+from fastapi import APIRouter, Depends, Response, status, Cookie, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -15,6 +18,7 @@ from app.api.v1.dependencies import get_current_active_user
 
 router = APIRouter()
 REFRESH_COOKIE_PATH = "/api/v1/auth/refresh"
+logger = logging.getLogger(__name__)
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -27,20 +31,26 @@ async def login(
     Login with email and password.
     Returns access token and sets refresh token as httpOnly cookie.
     """
-    # Find user
-    user = db.query(User).filter(
-        User.email == credentials.email,
-        User.is_active == True,
-        User.is_deleted == False
-    ).first()
-    
-    if not user or not verify_password(credentials.password, user.password_hash):
-        raise InvalidCredentialsError()
-    
-    # Get user's organization memberships
-    org_memberships = db.query(OrganizationMember).filter(
-        OrganizationMember.user_id == user.id
-    ).all()
+    try:
+        # Find user
+        user = db.query(User).filter(
+            User.email == credentials.email,
+            User.is_active == True,
+            User.is_deleted == False
+        ).first()
+        
+        if not user or not verify_password(credentials.password, user.password_hash):
+            raise InvalidCredentialsError()
+        
+        # Get user's organization memberships
+        org_memberships = db.query(OrganizationMember).filter(
+            OrganizationMember.user_id == user.id
+        ).all()
+    except InvalidCredentialsError:
+        raise
+    except SQLAlchemyError:
+        logger.exception("Database error during login")
+        raise HTTPException(status_code=503, detail="Authentication service temporarily unavailable")
     
     # Create tokens
     access_token = create_access_token(
@@ -65,8 +75,12 @@ async def login(
     )
     
     # Update last login
-    user.last_login = datetime.utcnow()
-    db.commit()
+    try:
+        user.last_login = datetime.utcnow()
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Failed to update user last_login during login")
     
     # Select active organization only from ACTIVE memberships
     active_memberships = [
@@ -133,12 +147,16 @@ async def refresh_token(
         except (TypeError, ValueError):
             raise InvalidTokenError("Invalid refresh token subject")
         
-        # Verify user still exists and is active
-        user = db.query(User).filter(
-            User.id == user_id,
-            User.is_active == True,
-            User.is_deleted == False
-        ).first()
+        try:
+            # Verify user still exists and is active
+            user = db.query(User).filter(
+                User.id == user_id,
+                User.is_active == True,
+                User.is_deleted == False
+            ).first()
+        except SQLAlchemyError:
+            logger.exception("Database error during token refresh")
+            raise HTTPException(status_code=503, detail="Authentication service temporarily unavailable")
         
         if not user:
             raise InvalidCredentialsError()
@@ -153,7 +171,9 @@ async def refresh_token(
             token_type="bearer"
         )
         
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
         # Clear invalid refresh token
         response.delete_cookie(key="refresh_token", path=REFRESH_COOKIE_PATH)
         raise InvalidTokenError("Invalid or expired refresh token")
@@ -167,10 +187,14 @@ async def get_current_user_info(
     """
     Get current user information including organization memberships.
     """
-    # Get user's organization memberships
-    org_memberships = db.query(OrganizationMember).filter(
-        OrganizationMember.user_id == current_user.id
-    ).all()
+    try:
+        # Get user's organization memberships
+        org_memberships = db.query(OrganizationMember).filter(
+            OrganizationMember.user_id == current_user.id
+        ).all()
+    except SQLAlchemyError:
+        logger.exception("Database error while loading current user organizations")
+        raise HTTPException(status_code=503, detail="User profile service temporarily unavailable")
     
     # Build organization memberships response
     organizations = []
