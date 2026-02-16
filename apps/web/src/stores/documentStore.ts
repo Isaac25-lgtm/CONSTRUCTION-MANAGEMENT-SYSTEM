@@ -3,15 +3,15 @@ import { documentsAPI } from '../lib/api';
 
 interface Document {
     id: string;
-    filename: string;
+    name: string;
     file_size: number;
     mime_type: string;
-    category: string;
+    document_type: string;
     description: string | null;
-    storage_path: string;
+    storage_key: string;
     file_url: string;
-    uploaded_by: string | null;
-    uploader_name: string | null;
+    uploaded_by_id: string | null;
+    uploaded_by_name: string | null;
     project_id: string;
     created_at: string;
     updated_at: string;
@@ -26,7 +26,7 @@ interface DocumentStore {
     isLoading: boolean;
     error: string | null;
     fetchDocuments: (projectId: string, params?: any) => Promise<void>;
-    uploadDocument: (projectId: string, file: File, category?: string, description?: string) => Promise<Document>;
+    uploadDocument: (projectId: string, file: File, documentType?: string, description?: string) => Promise<Document>;
     downloadDocument: (projectId: string, id: string, filename: string) => Promise<void>;
     updateDocument: (projectId: string, id: string, data: any) => Promise<void>;
     deleteDocument: (projectId: string, id: string) => Promise<void>;
@@ -59,10 +59,10 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
         }
     },
 
-    uploadDocument: async (projectId, file, category, description) => {
+    uploadDocument: async (projectId, file, documentType, description) => {
         set({ isLoading: true, error: null });
         try {
-            const doc = await documentsAPI.upload(projectId, file, category, description);
+            const doc = await documentsAPI.upload(projectId, file, documentType, description);
             set((state) => ({
                 documents: [doc, ...state.documents],
                 total: state.total + 1,

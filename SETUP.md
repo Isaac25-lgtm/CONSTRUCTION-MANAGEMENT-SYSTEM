@@ -8,8 +8,9 @@ This guide is for local development and Render deployment.
 
 ```powershell
 cd apps\api
-C:\Users\USER\AppData\Local\Programs\Python\Python312\python.exe -m pip install -r requirements.txt
-C:\Users\USER\AppData\Local\Programs\Python\Python312\python.exe run_local.py
+pip install -r requirements.txt
+pip install -r requirements-dev.txt  # Optional for contributors
+python run_local.py
 ```
 
 - API: `http://localhost:8000`
@@ -57,7 +58,9 @@ Use the included `render.yaml` Blueprint.
 - `ENVIRONMENT=production`
 - `DEBUG=false`
 - `ALLOWED_ORIGINS=https://<frontend-service>.onrender.com,http://localhost:5173`
-- `USE_CLOUD_STORAGE=false` (unless configured)
+- `USE_CLOUD_STORAGE=true` with:
+  `R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`
+- If `USE_CLOUD_STORAGE=false`, document uploads are stored on Render local disk and are ephemeral (lost on restart/redeploy).
 
 ### Frontend Environment Variables
 
@@ -69,8 +72,8 @@ Use the included `render.yaml` Blueprint.
 ## Notes
 
 - Backend normalizes `postgres://` to `postgresql://` automatically.
-- In non-production mode, if a user belongs to exactly one org, missing `X-Organization-ID` is auto-resolved.
-- In production, `X-Organization-ID` remains required for org-scoped endpoints.
+- If a user belongs to exactly one active org, missing `X-Organization-ID` is auto-resolved.
+- If a user belongs to multiple active orgs, `X-Organization-ID` is required for org-scoped endpoints (including production).
 - Mutating API endpoints authenticated with Bearer tokens do not require CSRF headers.
 - In production, `ALLOWED_ORIGINS` must be explicit origins (no `*`).
 

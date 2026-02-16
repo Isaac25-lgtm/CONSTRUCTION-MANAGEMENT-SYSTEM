@@ -5,6 +5,7 @@ In production, replace with Redis-based storage.
 """
 import time
 import logging
+import hashlib
 from collections import defaultdict
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -88,6 +89,7 @@ AUTH_PATHS = {
 # Paths exempt from rate limiting
 EXEMPT_PATHS = {
     "/health", "/ready", "/", "/docs", "/redoc", "/openapi.json",
+    "/api/docs", "/api/redoc", "/api/openapi.json",
 }
 
 
@@ -108,7 +110,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Also consider auth header for per-user limiting
         auth_header = request.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
-            key = f"user:{auth_header.split(' ')[1][:16]}"  # Use first 16 chars of token
+            token = auth_header.split(" ", 1)[1].strip()
+            token_fingerprint = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+            key = f"user:{token_fingerprint}"
         else:
             key = f"ip:{client_ip}"
 

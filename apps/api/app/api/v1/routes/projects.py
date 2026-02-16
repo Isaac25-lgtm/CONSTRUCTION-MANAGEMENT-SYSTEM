@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
+from sqlalchemy import or_
 from typing import Optional, List
 from uuid import UUID
 from datetime import date
@@ -17,10 +17,29 @@ from app.schemas.project import (
 )
 from app.models.project import Project, ProjectMember, ProjectStatus, ProjectPriority
 from app.models.user import User
-from app.models.organization import Organization
-from app.api.v1.dependencies import get_current_active_user, get_current_organization, get_org_context, OrgContext
+from app.models.organization import OrganizationMember, MembershipStatus
+from app.api.v1.dependencies import get_org_context, OrgContext
 
 router = APIRouter()
+
+
+def _is_active_org_member_user(db: Session, org_id: UUID, user_id: UUID | None) -> bool:
+    if not user_id:
+        return False
+
+    membership = (
+        db.query(OrganizationMember)
+        .join(User, User.id == OrganizationMember.user_id)
+        .filter(
+            OrganizationMember.organization_id == org_id,
+            OrganizationMember.user_id == user_id,
+            OrganizationMember.status == MembershipStatus.ACTIVE,
+            User.is_active == True,
+            User.is_deleted == False,
+        )
+        .first()
+    )
+    return membership is not None
 
 
 @router.get("", response_model=ProjectListResponse)
@@ -110,10 +129,16 @@ async def create_project(
     db: Session = Depends(get_db)
 ):
     """Create a new project"""
-    # Verify manager exists and is in the organization
-    manager = db.query(User).filter(User.id == project_data.manager_id).first()
+    # Verify manager exists and is active member of the current organization
+    manager = db.query(User).filter(
+        User.id == project_data.manager_id,
+        User.is_deleted == False
+    ).first()
     if not manager:
         raise HTTPException(status_code=404, detail="Manager not found")
+
+    if not _is_active_org_member_user(db, ctx.organization.id, project_data.manager_id):
+        raise HTTPException(status_code=400, detail="Manager must be an active member of this organization")
     
     # Create project
     project = Project(
@@ -230,6 +255,11 @@ async def update_project(
     
     # Update fields
     update_data = project_data.dict(exclude_unset=True)
+    if "manager_id" in update_data and not _is_active_org_member_user(
+        db, ctx.organization.id, update_data.get("manager_id")
+    ):
+        raise HTTPException(status_code=400, detail="Manager must be an active member of this organization")
+
     for field, value in update_data.items():
         if field in ["status", "priority"] and value:
             # Convert string to enum
@@ -343,6 +373,10 @@ async def add_project_member(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
+    # Check if already a member
+    if not _is_active_org_member_user(db, ctx.organization.id, member_data.user_id):
+        raise HTTPException(status_code=400, detail="User must be an active member of this organization")
+
     # Check if already a member
     existing = db.query(ProjectMember).filter(
         ProjectMember.project_id == project_id,

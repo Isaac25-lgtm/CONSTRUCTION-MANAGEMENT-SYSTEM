@@ -111,6 +111,17 @@ class Settings(BaseSettings):
                 "ALLOWED_ORIGINS cannot contain '*' in production when allow_credentials=True."
             )
 
+        if self.ENVIRONMENT.lower() == "production":
+            insecure_defaults = {
+                "",
+                "change-this-in-production",
+                "dev-secret-key-change-in-production-min-32-chars",
+            }
+            if self.SECRET_KEY in insecure_defaults or len(self.SECRET_KEY) < 32:
+                raise ValueError(
+                    "SECRET_KEY must be set to a strong value (>= 32 chars) in production."
+                )
+
         return self
 
 

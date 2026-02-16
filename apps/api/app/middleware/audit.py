@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 # Routes to skip (non-entity routes)
 SKIP_PATHS = {
     "/docs", "/redoc", "/openapi.json",
+    "/api/docs", "/api/redoc", "/api/openapi.json",
     "/health", "/ready", "/",
     "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout",
 }
@@ -26,15 +27,43 @@ METHOD_ACTION_MAP = {
     "DELETE": "DELETE",
 }
 
+ACTION_PATH_SEGMENTS = {
+    "status",
+    "progress",
+    "approve",
+    "reject",
+    "read",
+    "download",
+    "login",
+    "logout",
+    "refresh",
+    "me",
+}
+
+
+def _is_uuid_segment(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+        return True
+    except (TypeError, ValueError):
+        return False
+
 
 def extract_entity_type(path: str) -> str | None:
-    """Extract the entity type from the API path."""
-    parts = path.strip("/").split("/")
-    # Pattern: api/v1/{entity} or api/v1/projects/{id}/{entity}
-    if len(parts) >= 3:
-        entity = parts[2]
-        if len(parts) >= 5:
-            entity = parts[4]
+    """Extract a stable entity type from API paths."""
+    parts = [part for part in path.strip("/").split("/") if part]
+    if len(parts) < 3:
+        return None
+
+    if parts[0] == "api" and parts[1].startswith("v"):
+        parts = parts[2:]
+
+    resource_parts = [
+        part for part in parts
+        if not _is_uuid_segment(part) and part not in ACTION_PATH_SEGMENTS
+    ]
+    if resource_parts:
+        entity = resource_parts[-1]
         return entity.replace("-", "_").rstrip("s").capitalize()
     return None
 

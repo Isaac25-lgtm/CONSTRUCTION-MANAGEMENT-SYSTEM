@@ -1,22 +1,32 @@
-from pydantic import BaseModel, UUID4, Field
-from typing import Optional, List
 from datetime import date, datetime
+from typing import List, Optional
+
+from pydantic import AliasChoices, BaseModel, Field, UUID4
 
 
-# Milestone Schemas
 class MilestoneCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
-    due_date: date
-    dependencies: List[UUID4] = []
+    target_date: date = Field(
+        ...,
+        validation_alias=AliasChoices("target_date", "due_date"),
+    )
+    dependencies: List[UUID4] = Field(default_factory=list)
 
 
 class MilestoneUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
-    due_date: Optional[date] = None
-    status: Optional[str] = None  # Pending, In_Progress, Completed, Delayed
-    completion_date: Optional[date] = None
+    target_date: Optional[date] = Field(
+        None,
+        validation_alias=AliasChoices("target_date", "due_date"),
+    )
+    status: Optional[str] = None
+    actual_date: Optional[date] = Field(
+        None,
+        validation_alias=AliasChoices("actual_date", "completion_date"),
+    )
+    completion_percentage: Optional[int] = Field(None, ge=0, le=100)
     dependencies: Optional[List[UUID4]] = None
 
 
@@ -26,13 +36,14 @@ class MilestoneResponse(BaseModel):
     project_id: UUID4
     name: str
     description: Optional[str] = None
-    due_date: date
+    target_date: date
+    actual_date: Optional[date] = None
     status: str
-    completion_date: Optional[date] = None
-    dependencies: List[UUID4] = []
+    completion_percentage: int
+    dependencies: List[UUID4] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 

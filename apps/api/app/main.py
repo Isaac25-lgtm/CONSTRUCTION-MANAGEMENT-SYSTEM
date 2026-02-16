@@ -22,8 +22,14 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Middleware (order matters — outermost runs first)
-# 1. CORS (must be outermost)
+# Middleware (order matters; last added is outermost in Starlette/FastAPI)
+# 1. Audit Logging (innermost)
+app.add_middleware(AuditLoggingMiddleware)
+
+# 2. Rate Limiting (middle)
+app.add_middleware(RateLimitMiddleware)
+
+# 3. CORS (outermost so headers are present on all responses, including errors)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -31,12 +37,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 2. Rate Limiting
-app.add_middleware(RateLimitMiddleware)
-
-# 3. Audit Logging (innermost — runs after auth)
-app.add_middleware(AuditLoggingMiddleware)
 
 # Exception Handlers
 @app.exception_handler(APIError)

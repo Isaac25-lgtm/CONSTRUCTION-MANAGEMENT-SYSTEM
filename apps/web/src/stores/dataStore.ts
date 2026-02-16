@@ -202,9 +202,9 @@ const mapExpense = (e: any, idx: number, projects: Project[]): Expense => {
     _projectUuid: e.project_id,
     project: project?.name || '',
     vendor: e.vendor || '',
-    date: e.date || e.created_at?.split('T')[0] || '',
+    date: e.expense_date || e.date || e.created_at?.split('T')[0] || '',
     status: e.status || 'Pending',
-    loggedBy: e.submitted_by_name || '',
+    loggedBy: e.logged_by_name || e.submitted_by_name || '',
   };
 };
 
@@ -230,12 +230,12 @@ const mapDocument = (d: any, idx: number, projects: Project[]): Document => {
   return {
     id: idx + 1,
     _uuid: d.id,
-    name: d.filename || d.name || '',
-    type: d.category || 'Document',
+    name: d.name || d.filename || '',
+    type: d.document_type || d.category || 'Document',
     project: project?.name || '',
     projectId: project?.id || 0,
     _projectUuid: d.project_id,
-    uploadedBy: d.uploader_name || 'Unknown',
+    uploadedBy: d.uploaded_by_name || d.uploader_name || 'Unknown',
     date: d.created_at?.split('T')[0] || '',
     size: d.file_size ? `${(d.file_size / 1024 / 1024).toFixed(1)} MB` : '0 MB',
     mimeType: d.mime_type || '',
@@ -248,7 +248,7 @@ const mapMilestone = (m: any, idx: number, projects: Project[]): Milestone => {
     id: idx + 1,
     _uuid: m.id,
     name: m.name || '',
-    date: m.due_date || '',
+    date: m.target_date || m.due_date || '',
     status: m.status?.replace('_', ' ') || 'Pending',
     projectId: project?.id || 0,
     _projectUuid: m.project_id,
@@ -477,9 +477,9 @@ export const useDataStore = create<DataStore>((set, get) => ({
     const project = state.projects.find(p => p.id === task.projectId);
     if (state.isApiConnected && project?._uuid) {
       tasksAPI.create(project._uuid, {
-        title: task.name,
+        name: task.name,
         description: task.description,
-        status: task.status?.replace(' ', '_'),
+        status: task.status,
         priority: task.priority,
         due_date: task.dueDate,
         start_date: task.startDate,
@@ -498,9 +498,9 @@ export const useDataStore = create<DataStore>((set, get) => ({
     const project = task ? state.projects.find(p => p.id === task.projectId) : null;
     if (state.isApiConnected && task?._uuid && project?._uuid) {
       const updateData: any = {};
-      if (data.name) updateData.title = data.name;
+      if (data.name) updateData.name = data.name;
       if (data.description !== undefined) updateData.description = data.description;
-      if (data.status) updateData.status = data.status.replace(' ', '_');
+      if (data.status) updateData.status = data.status;
       if (data.priority) updateData.priority = data.priority;
       if (data.dueDate) updateData.due_date = data.dueDate;
       if (data.progress !== undefined) updateData.progress = data.progress;
@@ -601,7 +601,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
         category: expense.category,
         amount: expense.amount,
         vendor: expense.vendor,
-        date: expense.date,
+        expense_date: expense.date,
       }).then(() => state.syncFromAPI()).catch(console.error);
     } else {
       set((s) => ({

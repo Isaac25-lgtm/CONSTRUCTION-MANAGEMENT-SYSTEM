@@ -13,6 +13,40 @@ from app.api.v1.dependencies import get_org_context, OrgContext
 router = APIRouter()
 
 
+def _parse_milestone_status(status_value: str) -> MilestoneStatus:
+    """Support existing legacy status strings while storing model-native enum values."""
+    normalized = (status_value or "").strip().lower().replace("_", " ").replace("-", " ")
+    status_map = {
+        "pending": MilestoneStatus.PENDING,
+        "in progress": MilestoneStatus.ON_TRACK,
+        "on track": MilestoneStatus.ON_TRACK,
+        "at risk": MilestoneStatus.AT_RISK,
+        "delayed": MilestoneStatus.DELAYED,
+        "completed": MilestoneStatus.COMPLETED,
+    }
+    parsed = status_map.get(normalized)
+    if parsed is None:
+        raise HTTPException(status_code=400, detail=f"Invalid milestone status: {status_value}")
+    return parsed
+
+
+def _to_milestone_response(milestone: Milestone) -> MilestoneResponse:
+    return MilestoneResponse(
+        id=milestone.id,
+        organization_id=milestone.organization_id,
+        project_id=milestone.project_id,
+        name=milestone.name,
+        description=milestone.description,
+        target_date=milestone.target_date,
+        actual_date=milestone.actual_date,
+        status=milestone.status.value,
+        completion_percentage=milestone.completion_percentage,
+        dependencies=milestone.dependencies or [],
+        created_at=milestone.created_at,
+        updated_at=milestone.updated_at,
+    )
+
+
 @router.get("", response_model=MilestoneListResponse)
 async def list_milestones(
     project_id: UUID,
@@ -39,25 +73,13 @@ async def list_milestones(
     )
     
     if status:
-        query = query.filter(Milestone.status == status)
-    
+        query = query.filter(Milestone.status == _parse_milestone_status(status))
+
     total = query.count()
     offset = (page - 1) * page_size
-    milestones = query.order_by(Milestone.due_date.asc()).offset(offset).limit(page_size).all()
-    
-    items = [MilestoneResponse(
-        id=m.id,
-        organization_id=m.organization_id,
-        project_id=m.project_id,
-        name=m.name,
-        description=m.description,
-        due_date=m.due_date,
-        status=m.status.value,
-        completion_date=m.completion_date,
-        dependencies=m.dependencies or [],
-        created_at=m.created_at,
-        updated_at=m.updated_at
-    ) for m in milestones]
+    milestones = query.order_by(Milestone.target_date.asc()).offset(offset).limit(page_size).all()
+
+    items = [_to_milestone_response(m) for m in milestones]
     
     total_pages = math.ceil(total / page_size) if total > 0 else 0
     
@@ -86,8 +108,9 @@ async def create_milestone(
         project_id=project_id,
         name=milestone_data.name,
         description=milestone_data.description,
-        due_date=milestone_data.due_date,
+        target_date=milestone_data.target_date,
         status=MilestoneStatus.PENDING,
+        completion_percentage=0,
         dependencies=milestone_data.dependencies
     )
     
@@ -95,19 +118,7 @@ async def create_milestone(
     db.commit()
     db.refresh(milestone)
     
-    return MilestoneResponse(
-        id=milestone.id,
-        organization_id=milestone.organization_id,
-        project_id=milestone.project_id,
-        name=milestone.name,
-        description=milestone.description,
-        due_date=milestone.due_date,
-        status=milestone.status.value,
-        completion_date=milestone.completion_date,
-        dependencies=milestone.dependencies or [],
-        created_at=milestone.created_at,
-        updated_at=milestone.updated_at
-    )
+    return _to_milestone_response(milestone)
 
 
 @router.put("/{milestone_id}", response_model=MilestoneResponse)
@@ -129,29 +140,22 @@ async def update_milestone(
     if not milestone:
         raise HTTPException(status_code=404, detail="Milestone not found")
     
-    update_data = milestone_data.dict(exclude_unset=True)
+    update_data = milestone_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if field == "status" and value:
-            milestone.status = MilestoneStatus(value)
+            milestone.status = _parse_milestone_status(value)
         else:
             setattr(milestone, field, value)
     
+    if milestone.status == MilestoneStatus.COMPLETED and not milestone.actual_date:
+        milestone.actual_date = milestone.target_date
+    elif milestone.status != MilestoneStatus.COMPLETED:
+        milestone.actual_date = None
+
     db.commit()
     db.refresh(milestone)
     
-    return MilestoneResponse(
-        id=milestone.id,
-        organization_id=milestone.organization_id,
-        project_id=milestone.project_id,
-        name=milestone.name,
-        description=milestone.description,
-        due_date=milestone.due_date,
-        status=milestone.status.value,
-        completion_date=milestone.completion_date,
-        dependencies=milestone.dependencies or [],
-        created_at=milestone.created_at,
-        updated_at=milestone.updated_at
-    )
+    return _to_milestone_response(milestone)
 
 
 @router.delete("/{milestone_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -294,6 +294,7 @@ export const documentsAPI = {
     list: async (projectId: string, params?: {
         page?: number;
         page_size?: number;
+        document_type?: string;
         category?: string;
         search?: string;
     }) => {
@@ -301,12 +302,17 @@ export const documentsAPI = {
         return response.data;
     },
 
-    upload: async (projectId: string, file: File, category?: string, description?: string) => {
+    upload: async (
+        projectId: string,
+        file: File,
+        documentType?: string,
+        description?: string
+    ) => {
         const formData = new FormData();
         formData.append('file', file);
 
         const params = new URLSearchParams();
-        if (category) params.append('category', category);
+        if (documentType) params.append('document_type', documentType);
         if (description) params.append('description', description);
 
         const response = await apiClient.post(
@@ -333,7 +339,14 @@ export const documentsAPI = {
         return response.data;
     },
 
-    update: async (projectId: string, id: string, data: { category?: string; description?: string }) => {
+    update: async (
+        projectId: string,
+        id: string,
+        data: { document_type?: string; category?: string; description?: string }
+    ) => {
+        if (!data.document_type && data.category) {
+            data.document_type = data.category;
+        }
         const response = await apiClient.put(`/v1/projects/${projectId}/documents/${id}`, data);
         return response.data;
     },
@@ -413,7 +426,7 @@ export const organizationsAPI = {
         return response.data;
     },
 
-    create: async (data: { name: string; slug: string; description?: string; industry?: string }) => {
+    create: async (data: { name: string; slug: string }) => {
         const response = await apiClient.post('/v1/organizations', data);
         return response.data;
     },

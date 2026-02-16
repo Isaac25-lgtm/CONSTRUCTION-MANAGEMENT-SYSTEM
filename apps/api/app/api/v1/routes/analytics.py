@@ -7,8 +7,9 @@ from datetime import date
 from app.db.session import get_db
 from app.schemas.analytics import DashboardKPIs, ProjectSummary
 from app.models.project import Project
+from app.models.project import ProjectStatus
 from app.models.task import Task, TaskStatus
-from app.models.expense import Expense
+from app.models.expense import Expense, ExpenseStatus
 from app.models.risk import Risk, RiskStatus, RiskImpact
 from app.models.milestone import Milestone, MilestoneStatus
 from app.models.organization import OrganizationMember, MembershipStatus
@@ -32,7 +33,7 @@ async def get_dashboard_kpis(
     
     active_projects = db.query(func.count(Project.id)).filter(
         Project.organization_id == org_id, Project.is_deleted == False,
-        Project.status.in_(["Active", "In_Progress"])
+        Project.status.in_([ProjectStatus.PLANNING, ProjectStatus.IN_PROGRESS])
     ).scalar() or 0
     
     # Tasks
@@ -58,7 +59,7 @@ async def get_dashboard_kpis(
     
     total_spent = db.query(func.sum(Expense.amount)).filter(
         Expense.organization_id == org_id, Expense.is_deleted == False,
-        Expense.status == "Approved"
+        Expense.status == ExpenseStatus.APPROVED
     ).scalar() or 0
     
     budget_utilization = (float(total_spent) / float(total_budget) * 100) if total_budget > 0 else 0
@@ -78,13 +79,13 @@ async def get_dashboard_kpis(
     # Milestones
     upcoming_milestones = db.query(func.count(Milestone.id)).filter(
         Milestone.organization_id == org_id, Milestone.is_deleted == False,
-        Milestone.due_date >= date.today(),
-        Milestone.status.in_([MilestoneStatus.PENDING, MilestoneStatus.IN_PROGRESS])
+        Milestone.target_date >= date.today(),
+        Milestone.status != MilestoneStatus.COMPLETED
     ).scalar() or 0
     
     overdue_milestones = db.query(func.count(Milestone.id)).filter(
         Milestone.organization_id == org_id, Milestone.is_deleted == False,
-        Milestone.due_date < date.today(),
+        Milestone.target_date < date.today(),
         Milestone.status.notin_([MilestoneStatus.COMPLETED])
     ).scalar() or 0
     
@@ -140,7 +141,7 @@ async def get_project_summary(
     
     spent = db.query(func.sum(Expense.amount)).filter(
         Expense.project_id == project_id, Expense.is_deleted == False,
-        Expense.status == "Approved"
+        Expense.status == ExpenseStatus.APPROVED
     ).scalar() or 0
     
     risk_count = db.query(func.count(Risk.id)).filter(
@@ -159,7 +160,7 @@ async def get_project_summary(
     return ProjectSummary(
         project_id=project.id,
         project_name=project.project_name,
-        status=project.status,
+        status=project.status.value,
         progress=round(progress, 1),
         task_count=task_count,
         completed_tasks=completed_tasks,

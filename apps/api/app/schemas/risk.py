@@ -34,7 +34,7 @@ class RiskResponse(BaseModel):
     project_id: UUID4
     title: str
     description: Optional[str] = None
-    category: str
+    category: Optional[str] = None
     probability: str
     impact: str
     risk_score: int

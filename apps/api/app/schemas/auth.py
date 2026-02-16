@@ -38,6 +38,7 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     active_organization_id: Optional[UUID4] = None
+    organizations: List[OrganizationMembershipResponse] = Field(default_factory=list)
     user: UserResponse
     
     class Config:

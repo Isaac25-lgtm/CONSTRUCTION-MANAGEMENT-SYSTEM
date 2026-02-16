@@ -38,8 +38,9 @@ Examples:
 
 ```powershell
 cd apps\api
-C:\Users\USER\AppData\Local\Programs\Python\Python312\python.exe -m pip install -r requirements.txt
-C:\Users\USER\AppData\Local\Programs\Python\Python312\python.exe run_local.py
+pip install -r requirements.txt
+pip install -r requirements-dev.txt  # Optional for contributors
+python run_local.py
 ```
 
 `run_local.py` uses SQLite by default when `DATABASE_URL=sqlite:///./buildpro_local.db`.
@@ -110,6 +111,9 @@ Backend:
 - `ENVIRONMENT=production`
 - `DEBUG=false`
 - `ALLOWED_ORIGINS=https://<your-frontend-site>.onrender.com,http://localhost:5173`
+- `USE_CLOUD_STORAGE=true` with:
+  `R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`
+- If `USE_CLOUD_STORAGE=false`, uploaded files are stored on local disk and are ephemeral on Render (lost on restart/redeploy).
 
 Frontend:
 

@@ -7,6 +7,8 @@ import math
 from app.db.session import get_db
 from app.schemas.message import MessageCreate, MessageResponse, MessageListResponse
 from app.models.message import Message
+from app.models.project import Project
+from app.models.task import Task
 from app.api.v1.dependencies import get_org_context, OrgContext
 
 router = APIRouter()
@@ -71,6 +73,26 @@ async def create_message(
     db: Session = Depends(get_db)
 ):
     """Create a new message"""
+    if message_data.project_id:
+        project = db.query(Project).filter(
+            Project.id == message_data.project_id,
+            Project.organization_id == ctx.organization.id,
+            Project.is_deleted == False
+        ).first()
+        if not project:
+            raise HTTPException(status_code=400, detail="Project must belong to the current organization")
+
+    if message_data.task_id:
+        task = db.query(Task).filter(
+            Task.id == message_data.task_id,
+            Task.organization_id == ctx.organization.id,
+            Task.is_deleted == False
+        ).first()
+        if not task:
+            raise HTTPException(status_code=400, detail="Task must belong to the current organization")
+        if message_data.project_id and task.project_id != message_data.project_id:
+            raise HTTPException(status_code=400, detail="Task does not belong to the specified project")
+
     message = Message(
         organization_id=ctx.organization.id,
         project_id=message_data.project_id,

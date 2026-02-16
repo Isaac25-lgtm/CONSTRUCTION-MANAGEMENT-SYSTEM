@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response, Request, status, Cookie
+from fastapi import APIRouter, Depends, Response, status, Cookie
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.api.v1.dependencies import get_current_active_user
 
 router = APIRouter()
+REFRESH_COOKIE_PATH = "/api/v1/auth/refresh"
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -60,7 +61,7 @@ async def login(
         secure=is_production,
         samesite="none" if is_production else "lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-        path="/"
+        path=REFRESH_COOKIE_PATH
     )
     
     # Update last login
@@ -101,13 +102,13 @@ async def login(
         access_token=access_token,
         token_type="bearer",
         active_organization_id=active_organization_id,
+        organizations=organizations,
         user=user_response
     )
 
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
-    request: Request,
     response: Response,
     refresh_token: Optional[str] = Cookie(None),
     db: Session = Depends(get_db)
@@ -154,7 +155,7 @@ async def refresh_token(
         
     except Exception as e:
         # Clear invalid refresh token
-        response.delete_cookie(key="refresh_token", path="/")
+        response.delete_cookie(key="refresh_token", path=REFRESH_COOKIE_PATH)
         raise InvalidTokenError("Invalid or expired refresh token")
 
 
@@ -198,6 +199,6 @@ async def get_current_user_info(
 @router.post("/logout", response_model=LogoutResponse)
 async def logout(response: Response):
     """Logout and clear refresh token cookie"""
-    response.delete_cookie(key="refresh_token", path="/")
+    response.delete_cookie(key="refresh_token", path=REFRESH_COOKIE_PATH)
     return LogoutResponse(message="Logged out successfully")
 

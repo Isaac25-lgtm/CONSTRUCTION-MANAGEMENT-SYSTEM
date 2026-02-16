@@ -54,7 +54,7 @@ async def list_audit_logs(
             entity_id=log.entity_id,
             before_state=log.before_state,
             after_state=log.after_state,
-            metadata=log.metadata,
+            details=log.details,
             description=log.description,
             created_at=log.created_at
         ))

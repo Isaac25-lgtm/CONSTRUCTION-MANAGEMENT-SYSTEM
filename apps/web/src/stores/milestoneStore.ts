@@ -5,8 +5,9 @@ interface Milestone {
     id: string;
     name: string;
     description: string | null;
-    due_date: string;
-    completion_date: string | null;
+    target_date: string;
+    actual_date: string | null;
+    completion_percentage: number;
     status: string;
     project_id: string;
     created_at: string;

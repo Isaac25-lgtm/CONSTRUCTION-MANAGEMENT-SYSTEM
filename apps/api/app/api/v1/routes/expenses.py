@@ -16,10 +16,33 @@ from app.schemas.expense import (
     ExpenseReject
 )
 from app.models.expense import Expense, ExpenseStatus
+from app.models.document import Document
 from app.models.project import Project
 from app.api.v1.dependencies import get_org_context, OrgContext
 
 router = APIRouter()
+
+
+def _validate_receipt_document(
+    db: Session,
+    org_id: UUID,
+    project_id: UUID,
+    receipt_document_id: UUID | None,
+) -> None:
+    if not receipt_document_id:
+        return
+
+    receipt_document = db.query(Document).filter(
+        Document.id == receipt_document_id,
+        Document.organization_id == org_id,
+        Document.project_id == project_id,
+        Document.is_deleted == False,
+    ).first()
+    if not receipt_document:
+        raise HTTPException(
+            status_code=400,
+            detail="receipt_document_id must reference an existing document in this organization and project",
+        )
 
 
 @router.get("", response_model=ExpenseListResponse)
@@ -125,6 +148,12 @@ async def create_expense(
     
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    _validate_receipt_document(
+        db,
+        ctx.organization.id,
+        project_id,
+        expense_data.receipt_document_id,
+    )
     
     # Create expense
     expense = Expense(
@@ -232,9 +261,16 @@ async def update_expense(
     # Only allow updates if pending
     if expense.status != ExpenseStatus.PENDING:
         raise HTTPException(status_code=400, detail="Can only update pending expenses")
+    update_data = expense_data.dict(exclude_unset=True)
+    if "receipt_document_id" in update_data:
+        _validate_receipt_document(
+            db,
+            ctx.organization.id,
+            project_id,
+            update_data.get("receipt_document_id"),
+        )
     
     # Update fields
-    update_data = expense_data.dict(exclude_unset=True)
     for field, value in update_data.items():
         setattr(expense, field, value)
     

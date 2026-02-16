@@ -1,20 +1,48 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import Optional
 from uuid import UUID
-import math
 
 from app.db.session import get_db
 from app.schemas.organization import (
     OrganizationCreate, OrganizationUpdate, OrganizationResponse,
     OrganizationListResponse, OrganizationMemberResponse
 )
-from app.models.organization import Organization, OrganizationMember, MembershipStatus, OrgRole
+from app.models.organization import (
+    MembershipStatus,
+    Organization,
+    OrganizationMember,
+    OrgRole,
+    SubscriptionTier,
+)
 from app.models.user import User
-from app.api.v1.dependencies import get_current_active_user, get_current_organization
+from app.api.v1.dependencies import get_current_active_user
 
 router = APIRouter()
+
+
+def _to_organization_response(
+    org: Organization,
+    member_count: int | None = None,
+) -> OrganizationResponse:
+    subscription_tier = (
+        org.subscription_tier.value
+        if hasattr(org.subscription_tier, "value")
+        else str(org.subscription_tier)
+    )
+    return OrganizationResponse(
+        id=org.id,
+        name=org.name,
+        slug=org.slug,
+        subscription_tier=subscription_tier,
+        max_projects=org.max_projects,
+        max_users=org.max_users,
+        logo_url=org.logo_url,
+        is_active=org.is_active,
+        member_count=member_count,
+        created_at=org.created_at,
+        updated_at=org.updated_at,
+    )
 
 
 @router.get("", response_model=OrganizationListResponse)
@@ -42,21 +70,8 @@ async def list_organizations(
             OrganizationMember.organization_id == org.id,
             OrganizationMember.status == MembershipStatus.ACTIVE
         ).scalar()
-        
-        items.append(OrganizationResponse(
-            id=org.id,
-            name=org.name,
-            slug=org.slug,
-            description=org.description,
-            industry=org.industry,
-            website=org.website,
-            address=org.address,
-            subscription_tier=org.subscription_tier,
-            is_active=org.is_active,
-            member_count=member_count,
-            created_at=org.created_at,
-            updated_at=org.updated_at
-        ))
+
+        items.append(_to_organization_response(org, member_count=member_count))
     
     return OrganizationListResponse(items=items, total=len(items))
 
@@ -76,10 +91,6 @@ async def create_organization(
     org = Organization(
         name=org_data.name,
         slug=org_data.slug,
-        description=org_data.description,
-        industry=org_data.industry,
-        website=org_data.website,
-        address=org_data.address,
     )
     db.add(org)
     db.flush()
@@ -88,27 +99,14 @@ async def create_organization(
     membership = OrganizationMember(
         organization_id=org.id,
         user_id=current_user.id,
-        role=OrgRole.ORG_ADMIN,
+        org_role=OrgRole.ORG_ADMIN,
         status=MembershipStatus.ACTIVE
     )
     db.add(membership)
     db.commit()
     db.refresh(org)
-    
-    return OrganizationResponse(
-        id=org.id,
-        name=org.name,
-        slug=org.slug,
-        description=org.description,
-        industry=org.industry,
-        website=org.website,
-        address=org.address,
-        subscription_tier=org.subscription_tier,
-        is_active=org.is_active,
-        member_count=1,
-        created_at=org.created_at,
-        updated_at=org.updated_at
-    )
+
+    return _to_organization_response(org, member_count=1)
 
 
 @router.get("/{org_id}", response_model=OrganizationResponse)
@@ -140,21 +138,8 @@ async def get_organization(
         OrganizationMember.organization_id == org.id,
         OrganizationMember.status == MembershipStatus.ACTIVE
     ).scalar()
-    
-    return OrganizationResponse(
-        id=org.id,
-        name=org.name,
-        slug=org.slug,
-        description=org.description,
-        industry=org.industry,
-        website=org.website,
-        address=org.address,
-        subscription_tier=org.subscription_tier,
-        is_active=org.is_active,
-        member_count=member_count,
-        created_at=org.created_at,
-        updated_at=org.updated_at
-    )
+
+    return _to_organization_response(org, member_count=member_count)
 
 
 @router.put("/{org_id}", response_model=OrganizationResponse)
@@ -169,7 +154,7 @@ async def update_organization(
         OrganizationMember.organization_id == org_id,
         OrganizationMember.user_id == current_user.id,
         OrganizationMember.status == MembershipStatus.ACTIVE,
-        OrganizationMember.role == OrgRole.ORG_ADMIN
+        OrganizationMember.org_role == OrgRole.ORG_ADMIN
     ).first()
     
     if not membership:
@@ -183,8 +168,13 @@ async def update_organization(
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
     
-    update_data = org_data.dict(exclude_unset=True)
+    update_data = org_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
+        if field == "subscription_tier" and value:
+            try:
+                value = SubscriptionTier(value.lower())
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid subscription_tier")
         setattr(org, field, value)
     
     db.commit()
@@ -194,21 +184,8 @@ async def update_organization(
         OrganizationMember.organization_id == org.id,
         OrganizationMember.status == MembershipStatus.ACTIVE
     ).scalar()
-    
-    return OrganizationResponse(
-        id=org.id,
-        name=org.name,
-        slug=org.slug,
-        description=org.description,
-        industry=org.industry,
-        website=org.website,
-        address=org.address,
-        subscription_tier=org.subscription_tier,
-        is_active=org.is_active,
-        member_count=member_count,
-        created_at=org.created_at,
-        updated_at=org.updated_at
-    )
+
+    return _to_organization_response(org, member_count=member_count)
 
 
 @router.get("/{org_id}/members", response_model=list[OrganizationMemberResponse])
@@ -242,7 +219,7 @@ async def list_members(
                 email=user.email,
                 first_name=user.first_name,
                 last_name=user.last_name,
-                role=m.role.value,
+                org_role=m.org_role.value,
                 status=m.status.value,
                 joined_at=m.created_at
             ))

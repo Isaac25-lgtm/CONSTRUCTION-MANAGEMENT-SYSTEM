@@ -1,24 +1,22 @@
-from pydantic import BaseModel, UUID4, Field
-from typing import Optional, List
 from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, UUID4
 
 
-# Organization Schemas
 class OrganizationCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
     slug: str = Field(..., min_length=2, max_length=100)
-    description: Optional[str] = None
-    industry: Optional[str] = None
-    website: Optional[str] = None
-    address: Optional[str] = None
 
 
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=255)
-    description: Optional[str] = None
-    industry: Optional[str] = None
-    website: Optional[str] = None
-    address: Optional[str] = None
+    slug: Optional[str] = Field(None, min_length=2, max_length=100)
+    subscription_tier: Optional[str] = None
+    max_projects: Optional[int] = Field(None, ge=1)
+    max_users: Optional[int] = Field(None, ge=1)
+    logo_url: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 class OrganizationMemberResponse(BaseModel):
@@ -26,7 +24,7 @@ class OrganizationMemberResponse(BaseModel):
     email: str
     first_name: str
     last_name: str
-    role: str
+    org_role: str
     status: str
     joined_at: datetime
 
@@ -38,11 +36,10 @@ class OrganizationResponse(BaseModel):
     id: UUID4
     name: str
     slug: str
-    description: Optional[str] = None
-    industry: Optional[str] = None
-    website: Optional[str] = None
-    address: Optional[str] = None
     subscription_tier: str
+    max_projects: int
+    max_users: int
+    logo_url: Optional[str] = None
     is_active: bool
     member_count: Optional[int] = None
     created_at: datetime

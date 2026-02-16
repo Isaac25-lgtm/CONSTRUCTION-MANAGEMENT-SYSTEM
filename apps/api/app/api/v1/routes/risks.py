@@ -8,9 +8,29 @@ from app.db.session import get_db
 from app.schemas.risk import RiskCreate, RiskUpdate, RiskResponse, RiskListResponse
 from app.models.risk import Risk, RiskProbability, RiskImpact, RiskStatus
 from app.models.project import Project
+from app.models.organization import OrganizationMember, MembershipStatus
+from app.models.user import User
 from app.api.v1.dependencies import get_org_context, OrgContext
 
 router = APIRouter()
+
+
+def _is_active_org_member(db: Session, org_id: UUID, user_id: UUID | None) -> bool:
+    if not user_id:
+        return True
+    membership = (
+        db.query(OrganizationMember)
+        .join(User, User.id == OrganizationMember.user_id)
+        .filter(
+            OrganizationMember.organization_id == org_id,
+            OrganizationMember.user_id == user_id,
+            OrganizationMember.status == MembershipStatus.ACTIVE,
+            User.is_active == True,
+            User.is_deleted == False,
+        )
+        .first()
+    )
+    return membership is not None
 
 
 def calculate_risk_score(probability: RiskProbability, impact: RiskImpact) -> int:
@@ -100,6 +120,8 @@ async def create_risk(
     
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if not _is_active_org_member(db, ctx.organization.id, risk_data.owner_id):
+        raise HTTPException(status_code=400, detail="Owner must be an active member of this organization")
     
     probability = RiskProbability(risk_data.probability)
     impact = RiskImpact(risk_data.impact)
@@ -109,7 +131,7 @@ async def create_risk(
         organization_id=ctx.organization.id,
         project_id=project_id,
         title=risk_data.title,
-        description=risk_data.description,
+        description=risk_data.description or risk_data.title,
         category=risk_data.category,
         probability=probability,
         impact=impact,
@@ -164,8 +186,14 @@ async def update_risk(
     
     if not risk:
         raise HTTPException(status_code=404, detail="Risk not found")
+    if "owner_id" in risk_data.model_dump(exclude_unset=True):
+        if not _is_active_org_member(db, ctx.organization.id, risk_data.owner_id):
+            raise HTTPException(status_code=400, detail="Owner must be an active member of this organization")
     
     update_data = risk_data.dict(exclude_unset=True)
+    if "description" in update_data and update_data["description"] is None:
+        raise HTTPException(status_code=400, detail="description cannot be null")
+
     for field, value in update_data.items():
         if field == "probability" and value:
             risk.probability = RiskProbability(value)

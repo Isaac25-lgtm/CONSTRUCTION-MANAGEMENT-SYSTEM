@@ -137,8 +137,11 @@ class CloudStorageService:
         filepath = os.path.join(upload_dir, unique_name)
         
         with open(filepath, "wb") as f:
-            content = file.read()
-            f.write(content)
+            while True:
+                chunk = file.read(1024 * 1024)
+                if not chunk:
+                    break
+                f.write(chunk)
         
         return {
             "key": unique_name,
@@ -147,5 +150,12 @@ class CloudStorageService:
         }
 
 
-# Singleton instance
-storage_service = CloudStorageService()
+_cloud_storage_service: Optional[CloudStorageService] = None
+
+
+def get_cloud_storage_service() -> CloudStorageService:
+    """Lazily initialize cloud storage service."""
+    global _cloud_storage_service
+    if _cloud_storage_service is None:
+        _cloud_storage_service = CloudStorageService()
+    return _cloud_storage_service

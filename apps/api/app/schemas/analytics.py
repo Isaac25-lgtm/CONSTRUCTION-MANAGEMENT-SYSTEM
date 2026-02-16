@@ -14,7 +14,7 @@ class AuditLogResponse(BaseModel):
     entity_id: Optional[UUID4] = None
     before_state: Optional[Any] = None
     after_state: Optional[Any] = None
-    metadata: Optional[Any] = None
+    details: Optional[Any] = None
     description: Optional[str] = None
     created_at: datetime
 

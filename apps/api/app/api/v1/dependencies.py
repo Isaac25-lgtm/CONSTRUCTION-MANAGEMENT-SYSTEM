@@ -7,17 +7,20 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models.organization import Organization, OrganizationMember, MembershipStatus
 from app.models.project import Project
-from app.core.security import decode_token
+from app.core.security import decode_token, verify_token_type
 from app.core.errors import UnauthorizedError, ForbiddenError
 from app.core.config import settings
 
 
 async def get_current_user(
-    authorization: str = Header(...),
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ) -> User:
     """Get current user from JWT token"""
     try:
+        if not authorization:
+            raise UnauthorizedError("Missing authorization header")
+
         # Extract token from "Bearer <token>"
         parts = authorization.split(" ", 1)
         if len(parts) != 2:
@@ -28,6 +31,7 @@ async def get_current_user(
         
         # Decode token
         payload = decode_token(token)
+        verify_token_type(payload, "access")
         user_id = payload.get("sub")
         
         if not user_id:
@@ -76,27 +80,30 @@ async def get_current_organization(
     Verifies user is a member of the organization.
     """
     if not x_organization_id:
-        if settings.ENVIRONMENT.lower() == "production":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="X-Organization-ID header is required"
-            )
-
         memberships = db.query(OrganizationMember).filter(
             OrganizationMember.user_id == current_user.id,
             OrganizationMember.status == MembershipStatus.ACTIVE
         ).all()
 
+        if len(memberships) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No active organization membership found for this user"
+            )
+
         if len(memberships) == 1:
             org_id = memberships[0].organization_id
         else:
+            detail = "X-Organization-ID header is required when multiple organizations are available"
+            if settings.ENVIRONMENT.lower() == "production":
+                detail = "X-Organization-ID header is required in production when multiple organizations are available"
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="X-Organization-ID header is required when multiple organizations are available"
+                detail=detail
             )
     else:
         try:
-            org_id = UUID(x_organization_id)
+            org_id = UUID(x_organization_id.strip())
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

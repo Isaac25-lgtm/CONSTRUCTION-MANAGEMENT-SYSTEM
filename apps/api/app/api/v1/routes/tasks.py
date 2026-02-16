@@ -16,9 +16,29 @@ from app.schemas.task import (
 )
 from app.models.task import Task, TaskStatus, TaskPriority
 from app.models.project import Project
+from app.models.organization import OrganizationMember, MembershipStatus
+from app.models.user import User
 from app.api.v1.dependencies import get_org_context, OrgContext
 
 router = APIRouter()
+
+
+def _is_active_org_member(db: Session, org_id: UUID, user_id: UUID | None) -> bool:
+    if not user_id:
+        return True
+    membership = (
+        db.query(OrganizationMember)
+        .join(User, User.id == OrganizationMember.user_id)
+        .filter(
+            OrganizationMember.organization_id == org_id,
+            OrganizationMember.user_id == user_id,
+            OrganizationMember.status == MembershipStatus.ACTIVE,
+            User.is_active == True,
+            User.is_deleted == False,
+        )
+        .first()
+    )
+    return membership is not None
 
 
 @router.get("", response_model=TaskListResponse)
@@ -132,6 +152,11 @@ async def create_task(
     
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    if not _is_active_org_member(db, ctx.organization.id, task_data.assignee_id):
+        raise HTTPException(status_code=400, detail="Assignee must be an active member of this organization")
+    if not _is_active_org_member(db, ctx.organization.id, task_data.reporter_id):
+        raise HTTPException(status_code=400, detail="Reporter must be an active member of this organization")
     
     # Create task
     task = Task(
@@ -242,6 +267,10 @@ async def update_task(
     
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    if "assignee_id" in task_data.model_dump(exclude_unset=True):
+        if not _is_active_org_member(db, ctx.organization.id, task_data.assignee_id):
+            raise HTTPException(status_code=400, detail="Assignee must be an active member of this organization")
     
     # Update fields
     update_data = task_data.dict(exclude_unset=True)
