@@ -105,7 +105,7 @@ export const useUserStore = create<UserStore>()(
       users: [
         {
           id: 1,
-          email: 'admin@buildpro.ug',
+          email: 'admin@example.com',
           password: 'admin123',
           firstName: 'John',
           lastName: 'Okello',
@@ -116,7 +116,7 @@ export const useUserStore = create<UserStore>()(
         },
         {
           id: 2,
-          email: 'sarah@buildpro.ug',
+          email: 'pm@example.com',
           password: 'sarah123',
           firstName: 'Sarah',
           lastName: 'Nambi',
@@ -127,7 +127,7 @@ export const useUserStore = create<UserStore>()(
         },
         {
           id: 3,
-          email: 'peter@buildpro.ug',
+          email: 'supervisor@example.com',
           password: 'peter123',
           firstName: 'Peter',
           lastName: 'Wasswa',
@@ -211,3 +211,5 @@ export const useUserStore = create<UserStore>()(
 );
 
 export { defaultPermissions };
+
+

@@ -9,6 +9,7 @@ from app.models.organization import Organization, OrganizationMember, Membership
 from app.models.project import Project
 from app.core.security import decode_token
 from app.core.errors import UnauthorizedError, ForbiddenError
+from app.core.config import settings
 
 
 async def get_current_user(
@@ -18,8 +19,11 @@ async def get_current_user(
     """Get current user from JWT token"""
     try:
         # Extract token from "Bearer <token>"
-        scheme, token = authorization.split()
-        if scheme.lower() != "bearer":
+        parts = authorization.split(" ", 1)
+        if len(parts) != 2:
+            raise UnauthorizedError("Invalid authorization header")
+        scheme, token = parts[0], parts[1].strip()
+        if scheme.lower() != "bearer" or not token:
             raise UnauthorizedError("Invalid authentication scheme")
         
         # Decode token
@@ -28,6 +32,11 @@ async def get_current_user(
         
         if not user_id:
             raise UnauthorizedError("Invalid token payload")
+
+        try:
+            user_id = UUID(str(user_id))
+        except (TypeError, ValueError):
+            raise UnauthorizedError("Invalid token subject")
         
         # Get user from database
         user = db.query(User).filter(
@@ -42,6 +51,8 @@ async def get_current_user(
         
     except ValueError:
         raise UnauthorizedError("Invalid authorization header")
+    except UnauthorizedError:
+        raise
     except Exception as e:
         raise UnauthorizedError(str(e))
 
@@ -65,18 +76,32 @@ async def get_current_organization(
     Verifies user is a member of the organization.
     """
     if not x_organization_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="X-Organization-ID header is required"
-        )
-    
-    try:
-        org_id = UUID(x_organization_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid organization ID format"
-        )
+        if settings.ENVIRONMENT.lower() == "production":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="X-Organization-ID header is required"
+            )
+
+        memberships = db.query(OrganizationMember).filter(
+            OrganizationMember.user_id == current_user.id,
+            OrganizationMember.status == MembershipStatus.ACTIVE
+        ).all()
+
+        if len(memberships) == 1:
+            org_id = memberships[0].organization_id
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="X-Organization-ID header is required when multiple organizations are available"
+            )
+    else:
+        try:
+            org_id = UUID(x_organization_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid organization ID format"
+            )
     
     # Check if user is member of this organization
     membership = db.query(OrganizationMember).filter(

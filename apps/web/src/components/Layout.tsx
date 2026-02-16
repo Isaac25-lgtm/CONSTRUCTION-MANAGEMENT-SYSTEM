@@ -1,11 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Home, FolderKanban, Calendar, CheckSquare, FileText, DollarSign, AlertTriangle, MessageSquare, BarChart3, Bell, Search, Menu, Sun, Moon, Wifi, WifiOff, HardHat, Settings, LogOut } from 'lucide-react';
+import {
+  Home,
+  FolderKanban,
+  Calendar,
+  CheckSquare,
+  FileText,
+  DollarSign,
+  AlertTriangle,
+  MessageSquare,
+  BarChart3,
+  Bell,
+  Search,
+  Menu,
+  Sun,
+  Moon,
+  Wifi,
+  WifiOff,
+  HardHat,
+  Settings,
+  LogOut,
+} from 'lucide-react';
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
+import { useAuthStore } from '../stores/authStore';
 import { useAuditStore } from '../stores/auditStore';
 import { useDataStore } from '../stores/dataStore';
 import { AIChatWidget } from './AIChat';
-
+import OrganizationSelector from './OrganizationSelector';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,6 +39,7 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { isDark, toggleTheme } = useThemeStore();
   const { currentUser, logout } = useUserStore();
+  const { logout: backendLogout } = useAuthStore();
   const { addLog } = useAuditStore();
   const { syncFromAPI, isApiConnected, isLoading: isSyncing } = useDataStore();
 
@@ -27,7 +49,7 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
 
   const isOnline = isApiConnected;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (currentUser) {
       addLog({
         userId: currentUser.id,
@@ -38,6 +60,8 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
         details: 'User logged out of the system',
       });
     }
+
+    await backendLogout();
     logout();
     onLogout();
   };
@@ -57,8 +81,11 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-dark-900 flex">
-      {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-slate-900 dark:bg-dark-800 text-white transition-all duration-300 flex flex-col border-r border-slate-700 dark:border-dark-700`}>
+      <aside
+        className={`${
+          sidebarOpen ? 'w-64' : 'w-20'
+        } bg-slate-900 dark:bg-dark-800 text-white transition-all duration-300 flex flex-col border-r border-slate-700 dark:border-dark-700`}
+      >
         <div className="p-4 border-b border-slate-700 dark:border-dark-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
@@ -67,18 +94,22 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
             {sidebarOpen && (
               <div>
                 <h1 className="font-bold text-lg">BuildPro</h1>
-                <p className="text-xs text-slate-400 dark:text-gray-500">Construction PM</p>
+                <p className="text-xs text-slate-400 dark:text-gray-500">Internal PM</p>
               </div>
             )}
           </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.map(item => (
+          {navItems.map((item) => (
             <button
               key={item.id}
               onClick={() => onSectionChange(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition ${activeSection === item.id ? 'bg-primary-600 text-white' : 'text-slate-300 dark:text-gray-400 hover:bg-slate-800 dark:hover:bg-dark-700'}`}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition ${
+                activeSection === item.id
+                  ? 'bg-primary-600 text-white'
+                  : 'text-slate-300 dark:text-gray-400 hover:bg-slate-800 dark:hover:bg-dark-700'
+              }`}
             >
               <item.icon size={20} />
               {sidebarOpen && <span>{item.label}</span>}
@@ -87,36 +118,56 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
         </nav>
 
         <div className="p-4 border-t border-slate-700 dark:border-dark-700">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-slate-300 dark:text-gray-400 hover:bg-slate-800 dark:hover:bg-dark-700 transition">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-slate-300 dark:text-gray-400 hover:bg-slate-800 dark:hover:bg-dark-700 transition"
+          >
             <Menu size={20} />
             {sidebarOpen && <span>Collapse</span>}
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Top Bar */}
         <header className="bg-white dark:bg-dark-800 border-b border-gray-200 dark:border-dark-700 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input type="text" placeholder="Search projects, tasks..." className="pl-10 pr-4 py-2 bg-gray-100 dark:bg-dark-700 rounded-lg w-80 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-gray-100" />
+                <input
+                  type="text"
+                  placeholder="Search projects, tasks..."
+                  className="pl-10 pr-4 py-2 bg-gray-100 dark:bg-dark-700 rounded-lg w-80 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-gray-100"
+                />
               </div>
             </div>
+
             <div className="flex items-center gap-4">
-              <button onClick={toggleTheme} className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg">
+              <button
+                onClick={toggleTheme}
+                className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg"
+              >
                 {isDark ? <Sun size={20} /> : <Moon size={20} />}
               </button>
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${isOnline ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'}`}>
+
+              <div
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
+                  isOnline
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                    : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+                }`}
+              >
                 {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
                 {isSyncing ? 'Syncing...' : isOnline ? 'API Connected' : 'Demo Mode'}
               </div>
+
+              <OrganizationSelector />
+
               <button className="relative p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg">
                 <Bell size={20} />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
               </button>
+
               <div className="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-dark-700">
                 <div className="w-9 h-9 bg-primary-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                   {currentUser ? `${currentUser.firstName[0]}${currentUser.lastName[0]}` : 'U'}
@@ -125,9 +176,7 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'User'}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {currentUser?.email || 'Not logged in'}
-                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{currentUser?.email || 'Not logged in'}</p>
                 </div>
                 <button
                   onClick={handleLogout}
@@ -141,21 +190,16 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 p-6 overflow-auto">
-          {children}
-        </main>
+        <main className="flex-1 p-6 overflow-auto">{children}</main>
 
-        {/* Footer */}
         <footer className="bg-white dark:bg-dark-800 border-t border-gray-200 dark:border-dark-700 px-6 py-3">
           <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-            <p>BuildPro Construction PM v1.0 • Designed for Uganda's Construction Industry</p>
-            <p>© 2025 Limo Jesse Mwanga - MSc Civil Engineering Research Project</p>
+            <p>BuildPro Internal PM v1.0</p>
+            <p>� 2026 Internal Platform</p>
           </div>
         </footer>
       </div>
 
-      {/* AI Chat Widget */}
       <AIChatWidget />
     </div>
   );

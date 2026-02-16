@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 import logging
 
@@ -10,7 +9,6 @@ from app.api.v1.router import api_router
 from app.logging import setup_logging
 from app.middleware.audit import AuditLoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
-from app.middleware.csrf import CSRFMiddleware
 
 # Setup logging
 setup_logging()
@@ -18,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="BuildPro API",
-    description="Construction Project Management System API",
+    description="Internal project management API",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -37,10 +35,7 @@ app.add_middleware(
 # 2. Rate Limiting
 app.add_middleware(RateLimitMiddleware)
 
-# 3. CSRF Protection
-app.add_middleware(CSRFMiddleware)
-
-# 4. Audit Logging (innermost — runs after auth)
+# 3. Audit Logging (innermost — runs after auth)
 app.add_middleware(AuditLoggingMiddleware)
 
 # Exception Handlers
@@ -90,7 +85,7 @@ async def root():
 # Health Check
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "version": "1.0.0"}
+    return {"status": "ok"}
 
 @app.get("/ready")
 async def readiness_check():
@@ -111,3 +106,4 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("BuildPro API shutting down...")
+

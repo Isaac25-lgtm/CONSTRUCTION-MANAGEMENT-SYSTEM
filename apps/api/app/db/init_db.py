@@ -9,7 +9,7 @@ from app.models.organization import Organization, OrganizationMember, OrgRole, M
 from app.models.project import Project, ProjectMember, ProjectStatus, ProjectPriority
 from app.models.task import Task, TaskStatus, TaskPriority
 from app.models.expense import Expense, ExpenseStatus
-from app.models.risk import Risk, RiskLevel, RiskStatus
+from app.models.risk import Risk, RiskProbability, RiskImpact, RiskStatus
 from app.models.milestone import Milestone, MilestoneStatus
 from app.core.security import hash_password
 from app.core.rbac import Role, ROLE_PERMISSIONS
@@ -36,11 +36,11 @@ def init_roles(db: Session):
 
 def init_organization(db: Session) -> Organization:
     """Create default organization"""
-    existing_org = db.query(Organization).filter(Organization.slug == "buildpro-construction").first()
+    existing_org = db.query(Organization).filter(Organization.slug == "internal-projects").first()
     if not existing_org:
         org = Organization(
-            name="BuildPro Construction",
-            slug="buildpro-construction",
+            name="Internal Projects Organization",
+            slug="internal-projects",
             subscription_tier="professional",
             max_projects=100,
             max_users=50,
@@ -49,7 +49,7 @@ def init_organization(db: Session) -> Organization:
         db.add(org)
         db.commit()
         db.refresh(org)
-        logger.info("Created default organization: BuildPro Construction")
+        logger.info("Created default organization: Internal Projects Organization")
         return org
     return existing_org
 
@@ -58,14 +58,14 @@ def init_admin_user(db: Session, org: Organization):
     """Create default admin user"""
     admin_role = db.query(RoleModel).filter(RoleModel.role_name == Role.ADMINISTRATOR).first()
     
-    existing_admin = db.query(User).filter(User.email == "admin@buildpro.ug").first()
+    existing_admin = db.query(User).filter(User.email == "admin@example.com").first()
     if not existing_admin:
         admin_user = User(
-            email="admin@buildpro.ug",
+            email="admin@example.com",
             password_hash=hash_password("Admin@123456"),
             first_name="System",
             last_name="Administrator",
-            phone_number="+256700000000",
+            phone_number="+10000000000",
             role_id=admin_role.id,
             is_active=True
         )
@@ -83,7 +83,7 @@ def init_admin_user(db: Session, org: Organization):
         db.add(org_member)
         db.commit()
         
-        logger.info("Created admin user: admin@buildpro.ug / Admin@123456")
+        logger.info("Created admin user: admin@example.com / Admin@123456")
         return admin_user
     else:
         # Ensure admin is in org
@@ -108,14 +108,14 @@ def init_sample_data(db: Session, org: Organization):
     # Create PM user
     pm_role = db.query(RoleModel).filter(RoleModel.role_name == Role.PROJECT_MANAGER).first()
     
-    pm_user = db.query(User).filter(User.email == "john.okello@buildpro.ug").first()
+    pm_user = db.query(User).filter(User.email == "pm@example.com").first()
     if not pm_user:
         pm_user = User(
-            email="john.okello@buildpro.ug",
+            email="pm@example.com",
             password_hash=hash_password("Password@123"),
-            first_name="John",
-            last_name="Okello",
-            phone_number="+256701234567",
+            first_name="Project",
+            last_name="Manager",
+            phone_number="+10000000001",
             role_id=pm_role.id,
             is_active=True
         )
@@ -133,34 +133,48 @@ def init_sample_data(db: Session, org: Organization):
         db.add(org_member)
         db.commit()
         
-        logger.info("Created PM user: john.okello@buildpro.ug / Password@123")
+        logger.info("Created PM user: pm@example.com / Password@123")
+    else:
+        existing_membership = db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == org.id,
+            OrganizationMember.user_id == pm_user.id
+        ).first()
+        if not existing_membership:
+            org_member = OrganizationMember(
+                organization_id=org.id,
+                user_id=pm_user.id,
+                org_role=OrgRole.MEMBER,
+                status=MembershipStatus.ACTIVE
+            )
+            db.add(org_member)
+            db.commit()
     
     # Create sample project
     existing_project = db.query(Project).filter(
-        Project.project_name == "Kampala Office Complex",
+        Project.project_name == "Headquarters Renovation",
         Project.organization_id == org.id
     ).first()
     
     if not existing_project:
         project = Project(
             organization_id=org.id,
-            project_name="Kampala Office Complex",
-            description="Modern 10-story office building in Kampala CBD with underground parking",
+            project_name="Headquarters Renovation",
+            description="Internal office renovation with phased delivery and budget controls",
             status=ProjectStatus.IN_PROGRESS,
             priority=ProjectPriority.HIGH,
             manager_id=pm_user.id,
             start_date=date(2025, 1, 15),
             end_date=date(2026, 6, 30),
             total_budget=2500000000,
-            location="Kampala CBD, Uganda",
-            client_name="Uganda Development Corporation",
+            location="Main Office Campus",
+            client_name="Internal Operations",
             contract_type="Design Build Contract",
             created_by=pm_user.id
         )
         db.add(project)
         db.commit()
         db.refresh(project)
-        logger.info("Created sample project: Kampala Office Complex")
+        logger.info("Created sample project: Headquarters Renovation")
         
         # Add sample tasks
         task1 = Task(
@@ -200,7 +214,7 @@ def init_sample_data(db: Session, org: Organization):
             description="Steel reinforcement bars",
             category="Materials",
             amount=45000000,
-            vendor="Uganda Steel Mills",
+            vendor="Prime Materials Ltd",
             expense_date=date(2025, 1, 8),
             status=ExpenseStatus.APPROVED,
             logged_by_id=pm_user.id,
@@ -213,7 +227,7 @@ def init_sample_data(db: Session, org: Organization):
             description="Concrete mix delivery",
             category="Materials",
             amount=28000000,
-            vendor="Tororo Cement",
+            vendor="City Concrete Supply",
             expense_date=date(2025, 1, 10),
             status=ExpenseStatus.APPROVED,
             logged_by_id=pm_user.id,
@@ -226,10 +240,11 @@ def init_sample_data(db: Session, org: Organization):
         risk1 = Risk(
             organization_id=org.id,
             project_id=project.id,
+            title="Potential delivery delays for structural steel",
             description="Delayed steel delivery from supplier",
             category="Supply Chain",
-            probability=RiskLevel.HIGH,
-            impact=RiskLevel.HIGH,
+            probability=RiskProbability.HIGH,
+            impact=RiskImpact.HIGH,
             status=RiskStatus.ACTIVE,
             mitigation_plan="Source alternative suppliers, maintain buffer stock",
             owner_id=pm_user.id,
@@ -277,7 +292,7 @@ def init_db():
         init_sample_data(db, org)
         logger.info("Database initialization complete!")
         logger.info(f"Default Organization: {org.name} (ID: {org.id})")
-        logger.info("Login credentials: admin@buildpro.ug / Admin@123456")
+        logger.info("Login credentials: admin@example.com / Admin@123456")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
         import traceback
@@ -289,3 +304,4 @@ def init_db():
 
 if __name__ == "__main__":
     init_db()
+

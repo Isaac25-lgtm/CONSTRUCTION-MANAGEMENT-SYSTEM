@@ -67,7 +67,7 @@ if [ ! -d "node_modules" ]; then
 fi
 
 # Start frontend
-echo -e "${GREEN}✅ Starting React frontend at http://localhost:3000${NC}"
+echo -e "${GREEN}✅ Starting React frontend at http://localhost:5173${NC}"
 npm run dev &
 FRONTEND_PID=$!
 
@@ -78,12 +78,12 @@ echo -e "${GREEN}=================================================="
 echo "🎉 BuildPro is running!"
 echo "=================================================="
 echo ""
-echo "🌐 Frontend: http://localhost:3000"
+echo "🌐 Frontend: http://localhost:5173"
 echo "🔧 Backend:  http://localhost:8000"
 echo "📚 API Docs: http://localhost:8000/docs"
 echo ""
 echo "🔐 Login Credentials:"
-echo "   Email: admin@buildpro.ug"
+echo "   Email: admin@example.com"
 echo "   Password: Admin@123456"
 echo ""
 echo "Press Ctrl+C to stop all services"
@@ -92,3 +92,4 @@ echo -e "==================================================${NC}"
 # Wait for Ctrl+C
 trap "echo ''; echo 'Stopping services...'; kill $BACKEND_PID $FRONTEND_PID; docker-compose down; exit" INT
 wait
+

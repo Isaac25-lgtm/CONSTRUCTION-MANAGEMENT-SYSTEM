@@ -157,7 +157,7 @@ export default function ChatWindow() {
               Welcome to BuildPro AI
             </h4>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Your intelligent construction project assistant. Ask me about project analysis, risk assessment, budget advice, or Uganda construction insights.
+              Your internal project assistant. Ask about schedule, budget, risk, and delivery insights.
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500">
               Try one of the quick actions below to get started
@@ -215,3 +215,4 @@ export default function ChatWindow() {
     </div>
   );
 }
+

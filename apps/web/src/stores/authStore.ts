@@ -51,13 +51,16 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true, error: null });
         try {
           const response = await authAPI.login(email, password);
-          const { access_token, user } = response;
+          const { access_token, user, active_organization_id } = response;
 
           // Store access token
           localStorage.setItem('access_token', access_token);
 
-          // Auto-select first organization if available
-          const selectedOrgId = user.organizations?.[0]?.organization_id || null;
+          // Auto-select active organization from backend response
+          const selectedOrgId =
+            active_organization_id ||
+            user.organizations?.[0]?.organization_id ||
+            null;
           if (selectedOrgId) {
             localStorage.setItem('selected_org_id', selectedOrgId);
           }
@@ -110,6 +113,9 @@ export const useAuthStore = create<AuthStore>()(
           const selectedOrgId = localStorage.getItem('selected_org_id') ||
             user.organizations?.[0]?.organization_id ||
             null;
+          if (selectedOrgId) {
+            localStorage.setItem('selected_org_id', selectedOrgId);
+          }
 
           set({
             user,

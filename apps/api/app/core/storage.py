@@ -1,17 +1,20 @@
-"""
-Cloud Storage Service for BuildPro
-Handles file uploads to Cloudflare R2 / AWS S3 for persistent document storage.
-"""
+"""Cloud storage service supporting Cloudflare R2 / AWS S3."""
 
-import boto3
-from botocore.config import Config
-from botocore.exceptions import ClientError
 import uuid
 import logging
 from typing import Optional, BinaryIO
 from datetime import datetime
 
 from app.core.config import settings
+
+try:
+    import boto3
+    from botocore.config import Config
+    from botocore.exceptions import ClientError
+except ImportError:  # pragma: no cover - handled at runtime when cloud mode is enabled
+    boto3 = None
+    Config = None
+    ClientError = Exception
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +26,11 @@ class CloudStorageService:
         self.enabled = settings.USE_CLOUD_STORAGE and bool(settings.R2_ENDPOINT_URL)
         
         if self.enabled:
+            if boto3 is None or Config is None:
+                raise RuntimeError(
+                    "Cloud storage is enabled but boto3 is not installed. "
+                    "Install backend requirements or disable USE_CLOUD_STORAGE."
+                )
             self.client = boto3.client(
                 "s3",
                 endpoint_url=settings.R2_ENDPOINT_URL,

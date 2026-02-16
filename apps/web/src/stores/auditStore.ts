@@ -58,7 +58,7 @@ export const useAuditStore = create<AuditStore>()(
           id: 1,
           userId: 1,
           userName: 'John Okello',
-          userEmail: 'admin@buildpro.ug',
+          userEmail: 'admin@example.com',
           action: 'LOGIN',
           entityType: 'System',
           details: 'User logged into the system',
@@ -68,7 +68,7 @@ export const useAuditStore = create<AuditStore>()(
           id: 2,
           userId: 1,
           userName: 'John Okello',
-          userEmail: 'admin@buildpro.ug',
+          userEmail: 'admin@example.com',
           action: 'CREATE',
           entityType: 'Project',
           entityId: 1,
@@ -80,7 +80,7 @@ export const useAuditStore = create<AuditStore>()(
           id: 3,
           userId: 2,
           userName: 'Sarah Nambi',
-          userEmail: 'sarah@buildpro.ug',
+          userEmail: 'pm@example.com',
           action: 'UPDATE',
           entityType: 'Task',
           entityId: 2,
@@ -94,7 +94,7 @@ export const useAuditStore = create<AuditStore>()(
           id: 4,
           userId: 1,
           userName: 'John Okello',
-          userEmail: 'admin@buildpro.ug',
+          userEmail: 'admin@example.com',
           action: 'APPROVE',
           entityType: 'Expense',
           entityId: 1,
@@ -106,7 +106,7 @@ export const useAuditStore = create<AuditStore>()(
           id: 5,
           userId: 3,
           userName: 'Peter Wasswa',
-          userEmail: 'peter@buildpro.ug',
+          userEmail: 'supervisor@example.com',
           action: 'CREATE',
           entityType: 'Risk',
           entityId: 3,
@@ -143,3 +143,5 @@ export const useAuditStore = create<AuditStore>()(
     }
   )
 );
+
+

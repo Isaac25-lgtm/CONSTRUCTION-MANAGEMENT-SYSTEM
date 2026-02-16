@@ -28,7 +28,7 @@ class UserResponse(BaseModel):
     phone_number: Optional[str] = None
     is_active: bool
     last_login: Optional[datetime] = None
-    organizations: List[OrganizationMembershipResponse] = []
+    organizations: List[OrganizationMembershipResponse] = Field(default_factory=list)
     
     class Config:
         from_attributes = True
@@ -37,6 +37,7 @@ class UserResponse(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    active_organization_id: Optional[UUID4] = None
     user: UserResponse
     
     class Config:
@@ -53,8 +54,8 @@ class LoginResponse(BaseModel):
                     "organizations": [
                         {
                             "organization_id": "uuid",
-                            "organization_name": "BuildPro Construction",
-                            "organization_slug": "buildpro-construction",
+                            "organization_name": "Internal Projects Organization",
+                            "organization_slug": "internal-projects",
                             "org_role": "Org_Admin",
                             "status": "Active"
                         }

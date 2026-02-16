@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, Response, Request, status, Cookie
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from app.db.session import get_db
 from app.schemas.auth import LoginRequest, LoginResponse, UserResponse, TokenResponse, LogoutResponse, OrganizationMembershipResponse
 from app.models.user import User
-from app.models.organization import OrganizationMember
+from app.models.organization import OrganizationMember, MembershipStatus
 from app.core.security import verify_password, create_access_token, create_refresh_token, decode_token, verify_token_type
 from app.core.errors import InvalidCredentialsError, InvalidTokenError
 from app.core.config import settings
@@ -49,20 +50,30 @@ async def login(
         data={"sub": str(user.id)}
     )
     
+    is_production = settings.ENVIRONMENT.lower() == "production"
+
     # Set refresh token as httpOnly cookie
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=settings.ENVIRONMENT == "production",
-        samesite="lax",
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        secure=is_production,
+        samesite="none" if is_production else "lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/"
     )
     
     # Update last login
     user.last_login = datetime.utcnow()
     db.commit()
     
+    # Select active organization only from ACTIVE memberships
+    active_memberships = [
+        membership for membership in org_memberships
+        if membership.status == MembershipStatus.ACTIVE
+    ]
+    active_organization_id = active_memberships[0].organization_id if active_memberships else None
+
     # Build organization memberships response
     organizations = []
     for membership in org_memberships:
@@ -89,6 +100,7 @@ async def login(
     return LoginResponse(
         access_token=access_token,
         token_type="bearer",
+        active_organization_id=active_organization_id,
         user=user_response
     )
 
@@ -114,6 +126,11 @@ async def refresh_token(
         user_id = payload.get("sub")
         if not user_id:
             raise InvalidTokenError()
+
+        try:
+            user_id = UUID(str(user_id))
+        except (TypeError, ValueError):
+            raise InvalidTokenError("Invalid refresh token subject")
         
         # Verify user still exists and is active
         user = db.query(User).filter(
@@ -137,7 +154,7 @@ async def refresh_token(
         
     except Exception as e:
         # Clear invalid refresh token
-        response.delete_cookie("refresh_token")
+        response.delete_cookie(key="refresh_token", path="/")
         raise InvalidTokenError("Invalid or expired refresh token")
 
 
@@ -181,6 +198,6 @@ async def get_current_user_info(
 @router.post("/logout", response_model=LogoutResponse)
 async def logout(response: Response):
     """Logout and clear refresh token cookie"""
-    response.delete_cookie("refresh_token")
+    response.delete_cookie(key="refresh_token", path="/")
     return LogoutResponse(message="Logged out successfully")
 

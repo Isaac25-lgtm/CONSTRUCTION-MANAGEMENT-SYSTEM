@@ -1,6 +1,16 @@
-from pydantic_settings import BaseSettings
-from typing import List
+import json
 from functools import lru_cache
+from typing import List
+
+from pydantic import field_validator, model_validator
+from pydantic_settings import BaseSettings
+
+
+def normalize_database_url(database_url: str) -> str:
+    """Normalize provider URLs for SQLAlchemy compatibility."""
+    if database_url.startswith("postgres://"):
+        return database_url.replace("postgres://", "postgresql://", 1)
+    return database_url
 
 
 class Settings(BaseSettings):
@@ -23,12 +33,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # CORS
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000", 
-        "http://localhost:5000",
-        "http://localhost:5173",
-        "https://buildpro-web.onrender.com"
-    ]
+    ALLOWED_ORIGINS: List[str] | str = "http://localhost:5173"
     
     # File Upload
     MAX_UPLOAD_SIZE: int = 52428800  # 50MB
@@ -58,7 +63,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    EMAIL_FROM: str = "noreply@buildpro.ug"
+    EMAIL_FROM: str = "noreply@example.com"
     
     # SMS (optional)
     AFRICAS_TALKING_USERNAME: str = ""
@@ -69,6 +74,45 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = True
 
+    @property
+    def normalized_database_url(self) -> str:
+        return normalize_database_url(self.DATABASE_URL)
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, value):
+        if isinstance(value, list):
+            return value
+
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+
+            if raw.startswith("["):
+                try:
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed if str(item).strip()]
+                except json.JSONDecodeError:
+                    pass
+
+            return [item.strip() for item in raw.split(",") if item.strip()]
+
+        return value
+
+    @model_validator(mode="after")
+    def validate_cors_configuration(self):
+        normalized = [origin.strip().rstrip("/") for origin in self.ALLOWED_ORIGINS if origin.strip()]
+        self.ALLOWED_ORIGINS = normalized
+
+        if self.ENVIRONMENT.lower() == "production" and "*" in self.ALLOWED_ORIGINS:
+            raise ValueError(
+                "ALLOWED_ORIGINS cannot contain '*' in production when allow_credentials=True."
+            )
+
+        return self
+
 
 @lru_cache()
 def get_settings() -> Settings:
@@ -76,3 +120,4 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+

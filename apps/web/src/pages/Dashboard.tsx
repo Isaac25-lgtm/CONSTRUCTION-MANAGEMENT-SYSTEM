@@ -362,7 +362,7 @@ export default function Dashboard() {
                 <div className="w-9 h-9 bg-primary-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">PM</div>
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Project Manager</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">john@buildpro.ug</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">admin@example.com</p>
                 </div>
               </div>
             </div>
@@ -377,11 +377,14 @@ export default function Dashboard() {
         {/* Footer */}
         <footer className="bg-white dark:bg-dark-800 border-t border-gray-200 dark:border-dark-700 px-6 py-3">
           <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-            <p>BuildPro Construction PM v1.0 • Designed for Uganda's Construction Industry</p>
-            <p>© 2025 Limo Jesse Mwanga - MSc Civil Engineering Research Project</p>
+            <p>BuildPro Internal PM v1.0</p>
+            <p>� 2026 Internal Platform</p>
           </div>
         </footer>
       </div>
     </div>
   );
 }
+
+
+

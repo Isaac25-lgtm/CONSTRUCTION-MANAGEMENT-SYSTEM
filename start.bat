@@ -62,7 +62,7 @@ if not exist "node_modules" (
 )
 
 REM Start frontend
-echo [SUCCESS] Starting React frontend at http://localhost:3000
+echo [SUCCESS] Starting React frontend at http://localhost:5173
 start "BuildPro Web" cmd /k "npm run dev"
 
 cd ..\..
@@ -72,11 +72,11 @@ echo ============================================
 echo BuildPro is running!
 echo ============================================
 echo.
-echo Frontend: http://localhost:3000
+echo Frontend: http://localhost:5173
 echo Backend:  http://localhost:8000
 echo API Docs: http://localhost:8000/docs
 echo.
-echo Login: admin@buildpro.ug / Admin@123456
+echo Login: admin@example.com / Admin@123456
 echo.
 echo Press any key to stop services...
 pause >nul
@@ -84,3 +84,4 @@ pause >nul
 REM Stop services
 taskkill /FI "WINDOWTITLE eq BuildPro*" /F >nul 2>&1
 docker-compose down
+

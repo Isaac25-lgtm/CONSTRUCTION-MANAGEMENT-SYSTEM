@@ -1,7 +1,18 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// API Base URL from environment
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+function normalizeApiBaseUrl(rawUrl: string): string {
+    const trimmed = rawUrl.trim().replace(/\/+$/, '');
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+
+    if (withProtocol.endsWith('/api')) {
+        return withProtocol;
+    }
+
+    return `${withProtocol}/api`;
+}
+
+// Canonical API base URL (must resolve to .../api)
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL || 'http://localhost:8000/api');
 
 // Create Axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -12,13 +23,7 @@ const apiClient: AxiosInstance = axios.create({
     withCredentials: true, // Important for httpOnly cookies
 });
 
-// Helper: get CSRF token from cookie
-function getCsrfToken(): string | null {
-    const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
-    return match ? decodeURIComponent(match[1]) : null;
-}
-
-// Request interceptor - attach access token, org context, and CSRF token
+// Request interceptor - attach access token and org context
 apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
         // Get access token from localStorage
@@ -32,15 +37,6 @@ apiClient.interceptors.request.use(
         const selectedOrgId = localStorage.getItem('selected_org_id');
         if (selectedOrgId && config.headers) {
             config.headers['X-Organization-ID'] = selectedOrgId;
-        }
-
-        // Attach CSRF token for mutating requests
-        const method = (config.method || '').toUpperCase();
-        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && config.headers) {
-            const csrfToken = getCsrfToken();
-            if (csrfToken) {
-                config.headers['X-CSRF-Token'] = csrfToken;
-            }
         }
 
         return config;

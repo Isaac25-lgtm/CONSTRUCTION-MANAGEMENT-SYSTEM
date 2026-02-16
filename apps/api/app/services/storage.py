@@ -2,10 +2,15 @@ import os
 import uuid
 from pathlib import Path
 from typing import BinaryIO, Optional
-import boto3
-from botocore.exceptions import ClientError
 
 from app.core.config import settings
+
+try:
+    import boto3
+    from botocore.exceptions import ClientError
+except ImportError:  # pragma: no cover - handled at runtime when cloud mode is enabled
+    boto3 = None
+    ClientError = Exception
 
 
 class StorageService:
@@ -15,6 +20,11 @@ class StorageService:
         self.use_cloud = settings.USE_CLOUD_STORAGE
         
         if self.use_cloud:
+            if boto3 is None:
+                raise RuntimeError(
+                    "Cloud storage is enabled but boto3 is not installed. "
+                    "Install backend requirements or set USE_CLOUD_STORAGE=false."
+                )
             # Initialize R2 client
             self.s3_client = boto3.client(
                 's3',

@@ -267,19 +267,19 @@ const mapMessage = (msg: any, idx: number): Message => ({
 
 // Fallback mock data for when API is not available
 const MOCK_PROJECTS: Project[] = [
-  { id: 1, name: 'Kampala Office Complex', status: 'In Progress', progress: 65, budget: 2500000000, spent: 1625000000, manager: 'John Okello', startDate: '2025-01-15', endDate: '2026-06-30', priority: 'High', description: 'Modern 10-story office building in Kampala CBD with underground parking and rooftop gardens.', location: 'Kampala CBD, Uganda', clientName: 'Uganda Development Corporation', contractType: 'Design Build Contract' },
-  { id: 2, name: 'Entebbe Highway Bridge', status: 'In Progress', progress: 42, budget: 4200000000, spent: 1764000000, manager: 'Sarah Nambi', startDate: '2025-03-01', endDate: '2026-12-15', priority: 'Critical', description: 'Major highway bridge construction connecting Entebbe to Kampala with 4 lanes.', location: 'Entebbe Road, Uganda', clientName: 'Uganda National Roads Authority', contractType: 'Turnkey Contract' },
-  { id: 3, name: 'Jinja Industrial Park', status: 'Planning', progress: 15, budget: 8500000000, spent: 1275000000, manager: 'Peter Wasswa', startDate: '2025-06-01', endDate: '2027-08-30', priority: 'Medium', description: 'Large-scale industrial park development with warehouses and manufacturing facilities.', location: 'Jinja, Uganda', clientName: 'Uganda Investment Authority', contractType: 'Lumpsum Contract' },
+  { id: 1, name: 'Headquarters Renovation', status: 'In Progress', progress: 65, budget: 2500000000, spent: 1625000000, manager: 'John Okello', startDate: '2025-01-15', endDate: '2026-06-30', priority: 'High', description: 'Modern 10-story office building in Kampala CBD with underground parking and rooftop gardens.', location: 'Main Office Campus', clientName: 'Internal Operations', contractType: 'Design Build Contract' },
+  { id: 2, name: 'Operations Center Expansion', status: 'In Progress', progress: 42, budget: 4200000000, spent: 1764000000, manager: 'Sarah Nambi', startDate: '2025-03-01', endDate: '2026-12-15', priority: 'Critical', description: 'Major highway bridge construction connecting Entebbe to Kampala with 4 lanes.', location: 'West Logistics Corridor', clientName: 'Infrastructure Program Office', contractType: 'Turnkey Contract' },
+  { id: 3, name: 'Warehouse Upgrade Program', status: 'Planning', progress: 15, budget: 8500000000, spent: 1275000000, manager: 'Peter Wasswa', startDate: '2025-06-01', endDate: '2027-08-30', priority: 'Medium', description: 'Large-scale industrial park development with warehouses and manufacturing facilities.', location: 'North Distribution Zone', clientName: 'Strategy and Planning Office', contractType: 'Lumpsum Contract' },
 ];
 
 const MOCK_TASKS: Task[] = [
-  { id: 1, name: 'Foundation Excavation', project: 'Kampala Office Complex', projectId: 1, assignee: 'Site Team A', status: 'Completed', priority: 'High', dueDate: '2025-02-28', progress: 100, startDate: '2025-01-20' },
-  { id: 2, name: 'Steel Framework Installation', project: 'Kampala Office Complex', projectId: 1, assignee: 'Steel Contractors', status: 'In Progress', priority: 'High', dueDate: '2025-04-15', progress: 68, startDate: '2025-03-01' },
-  { id: 3, name: 'Concrete Pouring - Level 2', project: 'Kampala Office Complex', projectId: 1, assignee: 'Site Team B', status: 'In Progress', priority: 'Medium', dueDate: '2025-03-20', progress: 45, startDate: '2025-03-05' },
-  { id: 4, name: 'Electrical Conduit Layout', project: 'Kampala Office Complex', projectId: 1, assignee: 'Electricians', status: 'Pending', priority: 'Medium', dueDate: '2025-05-01', progress: 0, startDate: '2025-04-20' },
-  { id: 5, name: 'Bridge Pillar Construction', project: 'Entebbe Highway Bridge', projectId: 2, assignee: 'Heavy Works Team', status: 'In Progress', priority: 'Critical', dueDate: '2025-06-30', progress: 35, startDate: '2025-03-15' },
-  { id: 6, name: 'Site Survey & Marking', project: 'Jinja Industrial Park', projectId: 3, assignee: 'Survey Team', status: 'Completed', priority: 'High', dueDate: '2025-06-15', progress: 100, startDate: '2025-06-01' },
-  { id: 7, name: 'Environmental Assessment', project: 'Jinja Industrial Park', projectId: 3, assignee: 'NEMA Consultant', status: 'In Progress', priority: 'High', dueDate: '2025-07-01', progress: 60, startDate: '2025-06-10' },
+  { id: 1, name: 'Foundation Excavation', project: 'Headquarters Renovation', projectId: 1, assignee: 'Site Team A', status: 'Completed', priority: 'High', dueDate: '2025-02-28', progress: 100, startDate: '2025-01-20' },
+  { id: 2, name: 'Steel Framework Installation', project: 'Headquarters Renovation', projectId: 1, assignee: 'Steel Contractors', status: 'In Progress', priority: 'High', dueDate: '2025-04-15', progress: 68, startDate: '2025-03-01' },
+  { id: 3, name: 'Concrete Pouring - Level 2', project: 'Headquarters Renovation', projectId: 1, assignee: 'Site Team B', status: 'In Progress', priority: 'Medium', dueDate: '2025-03-20', progress: 45, startDate: '2025-03-05' },
+  { id: 4, name: 'Electrical Conduit Layout', project: 'Headquarters Renovation', projectId: 1, assignee: 'Electricians', status: 'Pending', priority: 'Medium', dueDate: '2025-05-01', progress: 0, startDate: '2025-04-20' },
+  { id: 5, name: 'Bridge Pillar Construction', project: 'Operations Center Expansion', projectId: 2, assignee: 'Heavy Works Team', status: 'In Progress', priority: 'Critical', dueDate: '2025-06-30', progress: 35, startDate: '2025-03-15' },
+  { id: 6, name: 'Site Survey & Marking', project: 'Warehouse Upgrade Program', projectId: 3, assignee: 'Survey Team', status: 'Completed', priority: 'High', dueDate: '2025-06-15', progress: 100, startDate: '2025-06-01' },
+  { id: 7, name: 'Environmental Assessment', project: 'Warehouse Upgrade Program', projectId: 3, assignee: 'NEMA Consultant', status: 'In Progress', priority: 'High', dueDate: '2025-07-01', progress: 60, startDate: '2025-06-10' },
 ];
 
 const MOCK_RISKS: Risk[] = [
@@ -290,19 +290,19 @@ const MOCK_RISKS: Risk[] = [
 ];
 
 const MOCK_DOCUMENTS: Document[] = [
-  { id: 1, name: 'Architectural Plans v2.3.pdf', type: 'Drawing', project: 'Kampala Office Complex', projectId: 1, uploadedBy: 'Arch. Mukasa', date: '2025-01-10', size: '15.2 MB' },
-  { id: 2, name: 'Structural Engineering Report.pdf', type: 'Report', project: 'Kampala Office Complex', projectId: 1, uploadedBy: 'Eng. Tumwine', date: '2025-01-08', size: '8.4 MB' },
-  { id: 3, name: 'Site Progress Photos - Week 12.zip', type: 'Photos', project: 'Kampala Office Complex', projectId: 1, uploadedBy: 'Site Supervisor', date: '2025-01-12', size: '45.6 MB' },
-  { id: 4, name: 'Bridge Foundation Specs.dwg', type: 'Drawing', project: 'Entebbe Highway Bridge', projectId: 2, uploadedBy: 'Eng. Kato', date: '2025-01-05', size: '22.1 MB' },
-  { id: 5, name: 'Environmental Impact Assessment.pdf', type: 'Report', project: 'Jinja Industrial Park', projectId: 3, uploadedBy: 'NEMA Consultant', date: '2024-12-20', size: '5.8 MB' },
+  { id: 1, name: 'Architectural Plans v2.3.pdf', type: 'Drawing', project: 'Headquarters Renovation', projectId: 1, uploadedBy: 'Arch. Mukasa', date: '2025-01-10', size: '15.2 MB' },
+  { id: 2, name: 'Structural Engineering Report.pdf', type: 'Report', project: 'Headquarters Renovation', projectId: 1, uploadedBy: 'Eng. Tumwine', date: '2025-01-08', size: '8.4 MB' },
+  { id: 3, name: 'Site Progress Photos - Week 12.zip', type: 'Photos', project: 'Headquarters Renovation', projectId: 1, uploadedBy: 'Site Supervisor', date: '2025-01-12', size: '45.6 MB' },
+  { id: 4, name: 'Bridge Foundation Specs.dwg', type: 'Drawing', project: 'Operations Center Expansion', projectId: 2, uploadedBy: 'Eng. Kato', date: '2025-01-05', size: '22.1 MB' },
+  { id: 5, name: 'Environmental Impact Assessment.pdf', type: 'Report', project: 'Warehouse Upgrade Program', projectId: 3, uploadedBy: 'NEMA Consultant', date: '2024-12-20', size: '5.8 MB' },
 ];
 
 const MOCK_EXPENSES: Expense[] = [
-  { id: 1, description: 'Steel reinforcement bars', category: 'Materials', amount: 45000000, projectId: 1, project: 'Kampala Office Complex', vendor: 'Uganda Steel Mills', date: '2025-01-08', status: 'Approved', loggedBy: 'John Okello' },
-  { id: 2, description: 'Concrete mix delivery', category: 'Materials', amount: 28000000, projectId: 1, project: 'Kampala Office Complex', vendor: 'Tororo Cement', date: '2025-01-10', status: 'Approved', loggedBy: 'Site Team A' },
-  { id: 3, description: 'Crane rental - January', category: 'Equipment', amount: 15000000, projectId: 1, project: 'Kampala Office Complex', vendor: 'Heavy Lift Uganda', date: '2025-01-05', status: 'Approved', loggedBy: 'John Okello' },
-  { id: 4, description: 'Labor wages - Week 2', category: 'Labor', amount: 8500000, projectId: 1, project: 'Kampala Office Complex', vendor: 'N/A', date: '2025-01-12', status: 'Pending', loggedBy: 'Site Supervisor' },
-  { id: 5, description: 'Bridge piling materials', category: 'Materials', amount: 120000000, projectId: 2, project: 'Entebbe Highway Bridge', vendor: 'Construction Supplies Ltd', date: '2025-01-15', status: 'Approved', loggedBy: 'Sarah Nambi' },
+  { id: 1, description: 'Steel reinforcement bars', category: 'Materials', amount: 45000000, projectId: 1, project: 'Headquarters Renovation', vendor: 'Prime Materials Ltd', date: '2025-01-08', status: 'Approved', loggedBy: 'John Okello' },
+  { id: 2, description: 'Concrete mix delivery', category: 'Materials', amount: 28000000, projectId: 1, project: 'Headquarters Renovation', vendor: 'City Concrete Supply', date: '2025-01-10', status: 'Approved', loggedBy: 'Site Team A' },
+  { id: 3, description: 'Crane rental - January', category: 'Equipment', amount: 15000000, projectId: 1, project: 'Headquarters Renovation', vendor: 'Heavy Lift Services', date: '2025-01-05', status: 'Approved', loggedBy: 'John Okello' },
+  { id: 4, description: 'Labor wages - Week 2', category: 'Labor', amount: 8500000, projectId: 1, project: 'Headquarters Renovation', vendor: 'N/A', date: '2025-01-12', status: 'Pending', loggedBy: 'Site Supervisor' },
+  { id: 5, description: 'Bridge piling materials', category: 'Materials', amount: 120000000, projectId: 2, project: 'Operations Center Expansion', vendor: 'Construction Supplies Ltd', date: '2025-01-15', status: 'Approved', loggedBy: 'Sarah Nambi' },
 ];
 
 const MOCK_MESSAGES: Message[] = [
@@ -639,3 +639,4 @@ export const useDataStore = create<DataStore>((set, get) => ({
     }
   },
 }));
+

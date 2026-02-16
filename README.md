@@ -1,213 +1,132 @@
-# BuildPro - Construction Project Management System
+# BuildPro (Anonymized Internal Platform)
 
-A full-stack construction project management platform built with FastAPI and React. Designed for managing projects, tasks, budgets, documents, and team collaboration in the construction industry.
+BuildPro is a client-contracted **internal project management platform** (anonymized for publication).
 
-![Python](https://img.shields.io/badge/Python-3.9+-blue?logo=python&logoColor=white)
-![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688?logo=fastapi&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14-336791?logo=postgresql&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white)
+- Backend: FastAPI + SQLAlchemy + Alembic
+- Frontend: React + TypeScript + Vite
+- Database: PostgreSQL (Render managed Postgres in production)
 
----
+## Canonical Local URLs
 
-## Features
+- Frontend: `http://localhost:5173`
+- Backend API root: `http://localhost:8000`
+- Backend health: `http://localhost:8000/health`
+- Backend docs: `http://localhost:8000/docs`
+- API base path: `/api/v1`
 
-**Project Management** — Create and track construction projects with status, priority, budgets, timelines, client info, and contract types.
+## Demo Seed Credentials (Local Development Only)
 
-**Task Tracking** — Kanban-style task management with assignees, priorities, dependencies, and progress tracking.
+- Admin: `admin@example.com` / `Admin@123456`
+- Project Manager: `pm@example.com` / `Password@123`
 
-**Budget & Expenses** — Track project expenses with receipt attachments, approval/rejection workflows, and budget vs. actual reporting.
+## API Path Convention
 
-**Document Management** — Upload, version, and download project documents with file storage (local or Cloudflare R2).
+All API routes are served under:
 
-**Risk Assessment** — Identify project risks with probability/impact scoring, mitigation plans, and status tracking.
+- `http://localhost:8000/api/v1/...`
 
-**Scheduling & Milestones** — Gantt chart visualization with week/month/quarter zoom, milestone tracking, and dependency management.
+Examples:
 
-**Team Collaboration** — Real-time messaging, role-based access control (Admin, Project Manager, Supervisor, Team Member, Stakeholder).
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `GET /api/v1/auth/me`
+- `GET /api/v1/projects`
 
-**Reports & PDF Export** — Generate and export project reports as PDF documents.
+## Local Setup
 
-**Multi-Tenant SaaS** — Organization-based multi-tenancy with subscription tiers and membership management.
+### 1. Backend
 
-**Audit Logging** — Complete audit trail of all actions for compliance and accountability.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Backend | FastAPI, SQLAlchemy, Alembic, PostgreSQL, Redis |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Zustand |
-| Auth | JWT with refresh tokens (python-jose), bcrypt |
-| Charts | Recharts |
-| Deployment | Docker Compose, Render.com |
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.9+
-- Node.js 18+
-- Git
-
-### 1. Clone and setup
-
-```bash
-git clone https://github.com/Isaac25-lgtm/CONSTRUCTION-MANAGEMENT-SYSTEM.git
-cd CONSTRUCTION-MANAGEMENT-SYSTEM
+```powershell
+cd apps\api
+C:\Users\USER\AppData\Local\Programs\Python\Python312\python.exe -m pip install -r requirements.txt
+C:\Users\USER\AppData\Local\Programs\Python\Python312\python.exe run_local.py
 ```
 
-### 2. Start the backend
+`run_local.py` uses SQLite by default when `DATABASE_URL=sqlite:///./buildpro_local.db`.
 
-```bash
-cd apps/api
-python -m venv venv
+### 2. Frontend
 
-# Activate virtual environment
-source venv/bin/activate        # Linux/Mac
-.\venv\Scripts\activate         # Windows
-
-pip install -r requirements.txt
-
-# Run with SQLite (no PostgreSQL needed)
-python run_local.py
-```
-
-The API starts at **http://localhost:8000** with auto-generated docs at **http://localhost:8000/docs**.
-
-### 3. Start the frontend
-
-```bash
-cd apps/web
-npm install
+```powershell
+cd apps\web
+npm ci
 npm run dev
 ```
 
-The frontend starts at **http://localhost:5000**.
-
-### 4. Login
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `admin@buildpro.ug` | `Admin@123456` |
-| Project Manager | `pm@buildpro.ug` | `Password@123` |
-
----
-
-## Docker Deployment
-
-```bash
-# Start all services (PostgreSQL, Redis, API, Frontend)
-docker-compose up -d
-
-# Stop
-docker-compose down
-```
-
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:5173 |
-| API | http://localhost:8000 |
-| API Docs | http://localhost:8000/docs |
-| PostgreSQL | localhost:5432 |
-| Redis | localhost:6379 |
-
----
-
-## Project Structure
-
-```
-├── apps/
-│   ├── api/                  # FastAPI backend
-│   │   ├── app/
-│   │   │   ├── api/v1/       # API routes & dependencies
-│   │   │   ├── core/         # Config, auth, RBAC, security
-│   │   │   ├── db/           # Database session & base models
-│   │   │   ├── models/       # SQLAlchemy models
-│   │   │   ├── schemas/      # Pydantic request/response schemas
-│   │   │   └── services/     # Business logic layer
-│   │   ├── alembic/          # Database migrations
-│   │   └── run_local.py      # Local dev runner (SQLite)
-│   │
-│   └── web/                  # React frontend
-│       └── src/
-│           ├── components/   # Reusable UI components
-│           ├── pages/        # Page components (Dashboard, Projects, Tasks, etc.)
-│           ├── stores/       # Zustand state management
-│           └── lib/          # API client & utilities
-│
-├── docker-compose.yml
-├── render.yaml               # Render.com deployment config
-└── start.bat                 # Windows quick-start script
-```
-
----
+Frontend runs on `http://localhost:5173`.
 
 ## Environment Variables
 
 ### Backend (`apps/api/.env`)
 
-```env
-DATABASE_URL=postgresql://user:pass@localhost/buildpro
-REDIS_URL=redis://localhost:6379/0
-SECRET_KEY=your-secret-key
-ALLOWED_ORIGINS=http://localhost:5173
-ENVIRONMENT=development
+Use `apps/api/.env.example` as a template.
 
-# Cloud storage (optional)
-USE_CLOUD_STORAGE=false
-R2_ENDPOINT_URL=
-R2_ACCESS_KEY_ID=
-R2_SECRET_ACCESS_KEY=
-R2_BUCKET_NAME=
-```
+Important values:
+
+- `DATABASE_URL`
+- `SECRET_KEY`
+- `ENVIRONMENT`
+- `ALLOWED_ORIGINS` (comma-separated or JSON array of exact origins)
+- `USE_CLOUD_STORAGE`
 
 ### Frontend (`apps/web/.env.local`)
 
-```env
-VITE_API_URL=http://localhost:8000
-```
+Use `apps/web/.env.example` as a template.
 
-> For local development with SQLite, no `.env` configuration is needed — `run_local.py` handles everything.
+- `VITE_API_URL` should include protocol (recommended):
+  - `http://localhost:8000`
+  - `https://<your-api-service>.onrender.com`
+- `/api` is appended automatically if missing.
 
----
+No frontend API keys should be committed.
 
-## API Endpoints
+## Render Deployment (Blueprint)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/v1/auth/login` | Login |
-| POST | `/v1/auth/refresh` | Refresh token |
-| GET | `/v1/auth/me` | Current user |
-| GET/POST | `/v1/projects` | List / Create projects |
-| GET/PUT/DELETE | `/v1/projects/{id}` | Get / Update / Delete project |
-| GET/POST | `/v1/projects/{id}/tasks` | List / Create tasks |
-| GET/POST | `/v1/projects/{id}/expenses` | List / Create expenses |
-| POST | `/v1/projects/{id}/documents` | Upload document |
-| GET/POST | `/v1/projects/{id}/risks` | List / Create risks |
-| GET/POST | `/v1/projects/{id}/milestones` | List / Create milestones |
+This repo includes `render.yaml` with:
 
-Full interactive documentation available at `/docs` when the server is running.
+- Managed Postgres database
+- Python web service (`apps/api`)
+- Static site (`apps/web`)
 
----
+### Backend service
 
-## Deployment
+- Build: `pip install -r requirements.txt`
+- Start:
+  `alembic upgrade head && gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT`
+- Health check: `/health`
 
-### Render.com
+### Frontend static site
 
-1. Push to GitHub
-2. Connect repo on [Render Dashboard](https://dashboard.render.com)
-3. Render auto-detects `render.yaml` and provisions services
-4. Set environment variables in Render dashboard
-5. Run migrations: `alembic upgrade head`
+- Build: `npm ci && npm run build`
+- Publish dir: `dist`
+- Set `VITE_API_URL` to your backend URL with `/api`, for example:
+  `https://<your-backend-service>.onrender.com/api`
 
----
+### Required Render env vars
 
-## License
+Backend:
 
-MIT
+- `DATABASE_URL` (from Render Postgres)
+- `SECRET_KEY`
+- `ENVIRONMENT=production`
+- `DEBUG=false`
+- `ALLOWED_ORIGINS=https://<your-frontend-site>.onrender.com,http://localhost:5173`
+
+Frontend:
+
+- `VITE_API_URL=https://<your-backend-service>.onrender.com` (`/api` appended automatically if missing)
+
+## Quick Verification
+
+1. `GET /health` returns `{"status":"ok"}`
+2. Login at `POST /api/v1/auth/login` returns:
+   - `access_token`
+   - `active_organization_id`
+   - non-empty `user.organizations` for seeded users
+3. Use `X-Organization-ID` for org-scoped endpoints like `/api/v1/projects`
+4. Mutating API requests use `Authorization: Bearer <token>` and do not require CSRF headers.
+
+## CORS Production Rule
+
+- Do not use `*` for `ALLOWED_ORIGINS` in production.
+- With `allow_credentials=true`, origins must be explicit (for Render: your static site origin).
+

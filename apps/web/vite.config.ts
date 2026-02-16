@@ -12,7 +12,7 @@ export default defineConfig({
   // Base URL - use '/' for Render static site
   base: '/',
   server: {
-    port: 5000,
+    port: 5173,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
@@ -37,6 +37,6 @@ export default defineConfig({
   },
   // Preview server for testing production build locally
   preview: {
-    port: 5000,
+    port: 5173,
   },
 })

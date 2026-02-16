@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import { HardHat, Eye, EyeOff, Lock, Mail, AlertCircle } from 'lucide-react';
 import { useUserStore } from '../stores/userStore';
+import { useAuthStore } from '../stores/authStore';
 
 interface LoginPageProps {
   onLogin?: () => void;
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
-  const { login } = useUserStore();
-  const [email, setEmail] = useState('admin@buildpro.ug');
-  const [password, setPassword] = useState('admin123');
+  const { login: hydrateLocalUser } = useUserStore();
+  const { login: backendLogin, error: authError, clearError } = useAuthStore();
+
+  const [email, setEmail] = useState('admin@example.com');
+  const [password, setPassword] = useState('Admin@123456');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -17,48 +20,48 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError('');
+    clearError();
     setIsLoading(true);
 
-    // Build a guest user in case the email isn't in the system
-    const guestUser = {
-      id: Date.now(),
-      email,
-      firstName: email.split('@')[0],
-      lastName: 'User',
-      role: 'Administrator' as const,
-      isActive: true,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
+    try {
+      await backendLogin(email, password);
 
-    // userStore.login accepts any password for known users,
-    // and creates a new user from guestUser for unknown emails
-    const success = login(email, password, guestUser);
+      const authenticatedUser = useAuthStore.getState().user;
+      if (authenticatedUser) {
+        hydrateLocalUser(email, password, {
+          id: Date.now(),
+          email: authenticatedUser.email,
+          firstName: authenticatedUser.first_name,
+          lastName: authenticatedUser.last_name,
+          role: (authenticatedUser.role as any) || 'Administrator',
+          isActive: authenticatedUser.is_active,
+          createdAt: new Date().toISOString().split('T')[0],
+        });
+      }
 
-    if (success) {
       if (onLogin) onLogin();
-    } else {
-      setLocalError('Login failed. Please try again.');
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.detail || authError || 'Login failed. Please try again.';
+      setLocalError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
-  const displayError = localError;
+  const displayError = localError || authError;
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
             <HardHat size={40} className="text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white">BuildPro</h1>
-          <p className="text-slate-400 mt-1">Construction Project Management</p>
+          <p className="text-slate-400 mt-1">Internal Project Management</p>
         </div>
 
-        {/* Login Card */}
         <div className="bg-slate-800 rounded-2xl p-8 shadow-xl border border-slate-700">
-
           <h2 className="text-xl font-semibold text-white mb-6">Sign in to your account</h2>
 
           {displayError && (
@@ -115,20 +118,17 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             </button>
           </form>
 
-          {/* Demo Credentials Notice */}
           <div className="mt-6 pt-6 border-t border-slate-700">
             <div className="p-3 bg-blue-900/30 border border-blue-800 rounded-lg">
-              <p className="text-sm text-blue-400 font-medium mb-1">🔓 Open Access Mode</p>
-              <p className="text-xs text-blue-500">
-                Enter any email &amp; password to sign in.
-              </p>
+              <p className="text-sm text-blue-400 font-medium mb-1">Demo Credentials</p>
+              <p className="text-xs text-blue-500">admin@example.com / Admin@123456</p>
+              <p className="text-xs text-blue-500 mt-1">pm@example.com / Password@123</p>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
         <p className="text-center text-slate-500 text-sm mt-6">
-          © 2025 BuildPro - Uganda's Construction PM Solution
+          � 2026 BuildPro - Internal Project Management Platform
         </p>
       </div>
     </div>
