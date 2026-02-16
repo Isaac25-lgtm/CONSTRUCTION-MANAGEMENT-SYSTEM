@@ -10,6 +10,8 @@ from app.models.milestone import Milestone, MilestoneStatus
 from app.models.message import Message
 from app.models.audit_log import AuditLog
 from app.models.job import Job, JobStatus
+from app.models.notification import Notification
+from app.models.boq import BOQHeader, BOQItem
 
 __all__ = [
     "User",
@@ -39,4 +41,7 @@ __all__ = [
     "AuditLog",
     "Job",
     "JobStatus",
+    "Notification",
+    "BOQHeader",
+    "BOQItem",
 ]

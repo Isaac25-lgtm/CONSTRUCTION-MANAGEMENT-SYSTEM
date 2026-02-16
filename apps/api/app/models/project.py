@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey, Enum as SQLEnum, Date, Numeric, Text
+from sqlalchemy import Boolean, Column, String, ForeignKey, Enum as SQLEnum, Date, Numeric, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -61,6 +61,14 @@ class ProjectMember(Base, UUIDMixin, TimestampMixin):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     role_in_project = Column(String, nullable=True)  # Optional project-specific role override
     joined_at = Column(Date, nullable=False)
+    can_view_project = Column(Boolean, nullable=False, default=True)
+    can_post_messages = Column(Boolean, nullable=False, default=True)
+    can_upload_documents = Column(Boolean, nullable=False, default=True)
+    can_edit_tasks = Column(Boolean, nullable=False, default=True)
+    can_manage_milestones = Column(Boolean, nullable=False, default=True)
+    can_manage_risks = Column(Boolean, nullable=False, default=True)
+    can_manage_expenses = Column(Boolean, nullable=False, default=True)
+    can_approve_expenses = Column(Boolean, nullable=False, default=True)
     
     # Relationships
     project = relationship("Project", back_populates="members")

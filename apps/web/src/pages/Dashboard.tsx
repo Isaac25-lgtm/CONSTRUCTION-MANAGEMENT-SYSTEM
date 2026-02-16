@@ -378,13 +378,14 @@ export default function Dashboard() {
         <footer className="bg-white dark:bg-dark-800 border-t border-gray-200 dark:border-dark-700 px-6 py-3">
           <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
             <p>BuildPro Internal PM v1.0</p>
-            <p>© 2026 Internal Platform</p>
+            <p>BuildPro</p>
           </div>
         </footer>
       </div>
     </div>
   );
 }
+
 
 
 

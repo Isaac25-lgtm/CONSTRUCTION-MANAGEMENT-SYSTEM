@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.api.v1.routes import (
     auth, users, projects, tasks, expenses,
     documents, risks, milestones,
-    organizations, messages, audit_logs, analytics
+    organizations, messages, audit_logs, analytics, notifications, boq
 )
 
 api_router = APIRouter()
@@ -18,6 +18,8 @@ api_router.include_router(documents.router, prefix="/v1/projects/{project_id}/do
 api_router.include_router(risks.router, prefix="/v1/projects/{project_id}/risks", tags=["Risks"])
 api_router.include_router(milestones.router, prefix="/v1/projects/{project_id}/milestones", tags=["Milestones"])
 api_router.include_router(messages.router, prefix="/v1/messages", tags=["Messages"])
+api_router.include_router(notifications.router, prefix="/v1/notifications", tags=["Notifications"])
 api_router.include_router(audit_logs.router, prefix="/v1/audit-logs", tags=["Audit Logs"])
 api_router.include_router(analytics.router, prefix="/v1/analytics", tags=["Analytics"])
+api_router.include_router(boq.router, prefix="/v1/projects/{project_id}/boq", tags=["BOQ"])
 

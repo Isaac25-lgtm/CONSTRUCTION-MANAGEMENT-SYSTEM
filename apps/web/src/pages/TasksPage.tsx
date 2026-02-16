@@ -1,18 +1,69 @@
-import { useState } from 'react';
-import { Plus, Edit, Trash2, Calendar, User } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, Edit, Trash2, Calendar, User, Upload, RefreshCw } from 'lucide-react';
 import { useDataStore, Task } from '../stores/dataStore';
 import StatusBadge from '../components/ui/StatusBadge';
 import ProgressBar from '../components/ui/ProgressBar';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
+import { boqAPI } from '../lib/api';
+
+interface BoqItemNode {
+  id: string;
+  item_code?: string | null;
+  description: string;
+  unit?: string | null;
+  quantity: number;
+  rate: number;
+  budget_cost: number;
+  weight_out_of_10: number;
+  percent_complete: number;
+  actual_cost: number;
+  variance: number;
+  children?: BoqItemNode[];
+}
+
+const flattenBoqItems = (items: BoqItemNode[], level = 0): Array<BoqItemNode & { level: number }> => {
+  const rows: Array<BoqItemNode & { level: number }> = [];
+  items.forEach((item) => {
+    rows.push({ ...item, level });
+    if (item.children?.length) {
+      rows.push(...flattenBoqItems(item.children, level + 1));
+    }
+  });
+  return rows;
+};
+
+const updateBoqItemTree = (
+  items: BoqItemNode[],
+  id: string,
+  updates: Partial<BoqItemNode>
+): BoqItemNode[] =>
+  items.map((item) => {
+    if (item.id === id) {
+      return { ...item, ...updates };
+    }
+    if (!item.children?.length) {
+      return item;
+    }
+    return { ...item, children: updateBoqItemTree(item.children, id, updates) };
+  });
 
 export default function TasksPage() {
-  const { tasks, projects, milestones, addTask, updateTask, deleteTask } = useDataStore();
+  const { tasks, projects, milestones, addTask, updateTask, deleteTask, syncFromAPI } = useDataStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filterProject, setFilterProject] = useState<number | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [boqItems, setBoqItems] = useState<BoqItemNode[]>([]);
+  const [boqSummary, setBoqSummary] = useState<{
+    project_weighted_completion_percent: number;
+    total_budget_cost: number;
+    total_actual_cost: number;
+    total_variance: number;
+  } | null>(null);
+  const [boqLoading, setBoqLoading] = useState(false);
+  const [boqSyncing, setBoqSyncing] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -31,6 +82,44 @@ export default function TasksPage() {
     const statusMatch = filterStatus === 'all' || t.status === filterStatus;
     return projectMatch && statusMatch;
   });
+
+  const selectedProject = useMemo(
+    () => (filterProject === 'all' ? null : projects.find((p) => p.id === filterProject) || null),
+    [filterProject, projects]
+  );
+
+  const refreshBoq = async () => {
+    if (!selectedProject?._uuid) {
+      setBoqItems([]);
+      setBoqSummary(null);
+      return;
+    }
+
+    setBoqLoading(true);
+    try {
+      const [boqData, summary] = await Promise.all([
+        boqAPI.get(selectedProject._uuid),
+        boqAPI.summary(selectedProject._uuid),
+      ]);
+      setBoqItems((boqData.items || []) as BoqItemNode[]);
+      setBoqSummary({
+        project_weighted_completion_percent: Number(summary.project_weighted_completion_percent || 0),
+        total_budget_cost: Number(summary.total_budget_cost || 0),
+        total_actual_cost: Number(summary.total_actual_cost || 0),
+        total_variance: Number(summary.total_variance || 0),
+      });
+    } catch {
+      setBoqItems([]);
+      setBoqSummary(null);
+    } finally {
+      setBoqLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshBoq();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject?._uuid]);
 
   const handleCreate = () => {
     if (!formData.name || !formData.projectId || !formData.assignee || !formData.dueDate) {
@@ -118,6 +207,64 @@ export default function TasksPage() {
     setShowEditModal(true);
   };
 
+  const handleBoqImport = async (file: File) => {
+    if (!selectedProject?._uuid) {
+      toast.error('Select a project to import BOQ');
+      return;
+    }
+    try {
+      toast.loading('Importing BOQ...', { id: 'boq-import' });
+      await boqAPI.import(selectedProject._uuid, file, {
+        title: `${selectedProject.name} BOQ`,
+      });
+      await refreshBoq();
+      await syncFromAPI();
+      toast.success('BOQ imported successfully', { id: 'boq-import' });
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to import BOQ', { id: 'boq-import' });
+    }
+  };
+
+  const handleBoqFieldChange = (
+    itemId: string,
+    updates: Partial<BoqItemNode>
+  ) => {
+    setBoqItems((prev) => updateBoqItemTree(prev, itemId, updates));
+  };
+
+  const handleBoqFieldSave = async (
+    itemId: string,
+    payload: Partial<BoqItemNode>
+  ) => {
+    if (!selectedProject?._uuid) return;
+    try {
+      await boqAPI.updateItem(selectedProject._uuid, itemId, payload);
+      await refreshBoq();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to update BOQ item');
+    }
+  };
+
+  const handleSyncTasksFromBoq = async () => {
+    if (!selectedProject?._uuid) {
+      toast.error('Select a project to sync tasks');
+      return;
+    }
+    setBoqSyncing(true);
+    try {
+      toast.loading('Syncing tasks from BOQ...', { id: 'boq-sync' });
+      await boqAPI.syncTasks(selectedProject._uuid, false);
+      await syncFromAPI();
+      toast.success('Tasks synced from BOQ', { id: 'boq-sync' });
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to sync tasks from BOQ', { id: 'boq-sync' });
+    } finally {
+      setBoqSyncing(false);
+    }
+  };
+
+  const boqRows = useMemo(() => flattenBoqItems(boqItems), [boqItems]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -156,6 +303,185 @@ export default function TasksPage() {
           <option value="Completed">Completed</option>
           <option value="Blocked">Blocked</option>
         </select>
+      </div>
+
+      {/* BOQ Section */}
+      <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">BOQ (Tasks & Milestones Driver)</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Import CSV/XLSX BOQ, track weighted completion, and sync leaf BOQ items into tasks.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 dark:border-dark-600 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-700">
+              <Upload size={16} />
+              Import BOQ
+              <input
+                type="file"
+                accept=".csv,.xlsx"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleBoqImport(file);
+                  e.currentTarget.value = '';
+                }}
+              />
+            </label>
+            <button
+              onClick={handleSyncTasksFromBoq}
+              disabled={boqSyncing || !selectedProject}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-700 disabled:opacity-60"
+            >
+              <RefreshCw size={16} className={boqSyncing ? 'animate-spin' : ''} />
+              Sync tasks from BOQ
+            </button>
+          </div>
+        </div>
+
+        {!selectedProject && (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Select a project in filters above to view and edit BOQ data.
+          </p>
+        )}
+
+        {selectedProject && boqSummary && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+            <div className="p-3 rounded-lg border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-700">
+              <p className="text-xs text-gray-500">Weighted Completion</p>
+              <p className="text-xl font-semibold text-primary-600">
+                {boqSummary.project_weighted_completion_percent.toFixed(1)}%
+              </p>
+            </div>
+            <div className="p-3 rounded-lg border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-700">
+              <p className="text-xs text-gray-500">Budget Cost</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {boqSummary.total_budget_cost.toLocaleString()}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-700">
+              <p className="text-xs text-gray-500">Actual Cost</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {boqSummary.total_actual_cost.toLocaleString()}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-700">
+              <p className="text-xs text-gray-500">Variance</p>
+              <p
+                className={`text-lg font-semibold ${
+                  boqSummary.total_variance >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {boqSummary.total_variance.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {selectedProject && (
+          <div className="border border-gray-200 dark:border-dark-700 rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-dark-700">
+                  <tr>
+                    <th className="text-left p-3">Item</th>
+                    <th className="text-left p-3">Qty</th>
+                    <th className="text-left p-3">Rate</th>
+                    <th className="text-left p-3">Budget</th>
+                    <th className="text-left p-3">Weight/10</th>
+                    <th className="text-left p-3">% Complete</th>
+                    <th className="text-left p-3">Actual</th>
+                    <th className="text-left p-3">Variance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {boqLoading && (
+                    <tr>
+                      <td colSpan={8} className="p-4 text-center text-gray-500">Loading BOQ...</td>
+                    </tr>
+                  )}
+                  {!boqLoading && boqRows.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="p-4 text-center text-gray-500">No BOQ imported yet for this project.</td>
+                    </tr>
+                  )}
+                  {!boqLoading &&
+                    boqRows.map((item) => (
+                      <tr key={item.id} className="border-t border-gray-100 dark:border-dark-700">
+                        <td className="p-3">
+                          <div style={{ paddingLeft: `${item.level * 16}px` }}>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">
+                              {item.item_code ? `${item.item_code} - ` : ''}{item.description}
+                            </p>
+                            {item.unit && <p className="text-xs text-gray-500">Unit: {item.unit}</p>}
+                          </div>
+                        </td>
+                        <td className="p-3">{item.quantity}</td>
+                        <td className="p-3">{item.rate}</td>
+                        <td className="p-3">{item.budget_cost}</td>
+                        <td className="p-3">
+                          <input
+                            type="number"
+                            min={0}
+                            max={10}
+                            value={item.weight_out_of_10}
+                            onChange={(e) =>
+                              handleBoqFieldChange(item.id, {
+                                weight_out_of_10: Math.max(0, Math.min(10, Number(e.target.value || 0))),
+                              })
+                            }
+                            onBlur={(e) =>
+                              handleBoqFieldSave(item.id, {
+                                weight_out_of_10: Math.max(0, Math.min(10, Number(e.target.value || 0))),
+                              })
+                            }
+                            className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-dark-600 bg-white dark:bg-dark-700"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={item.percent_complete}
+                            onChange={(e) =>
+                              handleBoqFieldChange(item.id, {
+                                percent_complete: Math.max(0, Math.min(100, Number(e.target.value || 0))),
+                              })
+                            }
+                            onBlur={(e) =>
+                              handleBoqFieldSave(item.id, {
+                                percent_complete: Math.max(0, Math.min(100, Number(e.target.value || 0))),
+                              })
+                            }
+                            className="w-24 px-2 py-1 rounded border border-gray-300 dark:border-dark-600 bg-white dark:bg-dark-700"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <input
+                            type="number"
+                            min={0}
+                            value={item.actual_cost}
+                            onChange={(e) =>
+                              handleBoqFieldChange(item.id, { actual_cost: Number(e.target.value || 0) })
+                            }
+                            onBlur={(e) =>
+                              handleBoqFieldSave(item.id, { actual_cost: Number(e.target.value || 0) })
+                            }
+                            className="w-28 px-2 py-1 rounded border border-gray-300 dark:border-dark-600 bg-white dark:bg-dark-700"
+                          />
+                        </td>
+                        <td className={`p-3 font-medium ${item.variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {item.variance}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Milestones Section */}

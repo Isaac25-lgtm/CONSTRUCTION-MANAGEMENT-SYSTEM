@@ -4,6 +4,9 @@ import {
   milestonesAPI, messagesAPI, documentsAPI, analyticsAPI
 } from '../lib/api';
 
+const DEMO_MODE_ENABLED = String(import.meta.env.VITE_DEMO_MODE || 'false').toLowerCase() === 'true';
+const DEMO_DISABLED_ERROR = 'Live API is unavailable and demo fallback is disabled. Set VITE_DEMO_MODE=true to enable mock data.';
+
 export interface Project {
   id: number;
   _uuid?: string; // Backend UUID
@@ -148,8 +151,13 @@ interface DataStore {
 
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   updateExpense: (id: number, data: Partial<Expense>) => void;
+  deleteExpense: (id: number) => void;
 
   addMessage: (message: Omit<Message, 'id'>) => void;
+
+  addMilestone: (milestone: Omit<Milestone, 'id'>) => void;
+  updateMilestone: (id: number, data: Partial<Milestone>) => void;
+  deleteMilestone: (id: number) => void;
 }
 
 // Helper: Map backend project to frontend format
@@ -255,15 +263,20 @@ const mapMilestone = (m: any, idx: number, projects: Project[]): Milestone => {
   };
 };
 
-const mapMessage = (msg: any, idx: number): Message => ({
-  id: idx + 1,
-  _uuid: msg.id,
-  sender: msg.sender_name || 'System',
-  message: msg.content || '',
-  time: msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-  avatar: (msg.sender_name || 'SY').split(' ').map((n: string) => n[0]).join('').slice(0, 2),
-  projectId: undefined,
-});
+const mapMessage = (msg: any, idx: number, projects: Project[]): Message => {
+  const project = projects.find((p) => p._uuid === msg.project_id);
+  return {
+    id: idx + 1,
+    _uuid: msg.id,
+    sender: msg.sender_name || 'System',
+    message: msg.content || '',
+    time: msg.created_at
+      ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : '',
+    avatar: (msg.sender_name || 'SY').split(' ').map((n: string) => n[0]).join('').slice(0, 2),
+    projectId: project?.id,
+  };
+};
 
 // Fallback mock data for when API is not available
 const MOCK_PROJECTS: Project[] = [
@@ -322,21 +335,33 @@ const MOCK_MILESTONES: Milestone[] = [
 ];
 
 export const useDataStore = create<DataStore>((set, get) => ({
-  projects: MOCK_PROJECTS,
-  tasks: MOCK_TASKS,
-  risks: MOCK_RISKS,
-  documents: MOCK_DOCUMENTS,
-  expenses: MOCK_EXPENSES,
-  messages: MOCK_MESSAGES,
-  milestones: MOCK_MILESTONES,
+  projects: DEMO_MODE_ENABLED ? MOCK_PROJECTS : [],
+  tasks: DEMO_MODE_ENABLED ? MOCK_TASKS : [],
+  risks: DEMO_MODE_ENABLED ? MOCK_RISKS : [],
+  documents: DEMO_MODE_ENABLED ? MOCK_DOCUMENTS : [],
+  expenses: DEMO_MODE_ENABLED ? MOCK_EXPENSES : [],
+  messages: DEMO_MODE_ENABLED ? MOCK_MESSAGES : [],
+  milestones: DEMO_MODE_ENABLED ? MOCK_MILESTONES : [],
   isLoading: false,
-  isApiConnected: false,
-  error: null,
+  isApiConnected: DEMO_MODE_ENABLED ? false : false,
+  error: DEMO_MODE_ENABLED ? 'VITE_DEMO_MODE is enabled. Showing mock data.' : null,
 
   syncFromAPI: async () => {
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken) {
-      // Not logged in, keep mock data
+      if (!DEMO_MODE_ENABLED) {
+        set({
+          projects: [],
+          tasks: [],
+          risks: [],
+          documents: [],
+          expenses: [],
+          messages: [],
+          milestones: [],
+          isApiConnected: false,
+          error: null,
+        });
+      }
       return;
     }
 
@@ -394,22 +419,32 @@ export const useDataStore = create<DataStore>((set, get) => ({
 
       // Map everything to frontend format
       set({
-        projects: projects.length > 0 ? projects : MOCK_PROJECTS,
-        tasks: allTasks.length > 0 ? allTasks.map((t, i) => mapTask(t, i, projects)) : MOCK_TASKS,
-        expenses: allExpenses.length > 0 ? allExpenses.map((e, i) => mapExpense(e, i, projects)) : MOCK_EXPENSES,
-        risks: allRisks.length > 0 ? allRisks.map((r, i) => mapRisk(r, i, projects)) : MOCK_RISKS,
-        documents: allDocuments.length > 0 ? allDocuments.map((d, i) => mapDocument(d, i, projects)) : MOCK_DOCUMENTS,
-        milestones: allMilestones.length > 0 ? allMilestones.map((m, i) => mapMilestone(m, i, projects)) : MOCK_MILESTONES,
-        messages: allMessages.length > 0 ? allMessages.map(mapMessage) : MOCK_MESSAGES,
+        projects: projects.length > 0 ? projects : (DEMO_MODE_ENABLED ? MOCK_PROJECTS : []),
+        tasks: allTasks.length > 0 ? allTasks.map((t, i) => mapTask(t, i, projects)) : (DEMO_MODE_ENABLED ? MOCK_TASKS : []),
+        expenses: allExpenses.length > 0 ? allExpenses.map((e, i) => mapExpense(e, i, projects)) : (DEMO_MODE_ENABLED ? MOCK_EXPENSES : []),
+        risks: allRisks.length > 0 ? allRisks.map((r, i) => mapRisk(r, i, projects)) : (DEMO_MODE_ENABLED ? MOCK_RISKS : []),
+        documents: allDocuments.length > 0 ? allDocuments.map((d, i) => mapDocument(d, i, projects)) : (DEMO_MODE_ENABLED ? MOCK_DOCUMENTS : []),
+        milestones: allMilestones.length > 0 ? allMilestones.map((m, i) => mapMilestone(m, i, projects)) : (DEMO_MODE_ENABLED ? MOCK_MILESTONES : []),
+        messages: allMessages.length > 0 ? allMessages.map((m, i) => mapMessage(m, i, projects)) : (DEMO_MODE_ENABLED ? MOCK_MESSAGES : []),
         isLoading: false,
         isApiConnected: true,
+        error: null,
       });
     } catch (err: any) {
-      console.warn('API sync failed, using mock data:', err.message);
+      console.warn('API sync failed:', err.message);
       set({
+        projects: DEMO_MODE_ENABLED ? MOCK_PROJECTS : [],
+        tasks: DEMO_MODE_ENABLED ? MOCK_TASKS : [],
+        expenses: DEMO_MODE_ENABLED ? MOCK_EXPENSES : [],
+        risks: DEMO_MODE_ENABLED ? MOCK_RISKS : [],
+        documents: DEMO_MODE_ENABLED ? MOCK_DOCUMENTS : [],
+        milestones: DEMO_MODE_ENABLED ? MOCK_MILESTONES : [],
+        messages: DEMO_MODE_ENABLED ? MOCK_MESSAGES : [],
         isLoading: false,
         isApiConnected: false,
-        error: 'Could not connect to API. Using demo data.',
+        error: DEMO_MODE_ENABLED
+          ? 'Could not connect to API. Demo fallback is enabled via VITE_DEMO_MODE=true.'
+          : DEMO_DISABLED_ERROR,
       });
     }
   },
@@ -431,11 +466,15 @@ export const useDataStore = create<DataStore>((set, get) => ({
         client_name: project.clientName,
         contract_type: project.contractType,
       }).then(() => state.syncFromAPI()).catch(console.error);
-    } else {
-      set((s) => ({
-        projects: [...s.projects, { ...project, id: Math.max(...s.projects.map(p => p.id), 0) + 1 }]
-      }));
+      return;
     }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
+    }
+    set((s) => ({
+      projects: [...s.projects, { ...project, id: Math.max(...s.projects.map(p => p.id), 0) + 1 }]
+    }));
   },
 
   updateProject: (id, data) => {
@@ -454,8 +493,16 @@ export const useDataStore = create<DataStore>((set, get) => ({
       if (data.clientName !== undefined) updateData.client_name = data.clientName;
       if (data.contractType !== undefined) updateData.contract_type = data.contractType;
       projectsAPI.update(project._uuid, updateData).then(() => state.syncFromAPI()).catch(console.error);
+      // Optimistic update while API request is in flight.
+      set((s) => ({
+        projects: s.projects.map(p => p.id === id ? { ...p, ...data } : p)
+      }));
+      return;
     }
-    // Always update locally for immediate UI feedback
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
+    }
     set((s) => ({
       projects: s.projects.map(p => p.id === id ? { ...p, ...data } : p)
     }));
@@ -466,6 +513,14 @@ export const useDataStore = create<DataStore>((set, get) => ({
     const project = state.projects.find(p => p.id === id);
     if (state.isApiConnected && project?._uuid) {
       projectsAPI.delete(project._uuid).catch(console.error);
+      set((s) => ({
+        projects: s.projects.filter(p => p.id !== id)
+      }));
+      return;
+    }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
     }
     set((s) => ({
       projects: s.projects.filter(p => p.id !== id)
@@ -485,11 +540,15 @@ export const useDataStore = create<DataStore>((set, get) => ({
         start_date: task.startDate,
         progress: task.progress,
       }).then(() => state.syncFromAPI()).catch(console.error);
-    } else {
-      set((s) => ({
-        tasks: [...s.tasks, { ...task, id: Math.max(...s.tasks.map(t => t.id), 0) + 1 }]
-      }));
+      return;
     }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
+    }
+    set((s) => ({
+      tasks: [...s.tasks, { ...task, id: Math.max(...s.tasks.map(t => t.id), 0) + 1 }]
+    }));
   },
 
   updateTask: (id, data) => {
@@ -505,6 +564,14 @@ export const useDataStore = create<DataStore>((set, get) => ({
       if (data.dueDate) updateData.due_date = data.dueDate;
       if (data.progress !== undefined) updateData.progress = data.progress;
       tasksAPI.update(project._uuid, task._uuid, updateData).catch(console.error);
+      set((s) => ({
+        tasks: s.tasks.map(t => t.id === id ? { ...t, ...data } : t)
+      }));
+      return;
+    }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
     }
     set((s) => ({
       tasks: s.tasks.map(t => t.id === id ? { ...t, ...data } : t)
@@ -517,6 +584,14 @@ export const useDataStore = create<DataStore>((set, get) => ({
     const project = task ? state.projects.find(p => p.id === task.projectId) : null;
     if (state.isApiConnected && task?._uuid && project?._uuid) {
       tasksAPI.delete(project._uuid, task._uuid).catch(console.error);
+      set((s) => ({
+        tasks: s.tasks.filter(t => t.id !== id)
+      }));
+      return;
+    }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
     }
     set((s) => ({
       tasks: s.tasks.filter(t => t.id !== id)
@@ -536,11 +611,15 @@ export const useDataStore = create<DataStore>((set, get) => ({
         status: risk.status,
         mitigation_plan: risk.mitigation,
       }).then(() => state.syncFromAPI()).catch(console.error);
-    } else {
-      set((s) => ({
-        risks: [...s.risks, { ...risk, id: Math.max(...s.risks.map(r => r.id), 0) + 1 }]
-      }));
+      return;
     }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
+    }
+    set((s) => ({
+      risks: [...s.risks, { ...risk, id: Math.max(...s.risks.map(r => r.id), 0) + 1 }]
+    }));
   },
 
   updateRisk: (id, data) => {
@@ -556,6 +635,14 @@ export const useDataStore = create<DataStore>((set, get) => ({
       if (data.mitigation) updateData.mitigation_plan = data.mitigation;
       if (data.category) updateData.category = data.category;
       risksAPI.update(project._uuid, risk._uuid, updateData).catch(console.error);
+      set((s) => ({
+        risks: s.risks.map(r => r.id === id ? { ...r, ...data } : r)
+      }));
+      return;
+    }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
     }
     set((s) => ({
       risks: s.risks.map(r => r.id === id ? { ...r, ...data } : r)
@@ -568,6 +655,14 @@ export const useDataStore = create<DataStore>((set, get) => ({
     const project = risk ? state.projects.find(p => p.id === risk.projectId) : null;
     if (state.isApiConnected && risk?._uuid && project?._uuid) {
       risksAPI.delete(project._uuid, risk._uuid).catch(console.error);
+      set((s) => ({
+        risks: s.risks.filter(r => r.id !== id)
+      }));
+      return;
+    }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
     }
     set((s) => ({
       risks: s.risks.filter(r => r.id !== id)
@@ -575,6 +670,10 @@ export const useDataStore = create<DataStore>((set, get) => ({
   },
 
   addDocument: (doc) => {
+    if (!DEMO_MODE_ENABLED && !get().isApiConnected) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
+    }
     set((s) => ({
       documents: [...s.documents, { ...doc, id: Math.max(...s.documents.map(d => d.id), 0) + 1 }]
     }));
@@ -586,6 +685,14 @@ export const useDataStore = create<DataStore>((set, get) => ({
     const project = doc ? state.projects.find(p => p.id === doc.projectId) : null;
     if (state.isApiConnected && doc?._uuid && project?._uuid) {
       documentsAPI.delete(project._uuid, doc._uuid).catch(console.error);
+      set((s) => ({
+        documents: s.documents.filter(d => d.id !== id)
+      }));
+      return;
+    }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
     }
     set((s) => ({
       documents: s.documents.filter(d => d.id !== id)
@@ -603,11 +710,15 @@ export const useDataStore = create<DataStore>((set, get) => ({
         vendor: expense.vendor,
         expense_date: expense.date,
       }).then(() => state.syncFromAPI()).catch(console.error);
-    } else {
-      set((s) => ({
-        expenses: [...s.expenses, { ...expense, id: Math.max(...s.expenses.map(e => e.id), 0) + 1 }]
-      }));
+      return;
     }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
+    }
+    set((s) => ({
+      expenses: [...s.expenses, { ...expense, id: Math.max(...s.expenses.map(e => e.id), 0) + 1 }]
+    }));
   },
 
   updateExpense: (id, data) => {
@@ -620,23 +731,130 @@ export const useDataStore = create<DataStore>((set, get) => ({
       } else if (data.status === 'Rejected') {
         expensesAPI.reject(project._uuid, expense._uuid, 'Rejected').catch(console.error);
       }
+      set((s) => ({
+        expenses: s.expenses.map(e => e.id === id ? { ...e, ...data } : e)
+      }));
+      return;
+    }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
     }
     set((s) => ({
       expenses: s.expenses.map(e => e.id === id ? { ...e, ...data } : e)
     }));
   },
 
+  deleteExpense: (id) => {
+    const state = get();
+    const expense = state.expenses.find(e => e.id === id);
+    const project = expense ? state.projects.find(p => p.id === expense.projectId) : null;
+    if (state.isApiConnected && expense?._uuid && project?._uuid) {
+      expensesAPI.delete(project._uuid, expense._uuid).catch(console.error);
+      set((s) => ({
+        expenses: s.expenses.filter(e => e.id !== id)
+      }));
+      return;
+    }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
+    }
+    set((s) => ({
+      expenses: s.expenses.filter(e => e.id !== id)
+    }));
+  },
+
+  addMilestone: (milestone) => {
+    const state = get();
+    const project = state.projects.find(p => p.id === milestone.projectId);
+    if (state.isApiConnected && project?._uuid) {
+      milestonesAPI.create(project._uuid, {
+        name: milestone.name,
+        description: '',
+        target_date: milestone.date,
+        status: milestone.status,
+        completion_percentage: milestone.status === 'Completed' ? 100 : 0,
+      }).then(() => state.syncFromAPI()).catch(console.error);
+      return;
+    }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
+    }
+    set((s) => ({
+      milestones: [...s.milestones, { ...milestone, id: Math.max(...s.milestones.map(m => m.id), 0) + 1 }]
+    }));
+  },
+
+  updateMilestone: (id, data) => {
+    const state = get();
+    const milestone = state.milestones.find(m => m.id === id);
+    const project = milestone ? state.projects.find(p => p.id === milestone.projectId) : null;
+    if (state.isApiConnected && milestone?._uuid && project?._uuid) {
+      const payload: any = {};
+      if (data.name) payload.name = data.name;
+      if (data.date) payload.target_date = data.date;
+      if (data.status) payload.status = data.status;
+      milestonesAPI.update(project._uuid, milestone._uuid, payload).then(() => state.syncFromAPI()).catch(console.error);
+      set((s) => ({
+        milestones: s.milestones.map(m => m.id === id ? { ...m, ...data } : m)
+      }));
+      return;
+    }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
+    }
+    set((s) => ({
+      milestones: s.milestones.map(m => m.id === id ? { ...m, ...data } : m)
+    }));
+  },
+
+  deleteMilestone: (id) => {
+    const state = get();
+    const milestone = state.milestones.find(m => m.id === id);
+    const project = milestone ? state.projects.find(p => p.id === milestone.projectId) : null;
+    if (state.isApiConnected && milestone?._uuid && project?._uuid) {
+      milestonesAPI.delete(project._uuid, milestone._uuid).catch(console.error);
+      set((s) => ({
+        milestones: s.milestones.filter(m => m.id !== id)
+      }));
+      return;
+    }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
+    }
+    set((s) => ({
+      milestones: s.milestones.filter(m => m.id !== id)
+    }));
+  },
+
   addMessage: (message) => {
     const state = get();
     if (state.isApiConnected) {
-      messagesAPI.create({
+      const payload: { content: string; project_id?: string } = {
         content: message.message,
-      }).then(() => state.syncFromAPI()).catch(console.error);
-    } else {
-      set((s) => ({
-        messages: [{ ...message, id: Math.max(...s.messages.map(m => m.id), 0) + 1 }, ...s.messages]
-      }));
+      };
+
+      if (message.projectId) {
+        const project = state.projects.find((p) => p.id === message.projectId);
+        if (project?._uuid) {
+          payload.project_id = project._uuid;
+        }
+      }
+
+      messagesAPI.create(payload).then(() => state.syncFromAPI()).catch(console.error);
+      return;
     }
+    if (!DEMO_MODE_ENABLED) {
+      set({ error: DEMO_DISABLED_ERROR });
+      return;
+    }
+    set((s) => ({
+      messages: [{ ...message, id: Math.max(...s.messages.map(m => m.id), 0) + 1 }, ...s.messages]
+    }));
   },
 }));
 

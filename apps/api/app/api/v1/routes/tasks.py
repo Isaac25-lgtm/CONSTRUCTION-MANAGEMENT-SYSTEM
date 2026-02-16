@@ -15,10 +15,15 @@ from app.schemas.task import (
     TaskProgressUpdate
 )
 from app.models.task import Task, TaskStatus, TaskPriority
-from app.models.project import Project
 from app.models.organization import OrganizationMember, MembershipStatus
 from app.models.user import User
-from app.api.v1.dependencies import get_org_context, OrgContext
+from app.services.notifications import create_notification
+from app.api.v1.dependencies import (
+    OrgContext,
+    ensure_project_permission,
+    get_org_context,
+    get_project_or_404,
+)
 
 router = APIRouter()
 
@@ -55,14 +60,14 @@ async def list_tasks(
 ):
     """List tasks for a project with pagination and filters"""
     # Verify project exists and belongs to org
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.organization_id == ctx.organization.id,
-        Project.is_deleted == False
-    ).first()
-    
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_view_project",
+        "You do not have permission to view tasks in this project",
+    )
     
     query = db.query(Task).filter(
         Task.project_id == project_id,
@@ -144,14 +149,14 @@ async def create_task(
 ):
     """Create a new task"""
     # Verify project exists and belongs to org
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.organization_id == ctx.organization.id,
-        Project.is_deleted == False
-    ).first()
-    
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_edit_tasks",
+        "You do not have permission to create tasks in this project",
+    )
 
     if not _is_active_org_member(db, ctx.organization.id, task_data.assignee_id):
         raise HTTPException(status_code=400, detail="Assignee must be an active member of this organization")
@@ -178,6 +183,19 @@ async def create_task(
     db.add(task)
     db.commit()
     db.refresh(task)
+
+    if task.assignee_id and task.assignee_id != ctx.user.id:
+        create_notification(
+            db,
+            organization_id=ctx.organization.id,
+            user_id=task.assignee_id,
+            project_id=project_id,
+            notification_type="task_assigned",
+            title="Task assigned",
+            body=f"You were assigned task '{task.name}'.",
+            data={"task_id": str(task.id), "project_id": str(project_id)},
+        )
+        db.commit()
     
     assignee_name = f"{task.assignee.first_name} {task.assignee.last_name}" if task.assignee else None
     reporter_name = f"{task.reporter.first_name} {task.reporter.last_name}" if task.reporter else None
@@ -213,6 +231,15 @@ async def get_task(
     db: Session = Depends(get_db)
 ):
     """Get task by ID"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_view_project",
+        "You do not have permission to view tasks in this project",
+    )
+
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.project_id == project_id,
@@ -258,6 +285,15 @@ async def update_task(
     db: Session = Depends(get_db)
 ):
     """Update task"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_edit_tasks",
+        "You do not have permission to update tasks in this project",
+    )
+
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.project_id == project_id,
@@ -267,6 +303,8 @@ async def update_task(
     
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    previous_assignee_id = task.assignee_id
 
     if "assignee_id" in task_data.model_dump(exclude_unset=True):
         if not _is_active_org_member(db, ctx.organization.id, task_data.assignee_id):
@@ -285,6 +323,19 @@ async def update_task(
     
     db.commit()
     db.refresh(task)
+
+    if task.assignee_id and task.assignee_id != previous_assignee_id and task.assignee_id != ctx.user.id:
+        create_notification(
+            db,
+            organization_id=ctx.organization.id,
+            user_id=task.assignee_id,
+            project_id=project_id,
+            notification_type="task_assigned",
+            title="Task assigned",
+            body=f"You were assigned task '{task.name}'.",
+            data={"task_id": str(task.id), "project_id": str(project_id)},
+        )
+        db.commit()
     
     assignee_name = f"{task.assignee.first_name} {task.assignee.last_name}" if task.assignee else None
     reporter_name = f"{task.reporter.first_name} {task.reporter.last_name}" if task.reporter else None
@@ -321,6 +372,15 @@ async def update_task_status(
     db: Session = Depends(get_db)
 ):
     """Update task status"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_edit_tasks",
+        "You do not have permission to update tasks in this project",
+    )
+
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.project_id == project_id,
@@ -377,6 +437,15 @@ async def update_task_progress(
     db: Session = Depends(get_db)
 ):
     """Update task progress"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_edit_tasks",
+        "You do not have permission to update tasks in this project",
+    )
+
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.project_id == project_id,
@@ -432,6 +501,15 @@ async def delete_task(
     db: Session = Depends(get_db)
 ):
     """Soft delete task"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_edit_tasks",
+        "You do not have permission to delete tasks in this project",
+    )
+
     task = db.query(Task).filter(
         Task.id == task_id,
         Task.project_id == project_id,

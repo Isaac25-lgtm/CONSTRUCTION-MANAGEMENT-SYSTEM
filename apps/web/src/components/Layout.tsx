@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Home,
   FolderKanban,
@@ -25,6 +25,7 @@ import { useUserStore } from '../stores/userStore';
 import { useAuthStore } from '../stores/authStore';
 import { useAuditStore } from '../stores/auditStore';
 import { useDataStore } from '../stores/dataStore';
+import { useNotificationStore } from '../stores/notificationStore';
 import { AIChatWidget } from './AIChat';
 import OrganizationSelector from './OrganizationSelector';
 
@@ -37,17 +38,57 @@ interface LayoutProps {
 
 export default function Layout({ children, activeSection, onSectionChange, onLogout }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+
   const { isDark, toggleTheme } = useThemeStore();
   const { currentUser, logout } = useUserStore();
-  const { logout: backendLogout } = useAuthStore();
+  const { logout: backendLogout, selectedOrgId } = useAuthStore();
   const { addLog } = useAuditStore();
   const { syncFromAPI, isApiConnected, isLoading: isSyncing } = useDataStore();
+  const {
+    items: notifications,
+    unreadCount,
+    isLoading: notificationsLoading,
+    error: notificationsError,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+  } = useNotificationStore();
 
   useEffect(() => {
     syncFromAPI();
   }, [syncFromAPI]);
 
+  useEffect(() => {
+    fetchNotifications();
+    const intervalId = window.setInterval(fetchNotifications, 30000);
+    return () => window.clearInterval(intervalId);
+  }, [fetchNotifications, selectedOrgId]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target as Node)
+      ) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, []);
+
   const isOnline = isApiConnected;
+
+  const formatNotificationTime = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString();
+  };
 
   const handleLogout = async () => {
     if (currentUser) {
@@ -158,15 +199,82 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
                 }`}
               >
                 {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
-                {isSyncing ? 'Syncing...' : isOnline ? 'API Connected' : 'Demo Mode'}
+                {isSyncing ? 'Syncing...' : isOnline ? 'API Connected' : 'API Disconnected'}
               </div>
 
               <OrganizationSelector />
 
-              <button className="relative p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg">
-                <Bell size={20} />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              </button>
+              <div className="relative" ref={notificationRef}>
+                <button
+                  onClick={() => setShowNotifications((prev) => !prev)}
+                  className="relative p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg"
+                  aria-label="Notifications"
+                >
+                  <Bell size={20} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-dark-800 border border-gray-200 dark:border-dark-700 rounded-xl shadow-lg z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-dark-700 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</p>
+                      <div className="flex items-center gap-3">
+                        {unreadCount > 0 && (
+                          <>
+                            <span className="text-xs text-red-600 dark:text-red-400">{unreadCount} unread</span>
+                            <button
+                              onClick={() => markAllAsRead()}
+                              className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                            >
+                              Mark all read
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="max-h-96 overflow-y-auto">
+                      {notificationsLoading && (
+                        <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">Loading notifications...</p>
+                      )}
+
+                      {!notificationsLoading && notificationsError && (
+                        <p className="px-4 py-3 text-sm text-red-600 dark:text-red-400">{notificationsError}</p>
+                      )}
+
+                      {!notificationsLoading && !notificationsError && notifications.length === 0 && (
+                        <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">No notifications yet</p>
+                      )}
+
+                      {!notificationsLoading && !notificationsError && notifications.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            if (!item.is_read) {
+                              markAsRead(item.id);
+                            }
+                          }}
+                          className={`w-full text-left px-4 py-3 border-b last:border-b-0 border-gray-100 dark:border-dark-700 hover:bg-gray-50 dark:hover:bg-dark-700/60 ${
+                            item.is_read ? '' : 'bg-blue-50/60 dark:bg-blue-900/10'
+                          }`}
+                        >
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.title}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                            {item.body}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {formatNotificationTime(item.created_at)}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-dark-700">
                 <div className="w-9 h-9 bg-primary-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
@@ -195,7 +303,7 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
         <footer className="bg-white dark:bg-dark-800 border-t border-gray-200 dark:border-dark-700 px-6 py-3">
           <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
             <p>BuildPro Internal PM v1.0</p>
-            <p>© 2026 Internal Platform</p>
+            <p>BuildPro</p>
           </div>
         </footer>
       </div>

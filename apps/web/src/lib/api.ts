@@ -128,6 +128,86 @@ apiClient.interceptors.response.use(
     }
 );
 
+function extractFilenameFromDisposition(disposition?: string): string | null {
+    if (!disposition) return null;
+
+    const utf8Match = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+    if (utf8Match?.[1]) {
+        return decodeURIComponent(utf8Match[1].trim().replace(/["']/g, ''));
+    }
+
+    const plainMatch = disposition.match(/filename\s*=\s*"?([^\";]+)"?/i);
+    if (plainMatch?.[1]) {
+        return plainMatch[1].trim();
+    }
+
+    return null;
+}
+
+function triggerBrowserDownload(blob: Blob, filename: string): void {
+    const objectUrl = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(objectUrl);
+}
+
+async function readErrorBlob(blob: Blob): Promise<string | null> {
+    try {
+        const text = await blob.text();
+        if (!text) return null;
+        try {
+            const parsed = JSON.parse(text);
+            return parsed?.detail || parsed?.error?.message || text;
+        } catch {
+            return text;
+        }
+    } catch {
+        return null;
+    }
+}
+
+export async function downloadBlobFromApi(
+    url: string,
+    options?: {
+        params?: Record<string, any>;
+        method?: 'GET' | 'POST';
+        data?: unknown;
+        defaultFilename?: string;
+    }
+): Promise<string> {
+    try {
+        const response = await apiClient.request<Blob>({
+            url,
+            method: options?.method || 'GET',
+            params: options?.params,
+            data: options?.data,
+            responseType: 'blob',
+        });
+
+        const disposition = response.headers['content-disposition'] as string | undefined;
+        const filename =
+            extractFilenameFromDisposition(disposition) ||
+            options?.defaultFilename ||
+            `download-${new Date().toISOString().slice(0, 10)}.bin`;
+
+        triggerBrowserDownload(response.data, filename);
+        return filename;
+    } catch (error: any) {
+        const axiosErr = error as AxiosError;
+        const blob = axiosErr.response?.data;
+        const blobMessage = blob instanceof Blob ? await readErrorBlob(blob) : null;
+        const apiMessage =
+            (axiosErr.response?.data as any)?.detail ||
+            (axiosErr.response?.data as any)?.error?.message;
+
+        throw new Error(blobMessage || apiMessage || axiosErr.message || 'Download failed');
+    }
+}
+
 // API Methods
 
 // Auth API
@@ -193,6 +273,25 @@ export const projectsAPI = {
 
     addMember: async (id: string, data: { user_id: string; role_in_project?: string }) => {
         const response = await apiClient.post(`/v1/projects/${id}/members`, data);
+        return response.data;
+    },
+
+    updateMember: async (
+        id: string,
+        userId: string,
+        data: {
+            role_in_project?: string;
+            can_view_project?: boolean;
+            can_post_messages?: boolean;
+            can_upload_documents?: boolean;
+            can_edit_tasks?: boolean;
+            can_manage_milestones?: boolean;
+            can_manage_risks?: boolean;
+            can_manage_expenses?: boolean;
+            can_approve_expenses?: boolean;
+        }
+    ) => {
+        const response = await apiClient.patch(`/v1/projects/${id}/members/${userId}`, data);
         return response.data;
     },
 
@@ -452,9 +551,11 @@ export const messagesAPI = {
     list: async (params?: {
         page?: number;
         page_size?: number;
+        limit?: number;
         project_id?: string;
         task_id?: string;
         message_type?: string;
+        unread_only?: boolean;
     }) => {
         const response = await apiClient.get('/v1/messages', { params });
         return response.data;
@@ -477,6 +578,97 @@ export const messagesAPI = {
 
     delete: async (id: string) => {
         await apiClient.delete(`/v1/messages/${id}`);
+    },
+};
+
+// Reports API
+export const reportsAPI = {
+    download: async (format: 'pdf' | 'excel') => {
+        const extension = format === 'excel' ? 'csv' : 'pdf';
+        return downloadBlobFromApi('/v1/analytics/reports/export', {
+            params: { format },
+            defaultFilename: `buildpro-report-${new Date().toISOString().slice(0, 10)}.${extension}`,
+        });
+    },
+
+    downloadProjectSummary: async () => {
+        return downloadBlobFromApi('/v1/analytics/reports/project-summary/export', {
+            defaultFilename: `buildpro-project-summary-${new Date().toISOString().slice(0, 10)}.csv`,
+        });
+    },
+
+    downloadFinancialSummary: async () => {
+        return downloadBlobFromApi('/v1/analytics/reports/financial-summary/export', {
+            defaultFilename: `buildpro-financial-summary-${new Date().toISOString().slice(0, 10)}.csv`,
+        });
+    },
+};
+
+export const notificationsAPI = {
+    list: async (params?: {
+        page?: number;
+        page_size?: number;
+        unread_only?: boolean;
+        project_id?: string;
+    }) => {
+        const response = await apiClient.get('/v1/notifications', { params });
+        return response.data;
+    },
+
+    markRead: async (id: string) => {
+        const response = await apiClient.post(`/v1/notifications/${id}/read`);
+        return response.data;
+    },
+
+    readAll: async (projectId?: string) => {
+        await apiClient.post('/v1/notifications/read-all', undefined, {
+            params: projectId ? { project_id: projectId } : undefined,
+        });
+    },
+};
+
+export const boqAPI = {
+    import: async (
+        projectId: string,
+        file: File,
+        options?: { title?: string; currency?: string; start_date?: string; end_date?: string }
+    ) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const params = new URLSearchParams();
+        if (options?.title) params.append('title', options.title);
+        if (options?.currency) params.append('currency', options.currency);
+        if (options?.start_date) params.append('start_date', options.start_date);
+        if (options?.end_date) params.append('end_date', options.end_date);
+
+        const query = params.toString();
+        const url = `/v1/projects/${projectId}/boq/import${query ? `?${query}` : ''}`;
+        const response = await apiClient.post(url, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data;
+    },
+
+    get: async (projectId: string) => {
+        const response = await apiClient.get(`/v1/projects/${projectId}/boq`);
+        return response.data;
+    },
+
+    updateItem: async (projectId: string, itemId: string, data: any) => {
+        const response = await apiClient.patch(`/v1/projects/${projectId}/boq/items/${itemId}`, data);
+        return response.data;
+    },
+
+    summary: async (projectId: string) => {
+        const response = await apiClient.get(`/v1/projects/${projectId}/boq/summary`);
+        return response.data;
+    },
+
+    syncTasks: async (projectId: string, overwriteExisting = false) => {
+        const response = await apiClient.post(`/v1/projects/${projectId}/boq/sync-tasks`, undefined, {
+            params: { overwrite_existing: overwriteExisting },
+        });
+        return response.data;
     },
 };
 

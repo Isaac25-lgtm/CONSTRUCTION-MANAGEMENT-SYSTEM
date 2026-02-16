@@ -7,8 +7,12 @@ import math
 from app.db.session import get_db
 from app.schemas.milestone import MilestoneCreate, MilestoneUpdate, MilestoneResponse, MilestoneListResponse
 from app.models.milestone import Milestone, MilestoneStatus
-from app.models.project import Project
-from app.api.v1.dependencies import get_org_context, OrgContext
+from app.api.v1.dependencies import (
+    OrgContext,
+    ensure_project_permission,
+    get_org_context,
+    get_project_or_404,
+)
 
 router = APIRouter()
 
@@ -57,14 +61,14 @@ async def list_milestones(
     db: Session = Depends(get_db)
 ):
     """List milestones for a project"""
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.organization_id == ctx.organization.id,
-        Project.is_deleted == False
-    ).first()
-    
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_view_project",
+        "You do not have permission to view milestones in this project",
+    )
     
     query = db.query(Milestone).filter(
         Milestone.project_id == project_id,
@@ -94,14 +98,14 @@ async def create_milestone(
     db: Session = Depends(get_db)
 ):
     """Create a new milestone"""
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.organization_id == ctx.organization.id,
-        Project.is_deleted == False
-    ).first()
-    
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_manage_milestones",
+        "You do not have permission to create milestones in this project",
+    )
     
     milestone = Milestone(
         organization_id=ctx.organization.id,
@@ -130,6 +134,15 @@ async def update_milestone(
     db: Session = Depends(get_db)
 ):
     """Update milestone"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_manage_milestones",
+        "You do not have permission to update milestones in this project",
+    )
+
     milestone = db.query(Milestone).filter(
         Milestone.id == milestone_id,
         Milestone.project_id == project_id,
@@ -166,6 +179,15 @@ async def delete_milestone(
     db: Session = Depends(get_db)
 ):
     """Soft delete milestone"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_manage_milestones",
+        "You do not have permission to delete milestones in this project",
+    )
+
     milestone = db.query(Milestone).filter(
         Milestone.id == milestone_id,
         Milestone.project_id == project_id,

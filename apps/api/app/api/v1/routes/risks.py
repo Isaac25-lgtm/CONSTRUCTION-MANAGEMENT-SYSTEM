@@ -7,10 +7,14 @@ import math
 from app.db.session import get_db
 from app.schemas.risk import RiskCreate, RiskUpdate, RiskResponse, RiskListResponse
 from app.models.risk import Risk, RiskProbability, RiskImpact, RiskStatus
-from app.models.project import Project
 from app.models.organization import OrganizationMember, MembershipStatus
 from app.models.user import User
-from app.api.v1.dependencies import get_org_context, OrgContext
+from app.api.v1.dependencies import (
+    OrgContext,
+    ensure_project_permission,
+    get_org_context,
+    get_project_or_404,
+)
 
 router = APIRouter()
 
@@ -52,14 +56,14 @@ async def list_risks(
     db: Session = Depends(get_db)
 ):
     """List risks for a project"""
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.organization_id == ctx.organization.id,
-        Project.is_deleted == False
-    ).first()
-    
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_view_project",
+        "You do not have permission to view risks in this project",
+    )
     
     query = db.query(Risk).filter(
         Risk.project_id == project_id,
@@ -112,14 +116,14 @@ async def create_risk(
     db: Session = Depends(get_db)
 ):
     """Create a new risk"""
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.organization_id == ctx.organization.id,
-        Project.is_deleted == False
-    ).first()
-    
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_manage_risks",
+        "You do not have permission to create risks in this project",
+    )
     if not _is_active_org_member(db, ctx.organization.id, risk_data.owner_id):
         raise HTTPException(status_code=400, detail="Owner must be an active member of this organization")
     
@@ -177,6 +181,15 @@ async def update_risk(
     db: Session = Depends(get_db)
 ):
     """Update risk"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_manage_risks",
+        "You do not have permission to update risks in this project",
+    )
+
     risk = db.query(Risk).filter(
         Risk.id == risk_id,
         Risk.project_id == project_id,
@@ -240,6 +253,15 @@ async def delete_risk(
     db: Session = Depends(get_db)
 ):
     """Soft delete risk"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_manage_risks",
+        "You do not have permission to delete risks in this project",
+    )
+
     risk = db.query(Risk).filter(
         Risk.id == risk_id,
         Risk.project_id == project_id,

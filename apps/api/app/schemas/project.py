@@ -41,6 +41,14 @@ class ProjectMemberResponse(BaseModel):
     user_email: str
     role_in_project: Optional[str] = None
     joined_at: date
+    can_view_project: bool = True
+    can_post_messages: bool = True
+    can_upload_documents: bool = True
+    can_edit_tasks: bool = True
+    can_manage_milestones: bool = True
+    can_manage_risks: bool = True
+    can_manage_expenses: bool = True
+    can_approve_expenses: bool = True
     
     class Config:
         from_attributes = True
@@ -81,3 +89,23 @@ class ProjectListResponse(BaseModel):
 class ProjectMemberAdd(BaseModel):
     user_id: UUID4
     role_in_project: Optional[str] = None
+    can_view_project: bool = True
+    can_post_messages: bool = True
+    can_upload_documents: bool = True
+    can_edit_tasks: bool = True
+    can_manage_milestones: bool = True
+    can_manage_risks: bool = True
+    can_manage_expenses: bool = True
+    can_approve_expenses: bool = True
+
+
+class ProjectMemberPermissionUpdate(BaseModel):
+    role_in_project: Optional[str] = None
+    can_view_project: Optional[bool] = None
+    can_post_messages: Optional[bool] = None
+    can_upload_documents: Optional[bool] = None
+    can_edit_tasks: Optional[bool] = None
+    can_manage_milestones: Optional[bool] = None
+    can_manage_risks: Optional[bool] = None
+    can_manage_expenses: Optional[bool] = None
+    can_approve_expenses: Optional[bool] = None

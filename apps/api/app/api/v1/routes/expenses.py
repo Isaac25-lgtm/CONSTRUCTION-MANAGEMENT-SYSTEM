@@ -17,8 +17,13 @@ from app.schemas.expense import (
 )
 from app.models.expense import Expense, ExpenseStatus
 from app.models.document import Document
-from app.models.project import Project
-from app.api.v1.dependencies import get_org_context, OrgContext
+from app.services.notifications import create_notification
+from app.api.v1.dependencies import (
+    OrgContext,
+    ensure_project_permission,
+    get_org_context,
+    get_project_or_404,
+)
 
 router = APIRouter()
 
@@ -59,14 +64,14 @@ async def list_expenses(
 ):
     """List expenses for a project with pagination and filters"""
     # Verify project exists and belongs to org
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.organization_id == ctx.organization.id,
-        Project.is_deleted == False
-    ).first()
-    
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_view_project",
+        "You do not have permission to view expenses in this project",
+    )
     
     query = db.query(Expense).filter(
         Expense.project_id == project_id,
@@ -140,14 +145,14 @@ async def create_expense(
 ):
     """Create a new expense"""
     # Verify project exists and belongs to org
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.organization_id == ctx.organization.id,
-        Project.is_deleted == False
-    ).first()
-    
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_manage_expenses",
+        "You do not have permission to create expenses in this project",
+    )
     _validate_receipt_document(
         db,
         ctx.organization.id,
@@ -173,6 +178,19 @@ async def create_expense(
     db.add(expense)
     db.commit()
     db.refresh(expense)
+
+    if expense.logged_by_id and expense.logged_by_id != ctx.user.id:
+        create_notification(
+            db,
+            organization_id=ctx.organization.id,
+            user_id=expense.logged_by_id,
+            project_id=project_id,
+            notification_type="expense_approved",
+            title="Expense approved",
+            body=f"Expense '{expense.description}' was approved.",
+            data={"expense_id": str(expense.id), "project_id": str(project_id)},
+        )
+        db.commit()
     
     logged_by_name = f"{ctx.user.first_name} {ctx.user.last_name}"
     
@@ -205,6 +223,15 @@ async def get_expense(
     db: Session = Depends(get_db)
 ):
     """Get expense by ID"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_view_project",
+        "You do not have permission to view expenses in this project",
+    )
+
     expense = db.query(Expense).filter(
         Expense.id == expense_id,
         Expense.project_id == project_id,
@@ -248,6 +275,15 @@ async def update_expense(
     db: Session = Depends(get_db)
 ):
     """Update expense"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_manage_expenses",
+        "You do not have permission to update expenses in this project",
+    )
+
     expense = db.query(Expense).filter(
         Expense.id == expense_id,
         Expense.project_id == project_id,
@@ -276,6 +312,19 @@ async def update_expense(
     
     db.commit()
     db.refresh(expense)
+
+    if expense.logged_by_id and expense.logged_by_id != ctx.user.id:
+        create_notification(
+            db,
+            organization_id=ctx.organization.id,
+            user_id=expense.logged_by_id,
+            project_id=project_id,
+            notification_type="expense_rejected",
+            title="Expense rejected",
+            body=f"Expense '{expense.description}' was rejected.",
+            data={"expense_id": str(expense.id), "project_id": str(project_id)},
+        )
+        db.commit()
     
     logged_by_name = f"{expense.logged_by.first_name} {expense.logged_by.last_name}" if expense.logged_by else None
     approved_by_name = f"{expense.approved_by.first_name} {expense.approved_by.last_name}" if expense.approved_by else None
@@ -310,6 +359,15 @@ async def approve_expense(
     db: Session = Depends(get_db)
 ):
     """Approve expense"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_approve_expenses",
+        "You do not have permission to approve expenses in this project",
+    )
+
     expense = db.query(Expense).filter(
         Expense.id == expense_id,
         Expense.project_id == project_id,
@@ -364,6 +422,15 @@ async def reject_expense(
     db: Session = Depends(get_db)
 ):
     """Reject expense"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_approve_expenses",
+        "You do not have permission to reject expenses in this project",
+    )
+
     expense = db.query(Expense).filter(
         Expense.id == expense_id,
         Expense.project_id == project_id,
@@ -416,6 +483,15 @@ async def delete_expense(
     db: Session = Depends(get_db)
 ):
     """Soft delete expense"""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_manage_expenses",
+        "You do not have permission to delete expenses in this project",
+    )
+
     expense = db.query(Expense).filter(
         Expense.id == expense_id,
         Expense.project_id == project_id,

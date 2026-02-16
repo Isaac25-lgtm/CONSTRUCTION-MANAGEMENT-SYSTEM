@@ -13,12 +13,13 @@ from app.schemas.project import (
     ProjectResponse,
     ProjectListResponse,
     ProjectMemberAdd,
-    ProjectMemberResponse
+    ProjectMemberPermissionUpdate,
+    ProjectMemberResponse,
 )
 from app.models.project import Project, ProjectMember, ProjectStatus, ProjectPriority
 from app.models.user import User
-from app.models.organization import OrganizationMember, MembershipStatus
-from app.api.v1.dependencies import get_org_context, OrgContext
+from app.models.organization import OrganizationMember, MembershipStatus, OrgRole
+from app.api.v1.dependencies import OrgContext, ensure_project_member, get_org_context
 
 router = APIRouter()
 
@@ -40,6 +41,42 @@ def _is_active_org_member_user(db: Session, org_id: UUID, user_id: UUID | None) 
         .first()
     )
     return membership is not None
+
+
+def _is_org_admin(db: Session, org_id: UUID, user_id: UUID) -> bool:
+    membership = db.query(OrganizationMember).filter(
+        OrganizationMember.organization_id == org_id,
+        OrganizationMember.user_id == user_id,
+        OrganizationMember.status == MembershipStatus.ACTIVE,
+        OrganizationMember.org_role == OrgRole.ORG_ADMIN,
+    ).first()
+    return membership is not None
+
+
+def _can_manage_project_members(db: Session, project: Project, ctx: OrgContext) -> bool:
+    if project.manager_id == ctx.user.id or project.created_by == ctx.user.id:
+        return True
+    return _is_org_admin(db, ctx.organization.id, ctx.user.id)
+
+
+def _to_project_member_response(member: ProjectMember) -> ProjectMemberResponse:
+    user = member.user
+    return ProjectMemberResponse(
+        id=member.id,
+        user_id=member.user_id,
+        user_name=f"{user.first_name} {user.last_name}",
+        user_email=user.email,
+        role_in_project=member.role_in_project,
+        joined_at=member.joined_at,
+        can_view_project=member.can_view_project,
+        can_post_messages=member.can_post_messages,
+        can_upload_documents=member.can_upload_documents,
+        can_edit_tasks=member.can_edit_tasks,
+        can_manage_milestones=member.can_manage_milestones,
+        can_manage_risks=member.can_manage_risks,
+        can_manage_expenses=member.can_manage_expenses,
+        can_approve_expenses=member.can_approve_expenses,
+    )
 
 
 @router.get("", response_model=ProjectListResponse)
@@ -167,7 +204,15 @@ async def create_project(
         project_id=project.id,
         user_id=project_data.manager_id,
         role_in_project="Project Manager",
-        joined_at=date.today()
+        joined_at=date.today(),
+        can_view_project=True,
+        can_post_messages=True,
+        can_upload_documents=True,
+        can_edit_tasks=True,
+        can_manage_milestones=True,
+        can_manage_risks=True,
+        can_manage_expenses=True,
+        can_approve_expenses=True,
     )
     db.add(project_member)
     db.commit()
@@ -336,27 +381,21 @@ async def get_project_members(
     
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    ensure_project_member(db, project, ctx.user)
     
     members = db.query(ProjectMember).filter(
         ProjectMember.project_id == project_id
     ).all()
-    
-    result = []
-    for member in members:
-        user = member.user
-        result.append(ProjectMemberResponse(
-            id=member.id,
-            user_id=member.user_id,
-            user_name=f"{user.first_name} {user.last_name}",
-            user_email=user.email,
-            role_in_project=member.role_in_project,
-            joined_at=member.joined_at
-        ))
-    
-    return result
+
+    return [_to_project_member_response(member) for member in members]
 
 
-@router.post("/{project_id}/members", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{project_id}/members",
+    response_model=ProjectMemberResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_project_member(
     project_id: UUID,
     member_data: ProjectMemberAdd,
@@ -372,8 +411,11 @@ async def add_project_member(
     
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    if not _can_manage_project_members(db, project, ctx):
+        raise HTTPException(status_code=403, detail="Only project manager/owner or org admin can manage project members")
     
-    # Check if already a member
+    # Check if active org member
     if not _is_active_org_member_user(db, ctx.organization.id, member_data.user_id):
         raise HTTPException(status_code=400, detail="User must be an active member of this organization")
 
@@ -390,13 +432,63 @@ async def add_project_member(
         project_id=project_id,
         user_id=member_data.user_id,
         role_in_project=member_data.role_in_project,
-        joined_at=date.today()
+        joined_at=date.today(),
+        can_view_project=member_data.can_view_project,
+        can_post_messages=member_data.can_post_messages,
+        can_upload_documents=member_data.can_upload_documents,
+        can_edit_tasks=member_data.can_edit_tasks,
+        can_manage_milestones=member_data.can_manage_milestones,
+        can_manage_risks=member_data.can_manage_risks,
+        can_manage_expenses=member_data.can_manage_expenses,
+        can_approve_expenses=member_data.can_approve_expenses,
     )
     
     db.add(member)
     db.commit()
+    db.refresh(member)
     
-    return {"message": "Member added successfully"}
+    return _to_project_member_response(member)
+
+
+@router.patch("/{project_id}/members/{user_id}", response_model=ProjectMemberResponse)
+async def update_project_member_permissions(
+    project_id: UUID,
+    user_id: UUID,
+    member_data: ProjectMemberPermissionUpdate,
+    ctx: OrgContext = Depends(get_org_context),
+    db: Session = Depends(get_db)
+):
+    """Update a project member role/permissions."""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.organization_id == ctx.organization.id,
+        Project.is_deleted == False
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not _can_manage_project_members(db, project, ctx):
+        raise HTTPException(status_code=403, detail="Only project manager/owner or org admin can manage project members")
+
+    member = db.query(ProjectMember).filter(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == user_id
+    ).first()
+
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    update_data = member_data.model_dump(exclude_unset=True)
+    if not update_data:
+        return _to_project_member_response(member)
+
+    for field, value in update_data.items():
+        setattr(member, field, value)
+
+    db.commit()
+    db.refresh(member)
+    return _to_project_member_response(member)
 
 
 @router.delete("/{project_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -415,6 +507,9 @@ async def remove_project_member(
     
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    if not _can_manage_project_members(db, project, ctx):
+        raise HTTPException(status_code=403, detail="Only project manager/owner or org admin can manage project members")
     
     member = db.query(ProjectMember).filter(
         ProjectMember.project_id == project_id,

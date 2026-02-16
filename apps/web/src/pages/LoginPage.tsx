@@ -1,4 +1,4 @@
-import { useState } from 'react';
+ï»¿import { useState } from 'react';
 import { HardHat, Eye, EyeOff, Lock, Mail, AlertCircle } from 'lucide-react';
 import { useUserStore } from '../stores/userStore';
 import { useAuthStore } from '../stores/authStore';
@@ -118,19 +118,13 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-slate-700">
-            <div className="p-3 bg-blue-900/30 border border-blue-800 rounded-lg">
-              <p className="text-sm text-blue-400 font-medium mb-1">Demo Credentials</p>
-              <p className="text-xs text-blue-500">admin@example.com / Admin@123456</p>
-              <p className="text-xs text-blue-500 mt-1">pm@example.com / Password@123</p>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-slate-500 text-sm mt-6">
-          © 2026 BuildPro - Internal Project Management Platform
+          BuildPro
         </p>
       </div>
     </div>
   );
 }
+

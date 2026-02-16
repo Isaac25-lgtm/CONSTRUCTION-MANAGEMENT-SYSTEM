@@ -9,11 +9,15 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.v1.dependencies import OrgContext, get_org_context
+from app.api.v1.dependencies import (
+    OrgContext,
+    ensure_project_permission,
+    get_org_context,
+    get_project_or_404,
+)
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.document import Document
-from app.models.project import Project
 from app.schemas.document import (
     DocumentListResponse,
     DocumentResponse,
@@ -113,14 +117,14 @@ async def list_documents(
 ):
     """List documents for a project with pagination and filters."""
     # Verify project exists and belongs to org
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.organization_id == ctx.organization.id,
-        Project.is_deleted == False,
-    ).first()
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_view_project",
+        "You do not have permission to view documents in this project",
+    )
 
     query = db.query(Document).filter(
         Document.project_id == project_id,
@@ -181,14 +185,14 @@ async def upload_document(
 ):
     """Upload a document to a project."""
     # Verify project exists and belongs to org
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.organization_id == ctx.organization.id,
-        Project.is_deleted == False,
-    ).first()
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_upload_documents",
+        "You do not have permission to upload documents in this project",
+    )
 
     filename = file.filename or "unnamed"
     file_extension = Path(filename).suffix.lower()
@@ -270,6 +274,15 @@ async def get_document(
     db: Session = Depends(get_db),
 ):
     """Get document metadata by ID."""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_view_project",
+        "You do not have permission to view documents in this project",
+    )
+
     document = db.query(Document).filter(
         Document.id == document_id,
         Document.project_id == project_id,
@@ -294,6 +307,15 @@ async def download_document(
     db: Session = Depends(get_db),
 ):
     """Download document file."""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_view_project",
+        "You do not have permission to download documents in this project",
+    )
+
     document = db.query(Document).filter(
         Document.id == document_id,
         Document.project_id == project_id,
@@ -328,6 +350,15 @@ async def update_document(
     db: Session = Depends(get_db),
 ):
     """Update document metadata."""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_upload_documents",
+        "You do not have permission to update documents in this project",
+    )
+
     document = db.query(Document).filter(
         Document.id == document_id,
         Document.project_id == project_id,
@@ -359,6 +390,15 @@ async def delete_document(
     db: Session = Depends(get_db),
 ):
     """Soft delete document."""
+    project = get_project_or_404(db, ctx.organization.id, project_id)
+    ensure_project_permission(
+        db,
+        project,
+        ctx.user,
+        "can_upload_documents",
+        "You do not have permission to delete documents in this project",
+    )
+
     document = db.query(Document).filter(
         Document.id == document_id,
         Document.project_id == project_id,

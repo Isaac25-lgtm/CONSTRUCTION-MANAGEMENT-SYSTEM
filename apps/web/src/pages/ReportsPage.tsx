@@ -1,12 +1,36 @@
 import { useState } from 'react';
-import { FileText, Download, Calendar, TrendingUp, DollarSign, AlertTriangle, BarChart3, PieChart } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Area, AreaChart } from 'recharts';
+import {
+  FileText,
+  Download,
+  Calendar,
+  TrendingUp,
+  DollarSign,
+  AlertTriangle,
+  BarChart3,
+  PieChart,
+} from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  Area,
+  AreaChart,
+} from 'recharts';
 import { useDataStore } from '../stores/dataStore';
+import { reportsAPI } from '../lib/api';
 import toast from 'react-hot-toast';
 
 export default function ReportsPage() {
-  const { projects, tasks, risks, expenses } = useDataStore();
+  const { projects, tasks, risks } = useDataStore();
   const [selectedReport, setSelectedReport] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState<'pdf' | 'excel' | 'project' | 'financial' | null>(null);
 
   const progressData = [
     { month: 'Aug', planned: 10, actual: 8, variance: -2 },
@@ -35,32 +59,70 @@ export default function ReportsPage() {
     { id: 'milestone', name: 'Milestone Status Report', icon: TrendingUp, description: 'Milestone tracking and delivery status' },
   ];
 
-  // KPI Calculations
+  const recentReports = [
+    { name: 'Weekly Progress Report - Week 2', date: '2025-01-12', type: 'PDF', size: '2.4 MB' },
+    { name: 'Monthly Financial Report - December', date: '2025-01-05', type: 'Excel', size: '1.8 MB' },
+    { name: 'Risk Assessment Report - Q4', date: '2024-12-28', type: 'PDF', size: '3.1 MB' },
+    { name: 'Executive Summary - December', date: '2024-12-30', type: 'PDF', size: '1.2 MB' },
+  ];
+
   const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(t => t.status === 'Completed').length;
+  const completedTasks = tasks.filter((t) => t.status === 'Completed').length;
   const overallProgress = Math.round((completedTasks / totalTasks) * 100) || 0;
-  
+
   const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
   const totalSpent = projects.reduce((sum, p) => sum + p.spent, 0);
   const budgetUtilization = Math.round((totalSpent / totalBudget) * 100) || 0;
-  
-  const activeRisks = risks.filter(r => r.status === 'Active').length;
-  const highRisks = risks.filter(r => r.probability === 'High' && r.impact === 'High').length;
 
-  // SPI and CPI (simplified calculation)
-  const spi = 1.02; // Schedule Performance Index
-  const cpi = 1.05; // Cost Performance Index
+  const activeRisks = risks.filter((r) => r.status === 'Active').length;
+  const highRisks = risks.filter((r) => r.probability === 'High' && r.impact === 'High').length;
+
+  const spi = 1.02;
+  const cpi = 1.05;
 
   const handleGenerateReport = (reportId: string) => {
     setSelectedReport(reportId);
-    toast.success(`Generating ${reportTemplates.find(r => r.id === reportId)?.name}...`);
+    toast.success(`Generating ${reportTemplates.find((r) => r.id === reportId)?.name}...`);
     setTimeout(() => {
       toast.success('Report generated successfully!');
     }, 1500);
   };
 
-  const handleExport = (format: string) => {
-    toast.success(`Exporting report as ${format.toUpperCase()}...`);
+  const handleExport = async (format: 'pdf' | 'excel') => {
+    setIsExporting(format);
+    const exportLabel = format === 'excel' ? 'Excel' : 'PDF';
+
+    try {
+      toast.loading(`Preparing ${exportLabel} download...`, { id: 'report-export' });
+      await reportsAPI.download(format);
+      toast.success(`${exportLabel} report downloaded`, { id: 'report-export' });
+    } catch (error: any) {
+      toast.error(error.message || `Failed to download ${exportLabel} report`, { id: 'report-export' });
+    } finally {
+      setIsExporting(null);
+    }
+  };
+
+  const handleRecentReportDownload = async (type: string) => {
+    const format = type.toLowerCase() === 'excel' ? 'excel' : 'pdf';
+    await handleExport(format);
+  };
+
+  const handleCsvExport = async (kind: 'project' | 'financial') => {
+    setIsExporting(kind);
+    try {
+      toast.loading(`Preparing ${kind === 'project' ? 'project' : 'financial'} CSV...`, { id: 'report-export-csv' });
+      if (kind === 'project') {
+        await reportsAPI.downloadProjectSummary();
+      } else {
+        await reportsAPI.downloadFinancialSummary();
+      }
+      toast.success('CSV downloaded', { id: 'report-export-csv' });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to download CSV', { id: 'report-export-csv' });
+    } finally {
+      setIsExporting(null);
+    }
   };
 
   return (
@@ -71,22 +133,37 @@ export default function ReportsPage() {
           <p className="text-gray-500 dark:text-gray-400">Project insights and performance metrics</p>
         </div>
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={() => handleExport('pdf')}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition"
+            disabled={isExporting !== null}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Download size={18} /> Export PDF
+            <Download size={18} /> {isExporting === 'pdf' ? 'Downloading PDF...' : 'Export PDF'}
           </button>
-          <button 
+          <button
             onClick={() => handleExport('excel')}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+            disabled={isExporting !== null}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Download size={18} /> Export Excel
+            <Download size={18} /> {isExporting === 'excel' ? 'Downloading Excel...' : 'Export Excel'}
+          </button>
+          <button
+            onClick={() => handleCsvExport('project')}
+            disabled={isExporting !== null}
+            className="flex items-center gap-2 px-4 py-2 border border-primary-300 text-primary-700 rounded-lg hover:bg-primary-50 transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Download size={18} /> {isExporting === 'project' ? 'Downloading...' : 'Project CSV'}
+          </button>
+          <button
+            onClick={() => handleCsvExport('financial')}
+            disabled={isExporting !== null}
+            className="flex items-center gap-2 px-4 py-2 border border-emerald-300 text-emerald-700 rounded-lg hover:bg-emerald-50 transition disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Download size={18} /> {isExporting === 'financial' ? 'Downloading...' : 'Financial CSV'}
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">SPI</p>
@@ -116,11 +193,10 @@ export default function ReportsPage() {
         <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Projects</p>
           <p className="text-2xl font-bold text-primary-600">{projects.length}</p>
-          <p className="text-xs text-gray-400">{projects.filter(p => p.status === 'In Progress').length} in progress</p>
+          <p className="text-xs text-gray-400">{projects.filter((p) => p.status === 'In Progress').length} in progress</p>
         </div>
       </div>
 
-      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Progress Trend (Planned vs Actual)</h3>
@@ -154,16 +230,15 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Report Templates */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Report Templates</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {reportTemplates.map(report => (
-            <div 
+          {reportTemplates.map((report) => (
+            <div
               key={report.id}
               className={`bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border cursor-pointer transition hover:shadow-md ${
-                selectedReport === report.id 
-                  ? 'border-primary-500 ring-2 ring-primary-500/20' 
+                selectedReport === report.id
+                  ? 'border-primary-500 ring-2 ring-primary-500/20'
                   : 'border-gray-100 dark:border-dark-700 hover:border-primary-300 dark:hover:border-primary-700'
               }`}
               onClick={() => handleGenerateReport(report.id)}
@@ -186,18 +261,12 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Recent Reports */}
       <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700">
         <div className="p-4 border-b border-gray-100 dark:border-dark-700">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Recent Reports</h3>
         </div>
         <div className="divide-y divide-gray-100 dark:divide-dark-700">
-          {[
-            { name: 'Weekly Progress Report - Week 2', date: '2025-01-12', type: 'PDF', size: '2.4 MB' },
-            { name: 'Monthly Financial Report - December', date: '2025-01-05', type: 'Excel', size: '1.8 MB' },
-            { name: 'Risk Assessment Report - Q4', date: '2024-12-28', type: 'PDF', size: '3.1 MB' },
-            { name: 'Executive Summary - December', date: '2024-12-30', type: 'PDF', size: '1.2 MB' },
-          ].map((report, idx) => (
+          {recentReports.map((report, idx) => (
             <div key={idx} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-dark-700">
               <div className="flex items-center gap-3">
                 <FileText className="text-gray-400" size={20} />
@@ -208,7 +277,11 @@ export default function ReportsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="px-2 py-1 bg-gray-100 dark:bg-dark-700 rounded text-xs text-gray-600 dark:text-gray-400">{report.type}</span>
-                <button className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg">
+                <button
+                  onClick={() => handleRecentReportDownload(report.type)}
+                  className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg"
+                  title={`Download ${report.type}`}
+                >
                   <Download size={18} />
                 </button>
               </div>
