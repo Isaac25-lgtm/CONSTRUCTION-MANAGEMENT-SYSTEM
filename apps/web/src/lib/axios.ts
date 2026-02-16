@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { handleSessionExpired } from './session'
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/+$/, '')
 const API_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`
@@ -31,9 +32,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized - could trigger refresh here
-      localStorage.removeItem('access_token')
-      window.location.href = '/login'
+      // Handle unauthorized without a hard page navigation.
+      handleSessionExpired()
     }
     return Promise.reject(error)
   }

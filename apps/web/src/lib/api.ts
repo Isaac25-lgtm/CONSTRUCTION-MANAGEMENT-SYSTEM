@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { handleSessionExpired } from './session';
 
 function normalizeApiBaseUrl(rawUrl: string): string {
     const trimmed = rawUrl.trim().replace(/\/+$/, '');
@@ -113,10 +114,8 @@ apiClient.interceptors.response.use(
             } catch (refreshError) {
                 processQueue(refreshError as Error, null);
 
-                // Refresh failed - clear auth and redirect to login
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('selected_org_id');
-                window.location.href = '/login';
+                // Refresh failed - clear auth and show login without hard reload.
+                handleSessionExpired();
 
                 return Promise.reject(refreshError);
             } finally {
