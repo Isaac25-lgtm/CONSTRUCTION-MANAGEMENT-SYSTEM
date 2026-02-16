@@ -7,6 +7,10 @@ from app.db.session import Base
 from app.db.base import TimestampMixin, UUIDMixin, SoftDeleteMixin
 
 
+def _enum_values(enum_cls):
+    return [item.value for item in enum_cls]
+
+
 class SubscriptionTier(str, enum.Enum):
     FREE = "free"
     STARTER = "starter"
@@ -19,7 +23,11 @@ class Organization(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     
     name = Column(String, nullable=False)
     slug = Column(String, unique=True, index=True, nullable=False)
-    subscription_tier = Column(SQLEnum(SubscriptionTier), default=SubscriptionTier.FREE, nullable=False)
+    subscription_tier = Column(
+        SQLEnum(SubscriptionTier, values_callable=_enum_values, native_enum=False),
+        default=SubscriptionTier.FREE.value,
+        nullable=False,
+    )
     max_projects = Column(Integer, default=10)
     max_users = Column(Integer, default=5)
     settings = Column(JSONB, default=dict)
@@ -48,8 +56,16 @@ class OrganizationMember(Base, UUIDMixin, TimestampMixin):
     
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    org_role = Column(SQLEnum(OrgRole), default=OrgRole.MEMBER, nullable=False)
-    status = Column(SQLEnum(MembershipStatus), default=MembershipStatus.ACTIVE, nullable=False)
+    org_role = Column(
+        SQLEnum(OrgRole, values_callable=_enum_values, native_enum=False),
+        default=OrgRole.MEMBER.value,
+        nullable=False,
+    )
+    status = Column(
+        SQLEnum(MembershipStatus, values_callable=_enum_values, native_enum=False),
+        default=MembershipStatus.ACTIVE.value,
+        nullable=False,
+    )
     
     # Relationships
     organization = relationship("Organization", back_populates="members")

@@ -21,6 +21,10 @@ REFRESH_COOKIE_PATH = "/api/v1/auth/refresh"
 logger = logging.getLogger(__name__)
 
 
+def _enum_value(raw):
+    return raw.value if hasattr(raw, "value") else raw
+
+
 @router.post("/login", response_model=LoginResponse)
 async def login(
     credentials: LoginRequest,
@@ -96,8 +100,8 @@ async def login(
             organization_id=membership.organization_id,
             organization_name=membership.organization.name,
             organization_slug=membership.organization.slug,
-            org_role=membership.org_role.value,
-            status=membership.status.value
+            org_role=_enum_value(membership.org_role),
+            status=_enum_value(membership.status)
         ))
     
     user_response = UserResponse(
@@ -105,7 +109,7 @@ async def login(
         email=user.email,
         first_name=user.first_name,
         last_name=user.last_name,
-        role=user.role.role_name.value if user.role else None,
+        role=_enum_value(user.role.role_name) if user.role else None,
         phone_number=user.phone_number,
         is_active=user.is_active,
         last_login=user.last_login,
@@ -203,8 +207,8 @@ async def get_current_user_info(
             organization_id=membership.organization_id,
             organization_name=membership.organization.name,
             organization_slug=membership.organization.slug,
-            org_role=membership.org_role.value,
-            status=membership.status.value
+            org_role=_enum_value(membership.org_role),
+            status=_enum_value(membership.status)
         ))
     
     return UserResponse(
@@ -212,7 +216,7 @@ async def get_current_user_info(
         email=current_user.email,
         first_name=current_user.first_name,
         last_name=current_user.last_name,
-        role=current_user.role.role_name.value if current_user.role else None,
+        role=_enum_value(current_user.role.role_name) if current_user.role else None,
         phone_number=current_user.phone_number,
         is_active=current_user.is_active,
         last_login=current_user.last_login,
