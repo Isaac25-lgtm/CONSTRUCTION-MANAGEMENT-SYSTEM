@@ -37,6 +37,44 @@ interface AuthStore {
   clearError: () => void;
 }
 
+function normalizeErrorMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail;
+  }
+
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0] as any;
+    if (typeof first === 'string' && first.trim()) {
+      return first;
+    }
+    if (first && typeof first === 'object' && typeof first.msg === 'string') {
+      return first.msg;
+    }
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return fallback;
+    }
+  }
+
+  if (detail && typeof detail === 'object') {
+    const candidate = detail as any;
+    if (typeof candidate.message === 'string' && candidate.message.trim()) {
+      return candidate.message;
+    }
+    if (typeof candidate.msg === 'string' && candidate.msg.trim()) {
+      return candidate.msg;
+    }
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return fallback;
+    }
+  }
+
+  return fallback;
+}
+
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
@@ -73,7 +111,7 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
           });
         } catch (error: any) {
-          const errorMessage = error.response?.data?.detail || 'Login failed';
+          const errorMessage = normalizeErrorMessage(error.response?.data?.detail, 'Login failed');
           set({ error: errorMessage, isLoading: false });
           throw error;
         }
@@ -124,7 +162,10 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
           });
         } catch (error: any) {
-          const errorMessage = error.response?.data?.detail || 'Failed to get user info';
+          const errorMessage = normalizeErrorMessage(
+            error.response?.data?.detail,
+            'Failed to get user info'
+          );
           set({ error: errorMessage, isLoading: false, isAuthenticated: false });
           throw error;
         }

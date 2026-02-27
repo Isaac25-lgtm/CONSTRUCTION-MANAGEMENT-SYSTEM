@@ -136,7 +136,7 @@ export default function RisksPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Risks</p>
@@ -148,7 +148,7 @@ export default function RisksPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Active Risks</p>
@@ -160,7 +160,7 @@ export default function RisksPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">High Severity</p>
@@ -172,7 +172,7 @@ export default function RisksPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Mitigated</p>
@@ -186,7 +186,7 @@ export default function RisksPage() {
       </div>
 
       {/* Risk Matrix */}
-      <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+      <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Risk Matrix</h3>
         <div className="grid grid-cols-4 gap-1">
           <div className="p-2 text-center text-sm font-medium text-gray-500 dark:text-gray-400"></div>
@@ -229,7 +229,7 @@ export default function RisksPage() {
       </div>
 
       {/* Risks Table */}
-      <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 overflow-hidden">
+      <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-200 dark:border-dark-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-dark-700">
@@ -248,7 +248,7 @@ export default function RisksPage() {
               {filteredRisks.map(risk => {
                 const score = getRiskScore(risk.probability, risk.impact);
                 return (
-                  <tr key={risk.id} className="border-t border-gray-100 dark:border-dark-700 hover:bg-gray-50 dark:hover:bg-dark-700">
+                  <tr key={risk.id} className="border-t border-gray-200 dark:border-dark-700 hover:bg-gray-50 dark:hover:bg-dark-700">
                     <td className="p-4 font-medium text-gray-900 dark:text-gray-100 max-w-xs truncate">{risk.description}</td>
                     <td className="p-4 text-gray-600 dark:text-gray-400">{risk.category}</td>
                     <td className="p-4"><StatusBadge status={risk.probability} /></td>

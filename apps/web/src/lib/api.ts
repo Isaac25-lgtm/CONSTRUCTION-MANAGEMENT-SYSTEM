@@ -16,6 +16,17 @@ function normalizeApiBaseUrl(rawUrl: string): string {
 // Canonical API base URL (must resolve to .../api)
 const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL || 'http://localhost:8000/api');
 
+function getCookieValue(name: string): string | null {
+    if (typeof document === 'undefined') return null;
+    const prefix = `${name}=`;
+    const match = document.cookie
+        .split(';')
+        .map((part) => part.trim())
+        .find((part) => part.startsWith(prefix));
+    if (!match) return null;
+    return decodeURIComponent(match.slice(prefix.length));
+}
+
 // Create Axios instance
 const apiClient: AxiosInstance = axios.create({
     baseURL: API_BASE_URL,
@@ -39,6 +50,11 @@ apiClient.interceptors.request.use(
         const selectedOrgId = localStorage.getItem('selected_org_id');
         if (selectedOrgId && config.headers) {
             config.headers['X-Organization-ID'] = selectedOrgId;
+        }
+
+        const csrfToken = getCookieValue('csrf_token');
+        if (csrfToken && config.headers) {
+            config.headers['X-CSRF-Token'] = csrfToken;
         }
 
         return config;
@@ -628,25 +644,34 @@ export const notificationsAPI = {
 };
 
 export const boqAPI = {
-    import: async (
+    createHeader: async (
         projectId: string,
-        file: File,
-        options?: { title?: string; currency?: string; start_date?: string; end_date?: string }
+        data?: { title?: string; currency?: string; start_date?: string; end_date?: string }
     ) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        const params = new URLSearchParams();
-        if (options?.title) params.append('title', options.title);
-        if (options?.currency) params.append('currency', options.currency);
-        if (options?.start_date) params.append('start_date', options.start_date);
-        if (options?.end_date) params.append('end_date', options.end_date);
-
-        const query = params.toString();
-        const url = `/v1/projects/${projectId}/boq/import${query ? `?${query}` : ''}`;
-        const response = await apiClient.post(url, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const response = await apiClient.post(`/v1/projects/${projectId}/boq`, data || {});
         return response.data;
+    },
+
+    createItem: async (
+        projectId: string,
+        data: {
+            item_code?: string;
+            description: string;
+            unit?: string;
+            quantity?: number;
+            rate?: number;
+            weight_out_of_10?: number;
+            percent_complete?: number;
+            actual_cost?: number;
+            parent_item_id?: string;
+        }
+    ) => {
+        const response = await apiClient.post(`/v1/projects/${projectId}/boq/items`, data);
+        return response.data;
+    },
+
+    deleteItem: async (projectId: string, itemId: string) => {
+        await apiClient.delete(`/v1/projects/${projectId}/boq/items/${itemId}`);
     },
 
     get: async (projectId: string) => {
@@ -664,10 +689,31 @@ export const boqAPI = {
         return response.data;
     },
 
-    syncTasks: async (projectId: string, overwriteExisting = false) => {
-        const response = await apiClient.post(`/v1/projects/${projectId}/boq/sync-tasks`, undefined, {
-            params: { overwrite_existing: overwriteExisting },
-        });
+};
+
+// AI Modules API
+export const aiAPI = {
+    /** Predictive Risk Analytics */
+    riskPrediction: async (projectId: string) => {
+        const response = await apiClient.get(`/v1/ai/risk-prediction/${projectId}`);
+        return response.data;
+    },
+
+    /** Intelligent Budget Forecasting */
+    budgetForecast: async (projectId: string) => {
+        const response = await apiClient.get(`/v1/ai/budget-forecast/${projectId}`);
+        return response.data;
+    },
+
+    /** Automated Report Generation */
+    autoReport: async (projectId: string) => {
+        const response = await apiClient.get(`/v1/ai/auto-report/${projectId}`);
+        return response.data;
+    },
+
+    /** AI Resource Allocation Recommendations */
+    resourceAllocation: async (projectId: string) => {
+        const response = await apiClient.get(`/v1/ai/resource-allocation/${projectId}`);
         return response.data;
     },
 };

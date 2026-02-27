@@ -65,7 +65,7 @@ export default function CommunicationPage() {
         {/* Team Members Sidebar */}
         <div className="lg:col-span-1 space-y-4">
           {/* Online Team */}
-          <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+          <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Team Members</h3>
             <div className="space-y-3">
               {teamMembers.map((member, idx) => (
@@ -86,7 +86,7 @@ export default function CommunicationPage() {
           </div>
 
           {/* Announcements */}
-          <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+          <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Announcements</h3>
             <div className="space-y-3">
               {announcements.map(ann => (
@@ -101,9 +101,9 @@ export default function CommunicationPage() {
         </div>
 
         {/* Messages Area */}
-        <div className="lg:col-span-3 bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 flex flex-col h-[600px]">
+        <div className="lg:col-span-3 bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-200 dark:border-dark-700 flex flex-col h-[600px]">
           {/* Header */}
-          <div className="p-4 border-b border-gray-100 dark:border-dark-700 flex items-center justify-between">
+          <div className="p-4 border-b border-gray-200 dark:border-dark-700 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <select
                 value={filterProject === 'all' ? 'all' : filterProject}
@@ -158,7 +158,7 @@ export default function CommunicationPage() {
           </div>
 
           {/* Message Input */}
-          <div className="p-4 border-t border-gray-100 dark:border-dark-700">
+          <div className="p-4 border-t border-gray-200 dark:border-dark-700">
             <div className="flex items-center gap-3">
               <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg">
                 <Paperclip size={20} />

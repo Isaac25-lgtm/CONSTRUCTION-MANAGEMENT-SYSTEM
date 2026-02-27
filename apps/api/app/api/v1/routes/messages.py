@@ -16,6 +16,7 @@ from app.api.v1.dependencies import (
     ensure_project_permission,
     get_org_context,
     get_project_or_404,
+    is_org_admin_for_organization,
 )
 
 router = APIRouter()
@@ -50,20 +51,22 @@ async def list_messages(
         )
         query = query.filter(Message.project_id == project_id)
     else:
-        member_project_ids = db.query(ProjectMember.project_id).filter(
-            ProjectMember.user_id == ctx.user.id,
-            ProjectMember.can_view_project == True,
-        )
         accessible_project_ids = db.query(Project.id).filter(
             Project.organization_id == ctx.organization.id,
             Project.is_deleted == False,
-        ).filter(
-            or_(
-                Project.manager_id == ctx.user.id,
-                Project.created_by == ctx.user.id,
-                Project.id.in_(member_project_ids),
-            )
         )
+        if not is_org_admin_for_organization(db, ctx.organization.id, ctx.user.id):
+            member_project_ids = db.query(ProjectMember.project_id).filter(
+                ProjectMember.user_id == ctx.user.id,
+                ProjectMember.can_view_project == True,
+            )
+            accessible_project_ids = accessible_project_ids.filter(
+                or_(
+                    Project.manager_id == ctx.user.id,
+                    Project.created_by == ctx.user.id,
+                    Project.id.in_(member_project_ids),
+                )
+            )
         query = query.filter(
             or_(
                 Message.project_id.is_(None),

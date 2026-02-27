@@ -165,32 +165,32 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">SPI</p>
           <p className={`text-2xl font-bold ${spi >= 1 ? 'text-green-600' : 'text-red-600'}`}>{spi.toFixed(2)}</p>
           <p className="text-xs text-gray-400">{spi >= 1 ? 'Ahead' : 'Behind'} schedule</p>
         </div>
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">CPI</p>
           <p className={`text-2xl font-bold ${cpi >= 1 ? 'text-green-600' : 'text-red-600'}`}>{cpi.toFixed(2)}</p>
           <p className="text-xs text-gray-400">{cpi >= 1 ? 'Under' : 'Over'} budget</p>
         </div>
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Progress</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{overallProgress}%</p>
           <p className="text-xs text-gray-400">{completedTasks}/{totalTasks} tasks</p>
         </div>
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Budget Used</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{budgetUtilization}%</p>
           <p className="text-xs text-gray-400">of total budget</p>
         </div>
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Active Risks</p>
           <p className="text-2xl font-bold text-yellow-600">{activeRisks}</p>
           <p className="text-xs text-gray-400">{highRisks} high severity</p>
         </div>
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Projects</p>
           <p className="text-2xl font-bold text-primary-600">{projects.length}</p>
           <p className="text-xs text-gray-400">{projects.filter((p) => p.status === 'In Progress').length} in progress</p>
@@ -198,7 +198,7 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Progress Trend (Planned vs Actual)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={progressData}>
@@ -213,7 +213,7 @@ export default function ReportsPage() {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Budget Trend (Millions UGX)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={budgetTrendData}>
@@ -239,7 +239,7 @@ export default function ReportsPage() {
               className={`bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border cursor-pointer transition hover:shadow-md ${
                 selectedReport === report.id
                   ? 'border-primary-500 ring-2 ring-primary-500/20'
-                  : 'border-gray-100 dark:border-dark-700 hover:border-primary-300 dark:hover:border-primary-700'
+                  : 'border-gray-200 dark:border-dark-700 hover:border-primary-300 dark:hover:border-primary-700'
               }`}
               onClick={() => handleGenerateReport(report.id)}
             >
@@ -261,8 +261,8 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700">
-        <div className="p-4 border-b border-gray-100 dark:border-dark-700">
+      <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-200 dark:border-dark-700">
+        <div className="p-4 border-b border-gray-200 dark:border-dark-700">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Recent Reports</h3>
         </div>
         <div className="divide-y divide-gray-100 dark:divide-dark-700">

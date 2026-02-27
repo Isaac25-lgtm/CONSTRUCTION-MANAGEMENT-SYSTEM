@@ -54,6 +54,25 @@ class BOQItemUpdate(BaseModel):
     parent_item_id: Optional[UUID4] = None
 
 
+class BOQHeaderCreate(BaseModel):
+    title: str = "Project BOQ"
+    currency: str = "UGX"
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+
+class BOQItemCreate(BaseModel):
+    item_code: Optional[str] = None
+    description: str
+    unit: Optional[str] = None
+    quantity: Decimal = Field(default=Decimal("0"), ge=0)
+    rate: Decimal = Field(default=Decimal("0"), ge=0)
+    weight_out_of_10: int = Field(default=1, ge=0, le=10)
+    percent_complete: int = Field(default=0, ge=0, le=100)
+    actual_cost: Decimal = Field(default=Decimal("0"), ge=0)
+    parent_item_id: Optional[UUID4] = None
+
+
 class BOQSummaryResponse(BaseModel):
     header_id: UUID4
     project_id: UUID4
@@ -62,11 +81,6 @@ class BOQSummaryResponse(BaseModel):
     total_actual_cost: Decimal
     total_variance: Decimal
     project_weighted_completion_percent: float
-
-
-class BOQImportResponse(BaseModel):
-    header_id: UUID4
-    imported_items: int
 
 
 BOQItemResponse.model_rebuild()

@@ -1,4 +1,4 @@
-import { useUserStore } from '../stores/userStore';
+import { useAuthStore } from '../stores/authStore';
 
 let isHandlingSessionExpiry = false;
 
@@ -16,7 +16,7 @@ export function handleSessionExpired(): void {
   localStorage.removeItem('access_token');
   localStorage.removeItem('selected_org_id');
 
-  useUserStore.getState().logout();
+  void useAuthStore.getState().logout();
 
   if (window.location.pathname !== '/login') {
     window.history.replaceState({}, '', '/login');

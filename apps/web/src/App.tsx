@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { useThemeStore } from './stores/themeStore';
-import { useUserStore } from './stores/userStore';
+import { useAuthStore } from './stores/authStore';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoginPage from './pages/LoginPage';
@@ -19,8 +19,7 @@ import SettingsPage from './pages/SettingsPage';
 function App() {
   const [activeSection, setActiveSection] = useState('dashboard');
   const { isDark } = useThemeStore();
-  const { isAuthenticated } = useUserStore();
-  const [showApp, setShowApp] = useState(false);
+  const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     if (isDark) {
@@ -30,17 +29,11 @@ function App() {
     }
   }, [isDark]);
 
-  useEffect(() => {
-    // Check if user is already authenticated
-    setShowApp(isAuthenticated);
-  }, [isAuthenticated]);
-
   const handleLogin = () => {
-    setShowApp(true);
+    setActiveSection('dashboard');
   };
 
   const handleLogout = () => {
-    setShowApp(false);
     setActiveSection('dashboard');
   };
 
@@ -71,7 +64,7 @@ function App() {
     }
   };
 
-  if (!showApp) {
+  if (!isAuthenticated) {
     return (
       <ErrorBoundary>
         <Toaster position="top-right" />

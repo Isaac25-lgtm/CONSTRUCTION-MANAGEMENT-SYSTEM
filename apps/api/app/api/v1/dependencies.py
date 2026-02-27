@@ -5,10 +5,21 @@ from uuid import UUID
 
 from app.db.session import get_db
 from app.models.user import User
-from app.models.organization import Organization, OrganizationMember, MembershipStatus
+from app.models.organization import (
+    OrgRole,
+    Organization,
+    OrganizationMember,
+    MembershipStatus,
+)
 from app.models.project import Project, ProjectMember
+from app.models.revoked_token import RevokedToken
 from app.core.security import decode_token, verify_token_type
-from app.core.errors import UnauthorizedError, ForbiddenError
+from app.core.errors import (
+    ForbiddenError,
+    InvalidTokenError,
+    TokenExpiredError,
+    UnauthorizedError,
+)
 from app.core.config import settings
 
 
@@ -17,48 +28,52 @@ async def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     """Get current user from JWT token"""
-    try:
-        if not authorization:
-            raise UnauthorizedError("Missing authorization header")
+    if not authorization:
+        raise UnauthorizedError("Missing authorization header")
 
-        # Extract token from "Bearer <token>"
-        parts = authorization.split(" ", 1)
-        if len(parts) != 2:
-            raise UnauthorizedError("Invalid authorization header")
-        scheme, token = parts[0], parts[1].strip()
-        if scheme.lower() != "bearer" or not token:
-            raise UnauthorizedError("Invalid authentication scheme")
-        
-        # Decode token
+    # Extract token from "Bearer <token>"
+    parts = authorization.split(" ", 1)
+    if len(parts) != 2:
+        raise UnauthorizedError("Invalid authorization header")
+    scheme, token = parts[0], parts[1].strip()
+    if scheme.lower() != "bearer" or not token:
+        raise UnauthorizedError("Invalid authentication scheme")
+
+    try:
         payload = decode_token(token)
         verify_token_type(payload, "access")
-        user_id = payload.get("sub")
-        
-        if not user_id:
-            raise UnauthorizedError("Invalid token payload")
+    except (InvalidTokenError, TokenExpiredError):
+        raise UnauthorizedError("Invalid or expired access token")
 
-        try:
-            user_id = UUID(str(user_id))
-        except (TypeError, ValueError):
-            raise UnauthorizedError("Invalid token subject")
-        
-        # Get user from database
-        user = db.query(User).filter(
-            User.id == user_id,
-            User.is_deleted == False
-        ).first()
-        
-        if not user:
-            raise UnauthorizedError("User not found")
-        
-        return user
-        
-    except ValueError:
-        raise UnauthorizedError("Invalid authorization header")
-    except UnauthorizedError:
-        raise
-    except Exception as e:
-        raise UnauthorizedError(str(e))
+    user_id = payload.get("sub")
+    if not user_id:
+        raise UnauthorizedError("Invalid token payload")
+
+    try:
+        user_id = UUID(str(user_id))
+    except (TypeError, ValueError):
+        raise UnauthorizedError("Invalid token subject")
+
+    jti = payload.get("jti")
+    if not jti:
+        raise UnauthorizedError("Invalid access token")
+
+    is_revoked = db.query(RevokedToken).filter(
+        RevokedToken.jti == str(jti)
+    ).first()
+    if is_revoked:
+        raise UnauthorizedError("Access token has been revoked")
+
+    # Get user from database
+    user = db.query(User).filter(
+        User.id == user_id,
+        User.is_deleted == False
+    ).first()
+
+    if not user:
+        raise UnauthorizedError("User not found")
+
+    return user
 
 
 async def get_current_active_user(
@@ -185,6 +200,17 @@ def is_project_owner_or_manager(project: Project, user: User) -> bool:
     return project.manager_id == user.id or project.created_by == user.id
 
 
+def is_org_admin_for_organization(db: Session, organization_id: UUID, user_id: UUID) -> bool:
+    """Return True when the user is an active org admin in the target organization."""
+    membership = db.query(OrganizationMember).filter(
+        OrganizationMember.organization_id == organization_id,
+        OrganizationMember.user_id == user_id,
+        OrganizationMember.status == MembershipStatus.ACTIVE,
+        OrganizationMember.org_role == OrgRole.ORG_ADMIN,
+    ).first()
+    return membership is not None
+
+
 def ensure_project_member(
     db: Session,
     project: Project,
@@ -192,9 +218,12 @@ def ensure_project_member(
 ) -> Optional[ProjectMember]:
     """
     Ensure user is a project member.
-    Returns explicit membership row when present, else None for implicit owner/manager access.
+    Returns explicit membership row when present, else None for implicit owner/manager/org-admin access.
     """
     if is_project_owner_or_manager(project, user):
+        return None
+
+    if is_org_admin_for_organization(db, project.organization_id, user.id):
         return None
 
     membership = get_project_membership(db, project.id, user.id)

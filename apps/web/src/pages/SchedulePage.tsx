@@ -418,7 +418,7 @@ export default function SchedulePage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 overflow-hidden">
+        <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-200 dark:border-dark-700 overflow-hidden">
           <div className="flex border-b border-gray-200 dark:border-dark-700">
             <div className="w-80 flex-shrink-0 p-3 bg-gray-50 dark:bg-dark-700 font-medium text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-dark-700">
               Task Name
@@ -427,7 +427,7 @@ export default function SchedulePage() {
               {timelineConfig.headers.map((header, idx) => (
                 <div
                   key={idx}
-                  className="flex-1 p-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 border-r border-gray-100 dark:border-dark-700 last:border-r-0"
+                  className="flex-1 p-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-dark-700 last:border-r-0"
                 >
                   <div>{header.label}</div>
                   <div className="text-xs text-gray-400">{header.sublabel}</div>
@@ -438,7 +438,7 @@ export default function SchedulePage() {
 
           <div className="max-h-[500px] overflow-y-auto">
             {filteredTasks.map((task) => (
-              <div key={task.id} className="flex border-b border-gray-100 dark:border-dark-700 hover:bg-gray-50 dark:hover:bg-dark-700/50">
+              <div key={task.id} className="flex border-b border-gray-200 dark:border-dark-700 hover:bg-gray-50 dark:hover:bg-dark-700/50">
                 <div className="w-80 flex-shrink-0 p-3 border-r border-gray-200 dark:border-dark-700">
                   <div className="flex items-center gap-2">
                     <button
@@ -458,7 +458,7 @@ export default function SchedulePage() {
                 <div className="flex-1 relative py-3 px-1">
                   <div className="absolute inset-0 flex">
                     {timelineConfig.headers.map((_, idx) => (
-                      <div key={idx} className="flex-1 border-r border-gray-100 dark:border-dark-700" />
+                      <div key={idx} className="flex-1 border-r border-gray-200 dark:border-dark-700" />
                     ))}
                   </div>
 
@@ -481,7 +481,7 @@ export default function SchedulePage() {
             ))}
 
             {filteredMilestones.map((milestone) => (
-              <div key={`m-${milestone.id}`} className="flex border-b border-gray-100 dark:border-dark-700 bg-purple-50/50 dark:bg-purple-900/10">
+              <div key={`m-${milestone.id}`} className="flex border-b border-gray-200 dark:border-dark-700 bg-purple-50/50 dark:bg-purple-900/10">
                 <div className="w-80 flex-shrink-0 p-3 border-r border-gray-200 dark:border-dark-700">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-purple-500 rounded-full" />
@@ -495,7 +495,7 @@ export default function SchedulePage() {
                 <div className="flex-1 relative py-3 px-1">
                   <div className="absolute inset-0 flex">
                     {timelineConfig.headers.map((_, idx) => (
-                      <div key={idx} className="flex-1 border-r border-gray-100 dark:border-dark-700" />
+                      <div key={idx} className="flex-1 border-r border-gray-200 dark:border-dark-700" />
                     ))}
                   </div>
                   <div
@@ -520,19 +520,19 @@ export default function SchedulePage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Total Tasks</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{filteredTasks.length}</p>
         </div>
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
           <p className="text-2xl font-bold text-green-600">{filteredTasks.filter((t) => t.status === 'Completed').length}</p>
         </div>
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">In Progress</p>
           <p className="text-2xl font-bold text-blue-600">{filteredTasks.filter((t) => t.status === 'In Progress').length}</p>
         </div>
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">Milestones</p>
           <p className="text-2xl font-bold text-purple-600">{filteredMilestones.length}</p>
         </div>

@@ -1,18 +1,44 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { HardHat, Eye, EyeOff, Lock, Mail, AlertCircle } from 'lucide-react';
-import { useUserStore } from '../stores/userStore';
 import { useAuthStore } from '../stores/authStore';
 
 interface LoginPageProps {
   onLogin?: () => void;
 }
 
+function normalizeErrorMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail;
+  }
+
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0] as any;
+    if (typeof first === 'string' && first.trim()) {
+      return first;
+    }
+    if (first && typeof first === 'object' && typeof first.msg === 'string') {
+      return first.msg;
+    }
+  }
+
+  if (detail && typeof detail === 'object') {
+    const candidate = detail as any;
+    if (typeof candidate.message === 'string' && candidate.message.trim()) {
+      return candidate.message;
+    }
+    if (typeof candidate.msg === 'string' && candidate.msg.trim()) {
+      return candidate.msg;
+    }
+  }
+
+  return fallback;
+}
+
 export default function LoginPage({ onLogin }: LoginPageProps) {
-  const { login: hydrateLocalUser } = useUserStore();
   const { login: backendLogin, error: authError, clearError } = useAuthStore();
 
-  const [email, setEmail] = useState('admin@example.com');
-  const [password, setPassword] = useState('Admin@123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -25,23 +51,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
     try {
       await backendLogin(email, password);
-
-      const authenticatedUser = useAuthStore.getState().user;
-      if (authenticatedUser) {
-        hydrateLocalUser(email, password, {
-          id: Date.now(),
-          email: authenticatedUser.email,
-          firstName: authenticatedUser.first_name,
-          lastName: authenticatedUser.last_name,
-          role: (authenticatedUser.role as any) || 'Administrator',
-          isActive: authenticatedUser.is_active,
-          createdAt: new Date().toISOString().split('T')[0],
-        });
-      }
-
       if (onLogin) onLogin();
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || authError || 'Login failed. Please try again.';
+      const errorMessage = normalizeErrorMessage(
+        error?.response?.data?.detail ?? authError,
+        'Login failed. Please try again.'
+      );
       setLocalError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -77,11 +92,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                 <input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Enter your email"
+                  placeholder="Enter any username/email"
                   required
                 />
               </div>
@@ -120,11 +135,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
         </div>
 
-        <p className="text-center text-slate-500 text-sm mt-6">
-          BuildPro
-        </p>
+        <div className="text-center text-slate-500 text-xs mt-6 space-y-1">
+          <p className="font-medium text-slate-400">MSc. Civil Engineering — Construction Project Management</p>
+          <p>Limo Jesse Mwanga &middot; 2023-01-14700</p>
+          <p>Kampala International University &middot; 2026</p>
+        </div>
       </div>
     </div>
   );
 }
-

@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.api.v1.dependencies import OrgContext, get_org_context
+from app.api.v1.dependencies import (
+    OrgContext,
+    get_org_context,
+    is_org_admin_for_organization,
+)
 from app.db.session import get_db
 from app.models.notification import Notification
 from app.models.project import Project, ProjectMember
@@ -17,25 +21,23 @@ router = APIRouter()
 
 
 def _get_accessible_project_ids(db: Session, ctx: OrgContext) -> list[UUID]:
-    member_project_ids = db.query(ProjectMember.project_id).filter(
-        ProjectMember.user_id == ctx.user.id,
-        ProjectMember.can_view_project == True,
+    projects_query = db.query(Project.id).filter(
+        Project.organization_id == ctx.organization.id,
+        Project.is_deleted == False,
     )
-    projects = (
-        db.query(Project.id)
-        .filter(
-            Project.organization_id == ctx.organization.id,
-            Project.is_deleted == False,
+    if not is_org_admin_for_organization(db, ctx.organization.id, ctx.user.id):
+        member_project_ids = db.query(ProjectMember.project_id).filter(
+            ProjectMember.user_id == ctx.user.id,
+            ProjectMember.can_view_project == True,
         )
-        .filter(
+        projects_query = projects_query.filter(
             or_(
                 Project.manager_id == ctx.user.id,
                 Project.created_by == ctx.user.id,
                 Project.id.in_(member_project_ids),
             )
         )
-        .all()
-    )
+    projects = projects_query.all()
     return [row.id for row in projects]
 
 

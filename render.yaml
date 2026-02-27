@@ -7,13 +7,13 @@ databases:
 services:
   - type: web
     name: buildpro-api
-    env: python
+    runtime: python
     region: oregon
     plan: starter
     rootDir: apps/api
     autoDeploy: true
     buildCommand: pip install -r requirements.txt
-    startCommand: alembic upgrade head && gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT
+    startCommand: alembic upgrade head && gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
@@ -25,9 +25,15 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
-        value: false
+        value: "false"
+      - key: PYTHON_VERSION
+        value: "3.11.11"
       - key: ALLOWED_ORIGINS
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ALLOW_ANY_LOGIN
+        value: "false"
       - key: USE_CLOUD_STORAGE
         sync: false
       - key: R2_ACCESS_KEY_ID
@@ -41,7 +47,7 @@ services:
       - key: R2_PUBLIC_URL
         sync: false
       - key: MAX_UPLOAD_SIZE
-        value: 52428800
+        value: "52428800"
 
   - type: web
     name: buildpro-web
@@ -51,6 +57,13 @@ services:
     autoDeploy: true
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
     envVars:
       - key: VITE_API_URL
         sync: false

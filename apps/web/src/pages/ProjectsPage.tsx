@@ -166,7 +166,7 @@ export default function ProjectsPage() {
       {/* Projects List */}
       <div className="grid gap-6">
         {filteredProjects.map(project => (
-          <div key={project.id} className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-dark-700 hover:shadow-md transition">
+          <div key={project.id} className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-dark-700 hover:shadow-md transition">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-1">
@@ -237,7 +237,7 @@ export default function ProjectsPage() {
       </div>
 
       {filteredProjects.length === 0 && (
-        <div className="text-center py-12 bg-white dark:bg-dark-800 rounded-xl border border-gray-100 dark:border-dark-700">
+        <div className="text-center py-12 bg-white dark:bg-dark-800 rounded-xl border border-gray-200 dark:border-dark-700">
           <p className="text-gray-500 dark:text-gray-400">No projects found</p>
         </div>
       )}

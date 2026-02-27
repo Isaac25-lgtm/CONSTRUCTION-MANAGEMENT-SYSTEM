@@ -21,7 +21,6 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useThemeStore } from '../stores/themeStore';
-import { useUserStore } from '../stores/userStore';
 import { useAuthStore } from '../stores/authStore';
 import { useAuditStore } from '../stores/auditStore';
 import { useDataStore } from '../stores/dataStore';
@@ -42,8 +41,7 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
   const notificationRef = useRef<HTMLDivElement>(null);
 
   const { isDark, toggleTheme } = useThemeStore();
-  const { currentUser, logout } = useUserStore();
-  const { logout: backendLogout, selectedOrgId } = useAuthStore();
+  const { user: currentUser, logout: backendLogout, selectedOrgId } = useAuthStore();
   const { addLog } = useAuditStore();
   const { syncFromAPI, isApiConnected, isLoading: isSyncing } = useDataStore();
   const {
@@ -94,7 +92,7 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
     if (currentUser) {
       addLog({
         userId: currentUser.id,
-        userName: `${currentUser.firstName} ${currentUser.lastName}`,
+        userName: `${currentUser.first_name} ${currentUser.last_name}`,
         userEmail: currentUser.email,
         action: 'LOGOUT',
         entityType: 'System',
@@ -103,7 +101,6 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
     }
 
     await backendLogout();
-    logout();
     onLogout();
   };
 
@@ -121,7 +118,7 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-dark-900 flex">
+    <div className="min-h-screen bg-gray-100 dark:bg-dark-900 flex">
       <aside
         className={`${
           sidebarOpen ? 'w-64' : 'w-20'
@@ -178,7 +175,7 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
                 <input
                   type="text"
                   placeholder="Search projects, tasks..."
-                  className="pl-10 pr-4 py-2 bg-gray-100 dark:bg-dark-700 rounded-lg w-80 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-gray-100"
+                  className="pl-10 pr-4 py-2 bg-white dark:bg-dark-700 border border-gray-300 dark:border-dark-600 rounded-lg w-80 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-gray-100"
                 />
               </div>
             </div>
@@ -258,7 +255,7 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
                               markAsRead(item.id);
                             }
                           }}
-                          className={`w-full text-left px-4 py-3 border-b last:border-b-0 border-gray-100 dark:border-dark-700 hover:bg-gray-50 dark:hover:bg-dark-700/60 ${
+                          className={`w-full text-left px-4 py-3 border-b last:border-b-0 border-gray-200 dark:border-dark-700 hover:bg-gray-50 dark:hover:bg-dark-700/60 ${
                             item.is_read ? '' : 'bg-blue-50/60 dark:bg-blue-900/10'
                           }`}
                         >
@@ -278,11 +275,11 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
 
               <div className="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-dark-700">
                 <div className="w-9 h-9 bg-primary-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                  {currentUser ? `${currentUser.firstName[0]}${currentUser.lastName[0]}` : 'U'}
+                  {currentUser ? `${currentUser.first_name[0]}${currentUser.last_name[0]}` : 'U'}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'User'}
+                    {currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : 'User'}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{currentUser?.email || 'Not logged in'}</p>
                 </div>
@@ -301,9 +298,9 @@ export default function Layout({ children, activeSection, onSectionChange, onLog
         <main className="flex-1 p-6 overflow-auto">{children}</main>
 
         <footer className="bg-white dark:bg-dark-800 border-t border-gray-200 dark:border-dark-700 px-6 py-3">
-          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-            <p>BuildPro Internal PM v1.0</p>
-            <p>BuildPro</p>
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+            <p>BuildPro v1.0 &middot; MSc. Civil Engineering — Construction Project Management</p>
+            <p>Limo Jesse Mwanga &middot; Kampala International University &middot; 2026</p>
           </div>
         </footer>
       </div>

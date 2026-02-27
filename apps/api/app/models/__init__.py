@@ -12,6 +12,7 @@ from app.models.audit_log import AuditLog
 from app.models.job import Job, JobStatus
 from app.models.notification import Notification
 from app.models.boq import BOQHeader, BOQItem
+from app.models.revoked_token import RevokedToken
 
 __all__ = [
     "User",
@@ -44,4 +45,5 @@ __all__ = [
     "Notification",
     "BOQHeader",
     "BOQItem",
+    "RevokedToken",
 ]

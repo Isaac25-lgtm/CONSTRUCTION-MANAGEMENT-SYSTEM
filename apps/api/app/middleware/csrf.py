@@ -51,12 +51,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             return self._ensure_csrf_cookie(request, response)
 
-        # Skip CSRF in development mode if no cookie exists yet (first request)
+        # Skip CSRF entirely in development mode (cross-origin dev servers
+        # cannot share cookies, so the double-submit pattern doesn't work)
         if settings.ENVIRONMENT == "development":
-            csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
-            if not csrf_cookie:
-                response = await call_next(request)
-                return self._ensure_csrf_cookie(request, response)
+            response = await call_next(request)
+            return self._ensure_csrf_cookie(request, response)
 
         # For mutating requests, validate CSRF token
         csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
@@ -99,12 +98,13 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         existing = request.cookies.get(CSRF_COOKIE_NAME)
         if not existing:
             token = secrets.token_hex(CSRF_TOKEN_LENGTH)
+            is_production = settings.ENVIRONMENT == "production"
             response.set_cookie(
                 key=CSRF_COOKIE_NAME,
                 value=token,
                 httponly=False,  # JavaScript needs to read this cookie
-                secure=settings.ENVIRONMENT == "production",
-                samesite="lax",
+                secure=is_production,
+                samesite="none" if is_production else "lax",
                 max_age=86400,  # 24 hours
                 path="/",
             )

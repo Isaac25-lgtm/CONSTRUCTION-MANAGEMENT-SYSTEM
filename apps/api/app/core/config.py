@@ -2,13 +2,15 @@ import json
 from functools import lru_cache
 from typing import List
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 DEFAULT_ALLOWED_ORIGINS = [
     "https://buildpro-web.onrender.com",
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
 
 
@@ -27,16 +29,17 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     
     # Database
-    DATABASE_URL: str = "postgresql://buildpro:buildpro_dev_password@localhost:5432/buildpro_db"
+    DATABASE_URL: str = Field(...)
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     
     # Security
-    SECRET_KEY: str = "dev-secret-key-change-in-production-min-32-chars"
+    SECRET_KEY: str = Field(...)
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ALLOW_ANY_LOGIN: bool = False
     
     # CORS
     ALLOWED_ORIGINS: List[str] | str = DEFAULT_ALLOWED_ORIGINS
@@ -60,6 +63,9 @@ class Settings(BaseSettings):
     R2_PUBLIC_URL: str = ""  # Public URL for accessing files
 
     
+    # AI (Gemini)
+    GEMINI_API_KEY: str = ""
+
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 100
     AUTH_RATE_LIMIT_PER_MINUTE: int = 10
@@ -109,6 +115,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_cors_configuration(self):
+        if not self.DATABASE_URL or not self.DATABASE_URL.strip():
+            raise ValueError("DATABASE_URL must be set and cannot be empty.")
+        if not self.SECRET_KEY or not self.SECRET_KEY.strip():
+            raise ValueError("SECRET_KEY must be set and cannot be empty.")
+
         configured = [origin.strip().rstrip("/") for origin in self.ALLOWED_ORIGINS if origin.strip()]
         if not configured:
             configured = DEFAULT_ALLOWED_ORIGINS.copy()

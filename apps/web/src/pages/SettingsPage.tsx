@@ -295,7 +295,7 @@ export default function SettingsPage() {
       {/* My Account Tab */}
       {activeTab === 'account' && currentUser && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-dark-700">
+          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-dark-700">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Account Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -323,7 +323,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-dark-700">
+          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-dark-700">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Security</h2>
             <button
               onClick={() => setShowPasswordModal(true)}
@@ -333,7 +333,7 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-dark-700">
+          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-dark-700">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Your Permissions</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {Object.entries(currentUser.permissions).map(([key, value]) => (
@@ -361,7 +361,7 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 overflow-hidden">
+          <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-200 dark:border-dark-700 overflow-hidden">
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-dark-700">
                 <tr>
@@ -375,7 +375,7 @@ export default function SettingsPage() {
               </thead>
               <tbody>
                 {users.map(user => (
-                  <tr key={user.id} className="border-t border-gray-100 dark:border-dark-700">
+                  <tr key={user.id} className="border-t border-gray-200 dark:border-dark-700">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center text-primary-700 dark:text-primary-400 font-semibold">
@@ -422,7 +422,7 @@ export default function SettingsPage() {
 
       {/* Permissions Tab */}
       {activeTab === 'permissions' && canManageUsers && (
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-dark-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Role Permissions Matrix</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -438,7 +438,7 @@ export default function SettingsPage() {
               </thead>
               <tbody>
                 {Object.keys(defaultPermissions.Administrator).map(perm => (
-                  <tr key={perm} className="border-b border-gray-100 dark:border-dark-700">
+                  <tr key={perm} className="border-b border-gray-200 dark:border-dark-700">
                     <td className="p-3 text-gray-700 dark:text-gray-300">{perm.replace(/([A-Z])/g, ' $1').replace('can ', '').trim()}</td>
                     {(['Administrator', 'Project_Manager', 'Site_Supervisor', 'Team_Member', 'Stakeholder'] as UserRole[]).map(role => (
                       <td key={role} className="p-3 text-center">
@@ -468,7 +468,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Projects */}
-          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-dark-700">
+          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-dark-700">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Projects ({projects.length})</h3>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {projects.map(p => (
@@ -486,7 +486,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Tasks */}
-          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-dark-700">
+          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-dark-700">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Tasks ({tasks.length})</h3>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {tasks.map(t => (
@@ -504,7 +504,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Documents */}
-          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-dark-700">
+          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-dark-700">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Documents ({documents.length})</h3>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {documents.map(d => (
@@ -522,7 +522,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Risks */}
-          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-dark-700">
+          <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-dark-700">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Risks ({risks.length})</h3>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {risks.map(r => (
@@ -574,7 +574,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Audit Logs */}
-          <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 overflow-hidden">
+          <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-200 dark:border-dark-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-dark-700">
@@ -588,7 +588,7 @@ export default function SettingsPage() {
                 </thead>
                 <tbody>
                   {filteredLogs.map(log => (
-                    <tr key={log.id} className="border-t border-gray-100 dark:border-dark-700">
+                    <tr key={log.id} className="border-t border-gray-200 dark:border-dark-700">
                       <td className="p-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <Clock size={14} />

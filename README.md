@@ -1,346 +1,370 @@
-﻿# BuildPro
+# BuildPro — Construction Project Management System
 
-BuildPro is an internal construction/project management platform organized as a monorepo with a FastAPI backend and a React frontend.
+A full-stack, AI-powered construction project management platform built as a dissertation project for the **Master of Science in Civil Engineering (Construction Project Management)** programme at **Kampala International University**.
 
-## 1. What This Repository Contains
+---
 
-- Backend API (`apps/api`) built with FastAPI, SQLAlchemy, Alembic, and PostgreSQL.
-- Frontend app (`apps/web`) built with React, TypeScript, Zustand, and Vite.
-- Render Blueprint (`render.yaml`) for production deployment.
-- Local developer scripts (`start.sh`, `start.bat`, `docker-compose.yml`) for convenience.
+## Research Information
 
-## 2. Technology Stack
+| Field | Detail |
+|-------|--------|
+| **Student / Research Owner** | Limo Jesse Mwanga |
+| **Registration Number** | 2023-01-14700 |
+| **Programme** | MSc. Civil Engineering — Construction Project Management |
+| **University** | Kampala International University |
+| **Year** | 2026 |
+| **System Design Collaborator** | Omoding Isaac — Data Scientist |
 
-### Backend
+---
 
-- FastAPI + Uvicorn + Gunicorn
-- SQLAlchemy ORM + Alembic migrations
-- PostgreSQL (Render managed DB in production)
-- JWT auth (`python-jose`) + password hashing (`passlib`/`bcrypt`)
-- Optional cloud file storage (Cloudflare R2 / S3-compatible)
+## Overview
 
-### Frontend
+BuildPro is a web-based internal project management system purpose-built for construction firms. It provides real-time dashboards, Gantt scheduling, Bill of Quantities (BOQ) tracking, risk management, document management, budget tracking, and AI-powered insights — all within a single platform.
 
-- React + TypeScript + Vite
-- Zustand state management
-- Axios API client with auth/organization context interceptors
-- Tailwind CSS
+### Key Features
 
-### Deployment
+| Module | Description |
+|--------|-------------|
+| **Dashboard** | Real-time KPIs, project status overview, budget utilisation charts |
+| **Projects** | Full CRUD for construction projects with status tracking (Planning, In Progress, On Hold, Completed) |
+| **Schedule & Gantt** | Interactive Gantt chart with BOQ-weighted task progress |
+| **Tasks & Milestones** | Task assignment, status management, milestone tracking with completion percentages |
+| **Documents** | Upload, download, version, categorise, and manage project documents (Drawings, Reports, Photos, Permits, Contracts) |
+| **Budget & Finance** | Expense tracking, budget vs. actual analysis, financial reporting |
+| **Bill of Quantities (BOQ)** | Line-item BOQ management with weighted completion driving project progress |
+| **Risk Management** | Risk register with likelihood/impact assessment, mitigation plans, and AI risk prediction |
+| **Communication** | In-app messaging and notification system |
+| **Reports & Analytics** | Exportable PDF/Excel reports, analytics dashboards |
+| **Settings** | Organisation management, user roles, and system configuration |
 
-- Render Blueprint with:
-  - API web service
-  - Static frontend site
-  - Managed PostgreSQL database
+### AI Modules (Gemini 2.0 Flash)
 
-## 3. Monorepo Layout (High-Level)
+| Module | Capability |
+|--------|------------|
+| **AI Chat Assistant** | Context-aware construction project Q&A |
+| **Risk Prediction** | AI-driven risk analysis and early-warning recommendations |
+| **Budget Forecasting** | Predictive budget analysis and cost overrun alerts |
+| **Auto Reporting** | Automated project status report generation |
+| **Resource Allocation** | AI-optimised resource and workforce suggestions |
 
-```text
-.
-|-- apps/
-|   |-- api/   # FastAPI backend
-|   `-- web/   # React frontend
-|-- render.yaml
-|-- docker-compose.yml
-|-- start.sh
-|-- start.bat
-|-- README.md
-`-- SETUP.md
+---
+
+## Tech Stack
+
+### Backend (`apps/api`)
+
+- **Framework:** FastAPI (Python 3.11)
+- **ORM:** SQLAlchemy 2.0 with Alembic migrations
+- **Database:** PostgreSQL (production) / SQLite (local development)
+- **Authentication:** JWT with httpOnly cookie refresh tokens
+- **Authorisation:** Role-Based Access Control (RBAC) with granular permissions
+- **AI:** Google Gemini 2.0 Flash API
+- **Storage:** Local filesystem or Cloudflare R2 / AWS S3
+- **Server:** Gunicorn + Uvicorn workers
+- **Security:** CSRF protection, rate limiting, audit logging, security headers
+
+### Frontend (`apps/web`)
+
+- **Framework:** React 18 + TypeScript
+- **Build Tool:** Vite 5
+- **Styling:** Tailwind CSS 3.4 with dark mode support
+- **State Management:** Zustand
+- **Data Fetching:** Axios + TanStack React Query
+- **Charts:** Recharts
+- **Icons:** Lucide React
+- **PDF/Excel Export:** jsPDF + html2canvas (frontend) / openpyxl (backend)
+
+### Infrastructure
+
+- **Hosting:** Render (Web Service + Static Site + PostgreSQL)
+- **Monorepo:** `apps/api` (Python) + `apps/web` (Node/React)
+- **CI/CD:** Render auto-deploy from GitHub
+
+---
+
+## Project Structure
+
+```
+BuildPro/
+├── apps/
+│   ├── api/                        # FastAPI backend
+│   │   ├── alembic/                # Database migrations
+│   │   ├── app/
+│   │   │   ├── api/v1/routes/      # Route modules (auth, projects, tasks, documents, etc.)
+│   │   │   ├── api/v1/dependencies.py  # Auth & org resolution
+│   │   │   ├── core/               # Config, security, RBAC, error handling
+│   │   │   ├── db/                 # Database session, init_db, base mixins
+│   │   │   ├── middleware/         # CORS, CSRF, rate limiting, audit logging
+│   │   │   ├── models/             # SQLAlchemy ORM models
+│   │   │   ├── schemas/            # Pydantic request/response schemas
+│   │   │   └── services/           # Storage service, AI integration
+│   │   ├── requirements.txt        # Production dependencies
+│   │   ├── requirements-dev.txt    # Dev/test dependencies
+│   │   ├── Dockerfile
+│   │   └── run_local.py            # Local dev runner (SQLite compatibility)
+│   └── web/                        # React frontend
+│       ├── src/
+│       │   ├── components/         # Reusable UI components (Layout, Modal, AIChat, etc.)
+│       │   ├── pages/              # Page-level components (11 pages)
+│       │   ├── stores/             # Zustand state stores (auth, data, projects, etc.)
+│       │   ├── lib/                # API client, axios config, session helpers
+│       │   ├── services/           # Gemini AI service integration
+│       │   └── App.tsx             # Root application component
+│       ├── package.json
+│       ├── vite.config.ts
+│       ├── tailwind.config.js
+│       └── Dockerfile
+├── render.yaml                     # Render deployment blueprint
+├── docker-compose.yml              # Docker Compose for local multi-service dev
+├── start.sh / start.bat            # Convenience local start scripts
+├── .gitignore
+└── README.md
 ```
 
-## 4. Backend Architecture (`apps/api`)
+---
 
-### Entry and app wiring
+## Getting Started
 
-- `app/main.py`: FastAPI app creation, middleware, exception handlers, `/health`, router include.
-- `app/api/v1/router.py`: mounts all `/api/v1/*` route groups.
+### Prerequisites
 
-### API layers
+- Python 3.11+
+- Node.js 18+
+- npm 9+
+- Git
 
-- `app/api/v1/routes/*`: route modules by domain (`auth`, `projects`, `tasks`, etc.).
-- `app/api/v1/dependencies.py`: auth user/org resolution (`Authorization` + `X-Organization-ID`).
+### Local Development Setup
 
-### Domain model and schemas
+#### 1. Clone the Repository
 
-- `app/models/*`: SQLAlchemy models (canonical persistence contract).
-- `app/schemas/*`: Pydantic request/response schemas.
+```bash
+git clone https://github.com/Isaac25-lgtm/CONSTRUCTION-MANAGEMENT-SYSTEM.git
+cd CONSTRUCTION-MANAGEMENT-SYSTEM
+```
 
-### Data and migrations
+#### 2. Backend Setup
 
-- `app/db/session.py`: SQLAlchemy engine/session configuration.
-- `app/db/init_db.py`: local seed/bootstrap utility.
-- `alembic/versions/*`: migration history and schema evolution.
+```bash
+cd apps/api
 
-### Core services
+# Create and activate virtual environment
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
 
-- `app/core/config.py`: environment settings, CORS parsing, production validation.
-- `app/core/security.py`: JWT + password helpers.
-- `app/services/storage.py`: document storage service (local/R2, lazy init, streaming upload path).
-- `app/middleware/*`: rate limiting, audit logging, csrf middleware module.
-
-## 5. Frontend Architecture (`apps/web`)
-
-### App shell and routing pages
-
-- `src/App.tsx`: top-level composition.
-- `src/pages/*`: feature pages (Projects, Tasks, Documents, Risks, etc.).
-
-### API and data flow
-
-- `src/lib/api.ts`: canonical API client wrapper.
-- `src/lib/axios.ts`: secondary axios client.
-- `src/stores/*`: Zustand stores by domain (auth, projects, tasks, documents, etc.).
-
-### UI composition
-
-- `src/components/*`: reusable components, layout, auth guard, modal/dialog UI.
-- `src/components/AIChat/*`: AI chat feature widgets.
-
-## 6. API, Auth, and Multi-Tenancy Conventions
-
-- API base path is **always** `/api/v1`.
-- Login endpoint: `POST /api/v1/auth/login`.
-- Access token is sent as `Authorization: Bearer <token>`.
-- Org-scoped routes use `X-Organization-ID`.
-- If the user has exactly one active membership, org may auto-resolve.
-- If the user has multiple active memberships, `X-Organization-ID` is required.
-
-## 7. Canonical Local URLs
-
-- Frontend: `http://localhost:5173`
-- Backend API root: `http://localhost:8000`
-- API docs: `http://localhost:8000/docs`
-- Health: `http://localhost:8000/health`
-
-## 8. Local Development
-
-### Backend
-
-```powershell
-cd apps\api
+# Install dependencies
 pip install -r requirements.txt
-pip install -r requirements-dev.txt  # Optional for contributors
+
+# Configure environment
+cp .env.example .env
+# Edit .env — set GEMINI_API_KEY for AI features
+
+# Run locally (uses SQLite, auto-seeds sample data)
 python run_local.py
 ```
 
-### Frontend
+The API will be available at `http://localhost:8000` with interactive docs at `http://localhost:8000/docs`.
 
-```powershell
-cd apps\web
-npm ci
+#### 3. Frontend Setup
+
+```bash
+cd apps/web
+
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
 ```
 
-### Demo Seed Credentials (local only)
+The frontend will be available at `http://localhost:5173`.
 
-- Admin: `admin@example.com` / `Admin@123456`
-- PM: `pm@example.com` / `Password@123`
+### Default Login Credentials
 
-## 9. Environment Configuration
+| Field | Value |
+|-------|-------|
+| **Email** | `admin@example.com` |
+| **Password** | `Admin@123456` |
+| **Role** | Administrator (full permissions) |
 
-### Backend (`apps/api/.env`)
+---
 
-Use `apps/api/.env.example`.
+## Deployment on Render
 
-Required/important:
+### One-Click Blueprint Deploy
 
-- `DATABASE_URL`
-- `SECRET_KEY`
-- `ENVIRONMENT`
-- `DEBUG`
-- `ALLOWED_ORIGINS`
-- `USE_CLOUD_STORAGE`
-- `MAX_UPLOAD_SIZE`
+1. Fork this repository to your GitHub account
+2. Go to [Render Dashboard](https://dashboard.render.com)
+3. Click **New** > **Blueprint** and connect your forked repository
+4. Render will detect `render.yaml` and provision all three services automatically:
+   - **buildpro-api** — Python web service
+   - **buildpro-web** — Static site
+   - **buildpro-db** — PostgreSQL database
 
-When `USE_CLOUD_STORAGE=true`, also set:
+### Manual Setup
 
-- `R2_ENDPOINT_URL`
-- `R2_ACCESS_KEY_ID`
-- `R2_SECRET_ACCESS_KEY`
-- `R2_BUCKET_NAME`
-- `R2_PUBLIC_URL` (recommended)
+#### API Service (Web Service)
 
-### Frontend (`apps/web/.env.local`)
+| Setting | Value |
+|---------|-------|
+| **Runtime** | Python 3.11 |
+| **Root Directory** | `apps/api` |
+| **Build Command** | `pip install -r requirements.txt` |
+| **Start Command** | `alembic upgrade head && gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120` |
+| **Health Check Path** | `/health` |
 
-Use `apps/web/.env.example`.
+#### Frontend (Static Site)
 
-- `VITE_API_URL=http://localhost:8000` (or production API origin)
-- The frontend appends `/api` automatically if missing.
+| Setting | Value |
+|---------|-------|
+| **Root Directory** | `apps/web` |
+| **Build Command** | `npm ci && npm run build` |
+| **Publish Directory** | `dist` |
+| **Rewrite Rule** | `/* → /index.html` (SPA support) |
 
-## 10. Render Deployment (Blueprint)
+### Required Environment Variables
 
-The root `render.yaml` defines:
+**API Service:**
 
-- PostgreSQL database: `buildpro-db`
-- API service: `buildpro-api` (Python)
-- Frontend service: `buildpro-web` (Static)
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string (auto-set from Render DB) |
+| `SECRET_KEY` | Auto-generated strong secret (>= 32 chars) |
+| `ENVIRONMENT` | `production` |
+| `ALLOWED_ORIGINS` | Frontend URL, e.g. `https://buildpro-web.onrender.com` |
+| `GEMINI_API_KEY` | Google Gemini API key for AI features |
 
-### API service behavior
+**Frontend (Static Site):**
 
-- Build: `pip install -r requirements.txt`
-- Start: `alembic upgrade head && gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT`
-- Health check: `/health`
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_URL` | Backend API URL, e.g. `https://buildpro-api.onrender.com` |
 
-### Frontend service behavior
+### Optional Environment Variables (Cloud Storage)
 
-- Build: `npm ci && npm run build`
-- Publish: `dist`
-- Route rewrite: `/* -> /index.html`
+| Variable | Description |
+|----------|-------------|
+| `USE_CLOUD_STORAGE` | `true` to enable R2/S3 storage (recommended — Render disk is ephemeral) |
+| `R2_ACCESS_KEY_ID` | Cloudflare R2 access key |
+| `R2_SECRET_ACCESS_KEY` | Cloudflare R2 secret key |
+| `R2_BUCKET_NAME` | R2 bucket name |
+| `R2_ENDPOINT_URL` | R2 endpoint URL |
+| `R2_PUBLIC_URL` | Public URL for file access |
 
-### Production notes
+### Production Notes
 
-- Do not use `*` for `ALLOWED_ORIGINS` in production.
-- With cookies/credentials, allowed origins must be explicit.
-- Render local disk is ephemeral; use cloud storage (`USE_CLOUD_STORAGE=true`) for persistent document uploads.
+- Render's free-tier disk is **ephemeral** — uploaded files are lost on redeploy. Use `USE_CLOUD_STORAGE=true` with Cloudflare R2 for persistent document storage.
+- Do **not** use `*` for `ALLOWED_ORIGINS` in production (incompatible with `allow_credentials=True`).
+- The API automatically runs database migrations (`alembic upgrade head`) and seeds default data on startup.
+- Gunicorn is configured with 2 workers and a 120-second timeout for handling large file uploads.
 
-## 11. Dependency Strategy
+---
 
-Backend dependencies are split intentionally:
+## API Documentation
 
-- Runtime only: `apps/api/requirements.txt`
-- Dev/test/lint only: `apps/api/requirements-dev.txt`
+Once the backend is running, interactive API documentation is available at:
 
-This keeps production deploys smaller and faster.
+- **Swagger UI:** `http://localhost:8000/docs`
+- **ReDoc:** `http://localhost:8000/redoc`
 
-## 12. Full Repository Structure (Tracked Files)
+### Core API Endpoints
 
-```text
-.gitignore
-CHANGELOG.md
-README.md
-SETUP.md
-apps/api/.env.example
-apps/api/Dockerfile
-apps/api/alembic.ini
-apps/api/alembic/env.py
-apps/api/alembic/versions/001_initial_migration.py
-apps/api/alembic/versions/002_add_multi_tenancy_and_core_models.py
-apps/api/alembic/versions/003_rename_audit_log_metadata.py
-apps/api/alembic/versions/004_fix_risk_schema.py
-apps/api/app/api/deps.py
-apps/api/app/api/v1/dependencies.py
-apps/api/app/api/v1/router.py
-apps/api/app/api/v1/routes/analytics.py
-apps/api/app/api/v1/routes/audit_logs.py
-apps/api/app/api/v1/routes/auth.py
-apps/api/app/api/v1/routes/documents.py
-apps/api/app/api/v1/routes/expenses.py
-apps/api/app/api/v1/routes/messages.py
-apps/api/app/api/v1/routes/milestones.py
-apps/api/app/api/v1/routes/organizations.py
-apps/api/app/api/v1/routes/projects.py
-apps/api/app/api/v1/routes/risks.py
-apps/api/app/api/v1/routes/tasks.py
-apps/api/app/api/v1/routes/users.py
-apps/api/app/core/config.py
-apps/api/app/core/errors.py
-apps/api/app/core/rbac.py
-apps/api/app/core/security.py
-apps/api/app/core/storage.py
-apps/api/app/db/base.py
-apps/api/app/db/init_db.py
-apps/api/app/db/session.py
-apps/api/app/logging.py
-apps/api/app/main.py
-apps/api/app/middleware/__init__.py
-apps/api/app/middleware/audit.py
-apps/api/app/middleware/csrf.py
-apps/api/app/middleware/rate_limit.py
-apps/api/app/models/__init__.py
-apps/api/app/models/audit_log.py
-apps/api/app/models/document.py
-apps/api/app/models/expense.py
-apps/api/app/models/job.py
-apps/api/app/models/message.py
-apps/api/app/models/milestone.py
-apps/api/app/models/organization.py
-apps/api/app/models/project.py
-apps/api/app/models/risk.py
-apps/api/app/models/task.py
-apps/api/app/models/user.py
-apps/api/app/schemas/analytics.py
-apps/api/app/schemas/auth.py
-apps/api/app/schemas/document.py
-apps/api/app/schemas/expense.py
-apps/api/app/schemas/message.py
-apps/api/app/schemas/milestone.py
-apps/api/app/schemas/organization.py
-apps/api/app/schemas/project.py
-apps/api/app/schemas/risk.py
-apps/api/app/schemas/task.py
-apps/api/app/services/storage.py
-apps/api/requirements-dev.txt
-apps/api/requirements.txt
-apps/api/run_local.py
-apps/web/.env.example
-apps/web/Dockerfile
-apps/web/index.html
-apps/web/package-lock.json
-apps/web/package.json
-apps/web/postcss.config.js
-apps/web/public/_redirects
-apps/web/src/App.tsx
-apps/web/src/components/AIChat/AIChatWidget.tsx
-apps/web/src/components/AIChat/ChatMessage.tsx
-apps/web/src/components/AIChat/ChatWindow.tsx
-apps/web/src/components/AIChat/QuickActions.tsx
-apps/web/src/components/AIChat/index.ts
-apps/web/src/components/ErrorBoundary.tsx
-apps/web/src/components/Layout.tsx
-apps/web/src/components/OrganizationSelector.tsx
-apps/web/src/components/ProjectDetailsModal.tsx
-apps/web/src/components/ProtectedRoute.tsx
-apps/web/src/components/ui/EmptyState.tsx
-apps/web/src/components/ui/LoadingState.tsx
-apps/web/src/components/ui/Modal.tsx
-apps/web/src/components/ui/ProgressBar.tsx
-apps/web/src/components/ui/StatusBadge.tsx
-apps/web/src/index.css
-apps/web/src/lib/api.ts
-apps/web/src/lib/axios.ts
-apps/web/src/main.tsx
-apps/web/src/pages/BudgetPage.tsx
-apps/web/src/pages/CommunicationPage.tsx
-apps/web/src/pages/Dashboard.tsx
-apps/web/src/pages/DashboardPage.tsx
-apps/web/src/pages/DocumentsPage.tsx
-apps/web/src/pages/LoginPage.tsx
-apps/web/src/pages/ProjectsPage.tsx
-apps/web/src/pages/ReportsPage.tsx
-apps/web/src/pages/RisksPage.tsx
-apps/web/src/pages/SchedulePage.tsx
-apps/web/src/pages/SettingsPage.tsx
-apps/web/src/pages/TasksPage.tsx
-apps/web/src/services/geminiService.ts
-apps/web/src/stores/aiChatStore.ts
-apps/web/src/stores/auditStore.ts
-apps/web/src/stores/authStore.ts
-apps/web/src/stores/dataStore.ts
-apps/web/src/stores/documentStore.ts
-apps/web/src/stores/expenseStore.ts
-apps/web/src/stores/messageStore.ts
-apps/web/src/stores/milestoneStore.ts
-apps/web/src/stores/projectStore.ts
-apps/web/src/stores/riskStore.ts
-apps/web/src/stores/taskStore.ts
-apps/web/src/stores/themeStore.ts
-apps/web/src/stores/userStore.ts
-apps/web/src/utils/projectContext.ts
-apps/web/src/vite-env.d.ts
-apps/web/tailwind.config.js
-apps/web/tsconfig.json
-apps/web/tsconfig.node.json
-apps/web/vite.config.ts
-apps/web/vite.config.ts.timestamp-1768988837587-c6e2b4f57fc31.mjs
-docker-compose.yml
-render.yaml
-start.bat
-start.sh
-```
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/auth/login` | POST | User authentication (returns JWT) |
+| `/api/v1/auth/refresh` | POST | Refresh access token via httpOnly cookie |
+| `/api/v1/auth/logout` | POST | Revoke refresh token |
+| `/api/v1/projects` | GET/POST | List or create projects |
+| `/api/v1/projects/{id}/tasks` | GET/POST | Project tasks |
+| `/api/v1/projects/{id}/expenses` | GET/POST | Project expenses |
+| `/api/v1/projects/{id}/risks` | GET/POST | Project risks |
+| `/api/v1/projects/{id}/documents` | GET/POST | Project documents (upload/list) |
+| `/api/v1/projects/{id}/milestones` | GET/POST | Project milestones |
+| `/api/v1/projects/{id}/boq` | GET/POST | Bill of Quantities |
+| `/api/v1/notifications` | GET | User notifications |
+| `/api/v1/ai/chat` | POST | AI chat assistant |
+| `/api/v1/ai/risk-prediction` | POST | AI risk prediction |
+| `/api/v1/ai/budget-forecast` | POST | AI budget forecasting |
+| `/api/v1/ai/auto-report` | POST | AI auto reporting |
+| `/api/v1/ai/resource-allocation` | POST | AI resource allocation |
+| `/health` | GET | Health check |
 
-## 13. Related Docs
+### Auth & Multi-Tenancy
 
-- `SETUP.md`: focused setup/deployment walkthrough.
-- `CHANGELOG.md`: change history.
+- Access token sent as `Authorization: Bearer <token>`
+- Organisation-scoped routes use `X-Organization-ID` header
+- If the user belongs to a single organisation, the header auto-resolves
 
+---
 
+## Sample Data
+
+The system ships with **5 pre-seeded realistic construction projects** for demonstration:
+
+1. **Headquarters Renovation** (In Progress) — 6 tasks, 5 expenses, 3 risks, 4 milestones, 7 documents
+2. **Lakeside Mixed-Use Complex** (Planning) — 5 tasks, 4 expenses, 3 risks, 3 milestones, 5 documents
+3. **Northern Logistics Hub Phase 1** (In Progress) — 6 tasks, 5 expenses, 3 risks, 4 milestones, 6 documents
+4. **Metropolitan Health Center Upgrade** (On Hold) — 5 tasks, 4 expenses, 3 risks, 3 milestones, 7 documents
+5. **Greenfield Residential Estate Phase A** (Completed) — 6 tasks, 5 expenses, 2 risks, 3 milestones, 6 documents
+
+**Totals:** 28 tasks, 23 expenses, 14 risks, 17 milestones, 31 documents
+
+All sample data is fully editable and deletable via the UI.
+
+---
+
+## Security Features
+
+- JWT access tokens (15-min expiry) + httpOnly cookie refresh tokens (7-day expiry)
+- Role-Based Access Control (RBAC) with granular per-module permissions
+- CSRF protection middleware
+- Rate limiting (100 req/min general, 10 req/min auth endpoints)
+- Audit logging for all user actions
+- Security headers (X-Frame-Options, CSP, X-Content-Type-Options, Referrer-Policy, Permissions-Policy)
+- Password hashing with bcrypt
+- SQL injection protection via SQLAlchemy ORM parameterised queries
+- File upload validation (extension whitelist, configurable size limits up to 50 MB)
+- Token revocation support
+
+---
+
+## Architecture Highlights
+
+### BOQ-Driven Progress
+
+Project completion is calculated from weighted Bill of Quantities items rather than simple task counts, providing accurate progress tracking aligned with construction industry standards.
+
+### Storage Abstraction
+
+The document management system supports pluggable storage backends:
+- **Local:** filesystem storage for development
+- **Cloudflare R2 / AWS S3:** cloud storage for production with presigned URL support
+
+### Offline-First Data Layer
+
+The frontend Zustand stores maintain local state with API sync, allowing the UI to remain responsive during network interruptions. A `DEMO_MODE_ENABLED` flag provides mock data fallback.
+
+### SQLite Compatibility
+
+The `run_local.py` script patches PostgreSQL-specific types (UUID, ARRAY) for SQLite compatibility, enabling zero-dependency local development without PostgreSQL.
+
+---
+
+## Credits
+
+**Research Owner:**
+Limo Jesse Mwanga — MSc. Civil Engineering (Construction Project Management), Kampala International University, 2026
+
+**System Design Collaborator:**
+Omoding Isaac — Data Scientist who collaborated in designing and developing the system architecture, AI integration, and full-stack implementation
+
+---
+
+## License
+
+This project was developed as part of an academic dissertation and is provided for educational and research purposes.
+
+---
+
+*BuildPro v1.0 — February 2026*

@@ -1,50 +1,12 @@
-from fastapi import Depends, HTTPException, status, Header
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 from typing import Optional
 
+from app.api.v1.dependencies import get_current_active_user, get_current_user
 from app.db.session import get_db
 from app.models.user import User
-from app.core.security import decode_token, verify_token_type
-from app.core.errors import AuthenticationError, PermissionDeniedError
+from app.core.errors import PermissionDeniedError
 from app.core.rbac import Permission, has_permission
-
-security = HTTPBearer()
-
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-) -> User:
-    """Get current authenticated user"""
-    token = credentials.credentials
-    
-    try:
-        payload = decode_token(token)
-        verify_token_type(payload, "access")
-        user_id: str = payload.get("sub")
-        
-        if user_id is None:
-            raise AuthenticationError("Invalid token payload")
-        
-    except Exception as e:
-        raise AuthenticationError(str(e))
-    
-    user = db.query(User).filter(User.id == user_id, User.is_active == True, User.is_deleted == False).first()
-    
-    if user is None:
-        raise AuthenticationError("User not found")
-    
-    return user
-
-
-async def get_current_active_user(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    """Verify user is active"""
-    if not current_user.is_active:
-        raise AuthenticationError("User is inactive")
-    return current_user
 
 
 def require_permission(permission: Permission):

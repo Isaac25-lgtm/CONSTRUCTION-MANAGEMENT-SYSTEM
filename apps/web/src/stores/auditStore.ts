@@ -26,7 +26,7 @@ export type EntityType =
 
 export interface AuditLog {
   id: number;
-  userId: number;
+  userId: string | number;
   userName: string;
   userEmail: string;
   action: AuditAction;
@@ -45,7 +45,7 @@ interface AuditStore {
   
   addLog: (log: Omit<AuditLog, 'id' | 'timestamp'>) => void;
   clearOldLogs: (daysToKeep: number) => void;
-  getLogsByUser: (userId: number) => AuditLog[];
+  getLogsByUser: (userId: string | number) => AuditLog[];
   getLogsByAction: (action: AuditAction) => AuditLog[];
   getLogsByEntity: (entityType: EntityType) => AuditLog[];
 }

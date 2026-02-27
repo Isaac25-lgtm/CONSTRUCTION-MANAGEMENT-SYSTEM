@@ -5,6 +5,17 @@ const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').
 const normalizedV1 = rawApiUrl.replace(/\/api\/v1$/i, '/api')
 const API_URL = normalizedV1.endsWith('/api') ? normalizedV1 : `${normalizedV1}/api`
 
+const getCookieValue = (name: string): string | null => {
+  if (typeof document === 'undefined') return null
+  const prefix = `${name}=`
+  const match = document.cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix))
+  if (!match) return null
+  return decodeURIComponent(match.slice(prefix.length))
+}
+
 export const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -23,6 +34,11 @@ api.interceptors.request.use((config) => {
   const selectedOrgId = localStorage.getItem('selected_org_id')
   if (selectedOrgId) {
     config.headers['X-Organization-ID'] = selectedOrgId
+  }
+
+  const csrfToken = getCookieValue('csrf_token')
+  if (csrfToken) {
+    config.headers['X-CSRF-Token'] = csrfToken
   }
 
   return config

@@ -287,7 +287,7 @@ export default function BudgetPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Budget</p>
@@ -299,7 +299,7 @@ export default function BudgetPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Spent</p>
@@ -312,7 +312,7 @@ export default function BudgetPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{Math.round(totalSpent / totalBudget * 100)}% utilized</p>
         </div>
 
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Remaining</p>
@@ -324,7 +324,7 @@ export default function BudgetPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Pending Approval</p>
@@ -339,7 +339,7 @@ export default function BudgetPage() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Budget vs Actual (Millions UGX)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={budgetData}>
@@ -354,7 +354,7 @@ export default function BudgetPage() {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-dark-700">
+        <div className="bg-white dark:bg-dark-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-dark-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Expense Distribution</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -379,7 +379,7 @@ export default function BudgetPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-dark-700">
+      <div className="bg-white dark:bg-dark-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-dark-700">
         <div className="flex flex-wrap items-center gap-4">
           <div>
             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Project</label>
@@ -458,8 +458,8 @@ export default function BudgetPage() {
       </div>
 
       {/* Expenses Table */}
-      <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 dark:border-dark-700">
+      <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-200 dark:border-dark-700 overflow-hidden">
+        <div className="p-4 border-b border-gray-200 dark:border-dark-700">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Recent Expenses</h3>
         </div>
         <div className="overflow-x-auto">
@@ -479,7 +479,7 @@ export default function BudgetPage() {
             </thead>
             <tbody>
               {filteredExpenses.map(expense => (
-                <tr key={expense.id} className="border-t border-gray-100 dark:border-dark-700 hover:bg-gray-50 dark:hover:bg-dark-700">
+                <tr key={expense.id} className="border-t border-gray-200 dark:border-dark-700 hover:bg-gray-50 dark:hover:bg-dark-700">
                   <td className="p-4 font-medium text-gray-900 dark:text-gray-100">{expense.description}</td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{expense.category}</td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{expense.project}</td>
@@ -790,7 +790,7 @@ export default function BudgetPage() {
                 </thead>
                 <tbody>
                   {Object.entries(categoryTotals).map(([cat, amount]) => (
-                    <tr key={cat} className="border-b border-gray-100">
+                    <tr key={cat} className="border-b border-gray-200">
                       <td className="py-2 text-gray-800">{cat}</td>
                       <td className="py-2 text-right text-gray-800">{formatFullCurrency(amount)}</td>
                       <td className="py-2 text-right text-gray-800">{((amount / filteredTotal) * 100).toFixed(1)}%</td>
@@ -824,7 +824,7 @@ export default function BudgetPage() {
                 </thead>
                 <tbody>
                   {filteredExpenses.map(expense => (
-                    <tr key={expense.id} className="border-b border-gray-100">
+                    <tr key={expense.id} className="border-b border-gray-200">
                       <td className="py-2 text-gray-800">{expense.date}</td>
                       <td className="py-2 text-gray-800">{expense.description}</td>
                       <td className="py-2 text-gray-800">{expense.vendor}</td>

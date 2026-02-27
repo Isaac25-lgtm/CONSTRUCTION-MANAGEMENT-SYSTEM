@@ -37,7 +37,7 @@ class RiskResponse(BaseModel):
     category: Optional[str] = None
     probability: str
     impact: str
-    risk_score: int
+    risk_score: Optional[int] = None
     status: str
     mitigation_plan: Optional[str] = None
     contingency_plan: Optional[str] = None

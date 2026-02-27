@@ -1,11 +1,11 @@
-from pydantic import BaseModel, EmailStr, Field, UUID4
+from pydantic import BaseModel, Field, UUID4
 from typing import Optional, List
 from datetime import datetime
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=6)
+    email: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=1)
 
 
 class OrganizationMembershipResponse(BaseModel):

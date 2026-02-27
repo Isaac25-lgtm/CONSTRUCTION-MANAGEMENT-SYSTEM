@@ -1,4 +1,14 @@
-from sqlalchemy import Boolean, Column, String, ForeignKey, Enum as SQLEnum, Date, Numeric, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    Enum as SQLEnum,
+    ForeignKey,
+    Numeric,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -39,6 +49,11 @@ class Project(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     client_name = Column(String, nullable=True)
     contract_type = Column(String, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("end_date >= start_date", name="ck_projects_end_date_after_start_date"),
+        CheckConstraint("total_budget >= 0", name="ck_projects_total_budget_non_negative"),
+    )
     
     # Relationships
     organization = relationship("Organization", back_populates="projects")

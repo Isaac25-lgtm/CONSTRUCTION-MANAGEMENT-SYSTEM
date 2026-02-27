@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
+from uuid import uuid4
 from jose import jwt
 from jose.exceptions import ExpiredSignatureError, JWTError
 from passlib.context import CryptContext
@@ -33,7 +34,8 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     to_encode.update({
         "exp": expire,
         "iat": datetime.utcnow(),
-        "type": "access"
+        "type": "access",
+        "jti": str(uuid4()),
     })
     
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -48,7 +50,8 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
     to_encode.update({
         "exp": expire,
         "iat": datetime.utcnow(),
-        "type": "refresh"
+        "type": "refresh",
+        "jti": str(uuid4()),
     })
     
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
