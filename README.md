@@ -20,7 +20,7 @@
 
 <br/>
 
-[**Live Demo**](#%EF%B8%8F-deployment-on-render) · [**API Docs**](#-api-documentation) · [**Getting Started**](#-getting-started) · [**Architecture**](#%EF%B8%8F-architecture)
+[**Live Demo**](#%EF%B8%8F-deployment-on-render) · [**Getting Started**](#-getting-started) · [**Architecture**](#%EF%B8%8F-architecture)
 
 ---
 
@@ -39,9 +39,7 @@
 - [Architecture](#%EF%B8%8F-architecture)
 - [Getting Started](#-getting-started)
 - [Deployment on Render](#%EF%B8%8F-deployment-on-render)
-- [API Documentation](#-api-documentation)
 - [Security](#-security)
-- [Sample Data](#-sample-data)
 - [Credits](#-credits)
 - [License](#license)
 
@@ -271,14 +269,6 @@ npm run dev
 
 > 🌐 Frontend available at `http://localhost:5173`
 
-### 🔑 Default Login
-
-| Field | Value |
-|-------|-------|
-| **Email** | `admin@example.com` |
-| **Password** | `Admin@123456` |
-| **Role** | Administrator (full permissions) |
-
 <br/>
 
 ## ☁️ Deployment on Render
@@ -353,48 +343,6 @@ npm run dev
 
 <br/>
 
-## 📡 API Documentation
-
-Once the backend is running, interactive documentation is available at:
-
-| Interface | URL |
-|-----------|-----|
-| **Swagger UI** | [`http://localhost:8000/docs`](http://localhost:8000/docs) |
-| **ReDoc** | [`http://localhost:8000/redoc`](http://localhost:8000/redoc) |
-
-<details>
-<summary><strong>📋 Core API Endpoints</strong></summary>
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/auth/login` | `POST` | User authentication (returns JWT) |
-| `/api/v1/auth/refresh` | `POST` | Refresh access token via httpOnly cookie |
-| `/api/v1/auth/logout` | `POST` | Revoke refresh token |
-| `/api/v1/projects` | `GET` `POST` | List or create projects |
-| `/api/v1/projects/{id}/tasks` | `GET` `POST` | Project tasks |
-| `/api/v1/projects/{id}/expenses` | `GET` `POST` | Project expenses |
-| `/api/v1/projects/{id}/risks` | `GET` `POST` | Project risks |
-| `/api/v1/projects/{id}/documents` | `GET` `POST` | Project documents (upload/list) |
-| `/api/v1/projects/{id}/milestones` | `GET` `POST` | Project milestones |
-| `/api/v1/projects/{id}/boq` | `GET` `POST` | Bill of Quantities |
-| `/api/v1/notifications` | `GET` | User notifications |
-| `/api/v1/ai/chat` | `POST` | AI chat assistant |
-| `/api/v1/ai/risk-prediction` | `POST` | AI risk prediction |
-| `/api/v1/ai/budget-forecast` | `POST` | AI budget forecasting |
-| `/api/v1/ai/auto-report` | `POST` | AI auto reporting |
-| `/api/v1/ai/resource-allocation` | `POST` | AI resource allocation |
-| `/health` | `GET` | Health check |
-
-</details>
-
-### Auth & Multi-Tenancy
-
-- Access token sent as `Authorization: Bearer <token>`
-- Organisation-scoped routes use `X-Organization-ID` header
-- Single-organisation users auto-resolve without the header
-
-<br/>
-
 ## 🔒 Security
 
 BuildPro implements multiple layers of security:
@@ -411,22 +359,6 @@ BuildPro implements multiple layers of security:
 | **SQL Injection** | SQLAlchemy ORM parameterised queries |
 | **File Uploads** | Extension whitelist + configurable size limits (up to 50 MB) |
 | **Token Revocation** | Refresh token blacklisting support |
-
-<br/>
-
-## 📦 Sample Data
-
-The system ships with **5 pre-seeded realistic construction projects** for immediate demonstration:
-
-| # | Project | Status | Tasks | Expenses | Risks | Milestones | Docs |
-|---|---------|--------|:-----:|:--------:|:-----:|:----------:|:----:|
-| 1 | Headquarters Renovation | 🟢 In Progress | 6 | 5 | 3 | 4 | 7 |
-| 2 | Lakeside Mixed-Use Complex | 🔵 Planning | 5 | 4 | 3 | 3 | 5 |
-| 3 | Northern Logistics Hub Phase 1 | 🟢 In Progress | 6 | 5 | 3 | 4 | 6 |
-| 4 | Metropolitan Health Center Upgrade | 🟡 On Hold | 5 | 4 | 3 | 3 | 7 |
-| 5 | Greenfield Residential Estate Phase A | ✅ Completed | 6 | 5 | 2 | 3 | 6 |
-
-> **Totals:** 28 tasks · 23 expenses · 14 risks · 17 milestones · 31 documents — all fully editable and deletable.
 
 <br/>
 
