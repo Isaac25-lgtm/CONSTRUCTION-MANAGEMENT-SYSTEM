@@ -20,6 +20,9 @@ COPY . .
 # Create uploads directory
 RUN mkdir -p /app/uploads
 
-EXPOSE 8000
+# Render uses $PORT; default to 8000 for local Docker
+ENV PORT=8000
+EXPOSE $PORT
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run migrations then start server
+CMD sh -c "alembic upgrade head && gunicorn -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:${PORT} --workers 2 --timeout 120"
