@@ -20,11 +20,7 @@
 
 <br/>
 
-<img src="https://raw.githubusercontent.com/Isaac25-lgtm/CONSTRUCTION-MANAGEMENT-SYSTEM/main/docs/banner.png" alt="BuildPro Banner" width="100%" />
-
-<br/>
-
-[**Live Demo**](#-deployment-on-render) · [**API Docs**](#-api-documentation) · [**Getting Started**](#-getting-started) · [**Architecture**](#%EF%B8%8F-architecture)
+[**Live Demo**](#%EF%B8%8F-deployment-on-render) · [**API Docs**](#-api-documentation) · [**Getting Started**](#-getting-started) · [**Architecture**](#%EF%B8%8F-architecture)
 
 ---
 
