@@ -3,7 +3,7 @@ services:
     name: buildpro-api
     runtime: docker
     region: oregon
-    plan: free
+    plan: starter
     rootDir: apps/api
     dockerfilePath: ./Dockerfile
     autoDeploy: true
@@ -31,7 +31,7 @@ services:
   - type: web
     name: buildpro-web
     env: static
-    plan: free
+    plan: starter
     rootDir: apps/web
     autoDeploy: true
     buildCommand: npm ci && npm run build
