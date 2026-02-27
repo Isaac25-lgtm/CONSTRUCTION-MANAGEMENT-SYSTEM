@@ -30,8 +30,6 @@ services:
   - type: web
     name: buildpro-web
     runtime: static
-    region: oregon
-    plan: starter
     rootDir: apps/web
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
