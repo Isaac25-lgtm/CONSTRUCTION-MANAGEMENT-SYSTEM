@@ -16,6 +16,10 @@ export interface AsyncJobData {
   completed_at: string | null
 }
 
+/**
+ * Sync AI hooks -- call endpoint directly, wait for response.
+ * Used when no Celery worker is running.
+ */
 export function useGenerateNarrative(projectId: string | undefined) {
   return useMutation({
     mutationFn: async () => {
@@ -43,6 +47,40 @@ export function useCopilotQuery(projectId: string | undefined) {
   })
 }
 
+/**
+ * Async AI hooks -- call endpoint with ?async=true, get job ID back.
+ * Requires Celery worker + Redis/Key Value running.
+ */
+export function useAsyncNarrative(projectId: string | undefined) {
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<AsyncJobData>(`/ai/${projectId}/narrative/?async=true`)
+      return data
+    },
+  })
+}
+
+export function useAsyncReportDraft(projectId: string | undefined) {
+  return useMutation({
+    mutationFn: async (reportKey: string) => {
+      const { data } = await api.post<AsyncJobData>(`/ai/${projectId}/report-draft/?async=true`, { report_key: reportKey })
+      return data
+    },
+  })
+}
+
+export function useAsyncCopilot(projectId: string | undefined) {
+  return useMutation({
+    mutationFn: async (question: string) => {
+      const { data } = await api.post<AsyncJobData>(`/ai/${projectId}/copilot/?async=true`, { question })
+      return data
+    },
+  })
+}
+
+/**
+ * Job status polling -- polls every 2s until completed or failed.
+ */
 export function useJobStatus(jobId: string | null) {
   return useQuery({
     queryKey: ['job', jobId],
@@ -54,7 +92,7 @@ export function useJobStatus(jobId: string | null) {
     refetchInterval: (query) => {
       const status = query.state.data?.status
       if (status === 'completed' || status === 'failed') return false
-      return 2000 // poll every 2s while pending/running
+      return 2000
     },
   })
 }

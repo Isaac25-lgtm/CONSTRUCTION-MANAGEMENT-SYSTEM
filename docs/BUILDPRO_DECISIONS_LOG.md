@@ -300,3 +300,18 @@ Each entry records a significant implementation decision, the reasoning, and any
 **Date:** 2026-03-16
 **Decision:** Key Value service uses `type: keyvalue` (not `kvs`). Worker uses `dockerCommand` (not `startCommand`). Aligned with current official Render Blueprint specification.
 **Reasoning:** Render's Blueprint spec uses `keyvalue` as the service type and `dockerCommand` for Docker-runtime services. Using incorrect field names would cause Blueprint sync failures.
+
+## DEC-053: No shell builtins in Render command fields
+**Date:** 2026-03-16
+**Decision:** preDeployCommand uses `python manage.py migrate --noinput` (no `cd`). Worker dockerCommand uses `celery --workdir /app/backend -A buildpro worker`. No `cd ... && ...` patterns.
+**Reasoning:** Render executes command fields directly without a shell. Shell builtins like `cd` cause `executable file not found` errors. The Dockerfile sets WORKDIR to /app/backend, so manage.py works without cd. Celery's --workdir flag achieves the same.
+
+## DEC-054: Worker env vars sourced from web service
+**Date:** 2026-03-16
+**Decision:** Worker sources DJANGO_SECRET_KEY, DATABASE_URL, GEMINI_API_KEY, and AWS_* credentials from the web service via `fromService.envVarKey` in render.yaml.
+**Reasoning:** Manual duplication of secrets across services is error-prone and causes config drift. Render's fromService reference keeps a single source of truth. Only CELERY_BROKER_URL comes from the Key Value service.
+
+## DEC-055: Production validators extracted into testable module
+**Date:** 2026-03-16
+**Decision:** validate_database_url() and validate_remote_storage() extracted to buildpro/settings/validators.py. production.py calls these. Tests exercise the functions directly.
+**Reasoning:** Testing production settings by reimporting the module is fragile and pollutes global state. Extracting validators into pure functions makes them unit-testable without Django settings side effects.

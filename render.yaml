@@ -9,12 +9,12 @@
 #
 # Prerequisites:
 #   1. Create a Neon PostgreSQL database
-#   2. Create a Cloudflare R2 bucket
-#   3. Set all manual env vars in Render dashboard
-#   4. Sync this Blueprint from GitHub
+#   2. Create a Cloudflare R2 bucket (or set REQUIRE_REMOTE_STORAGE=false initially)
+#   3. Set all manual env vars in Render dashboard on buildpro-web
+#   4. Worker sources secrets from web service automatically
 
 services:
-  # --- Web service ---
+  # --- Web service (Django + frontend SPA, same-origin) ---
   - type: web
     name: buildpro-web
     runtime: docker
@@ -27,7 +27,8 @@ services:
         - backend/**
         - frontend/**
         - Dockerfile.render
-    preDeployCommand: "cd /app/backend && python manage.py migrate --noinput"
+    # No shell builtins -- WORKDIR is /app/backend from Dockerfile
+    preDeployCommand: "python manage.py migrate --noinput"
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: buildpro.settings.production
@@ -68,7 +69,8 @@ services:
       - key: AWS_STORAGE_BUCKET_NAME
         sync: false
 
-  # --- Background worker ---
+  # --- Background worker (Celery) ---
+  # Secrets sourced from buildpro-web to avoid manual duplication.
   - type: worker
     name: buildpro-worker
     runtime: docker
@@ -79,18 +81,52 @@ services:
       paths:
         - backend/**
         - Dockerfile.render
-    dockerCommand: "cd /app/backend && celery -A buildpro worker -l warning -c 2"
+    # No shell builtins -- use --workdir flag instead of cd
+    dockerCommand: "celery --workdir /app/backend -A buildpro worker -l warning -c 2"
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: buildpro.settings.production
-      - key: DJANGO_SECRET_KEY
-        sync: false
       - key: REQUIRE_DATABASE_URL
         value: "true"
       - key: REQUIRE_REMOTE_STORAGE
         value: "false"
+      # Shared secrets sourced from web service
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          name: buildpro-web
+          type: web
+          envVarKey: DJANGO_SECRET_KEY
       - key: DATABASE_URL
-        sync: false
+        fromService:
+          name: buildpro-web
+          type: web
+          envVarKey: DATABASE_URL
+      - key: GEMINI_API_KEY
+        fromService:
+          name: buildpro-web
+          type: web
+          envVarKey: GEMINI_API_KEY
+      - key: AWS_S3_ENDPOINT_URL
+        fromService:
+          name: buildpro-web
+          type: web
+          envVarKey: AWS_S3_ENDPOINT_URL
+      - key: AWS_ACCESS_KEY_ID
+        fromService:
+          name: buildpro-web
+          type: web
+          envVarKey: AWS_ACCESS_KEY_ID
+      - key: AWS_SECRET_ACCESS_KEY
+        fromService:
+          name: buildpro-web
+          type: web
+          envVarKey: AWS_SECRET_ACCESS_KEY
+      - key: AWS_STORAGE_BUCKET_NAME
+        fromService:
+          name: buildpro-web
+          type: web
+          envVarKey: AWS_STORAGE_BUCKET_NAME
+      # Broker from Key Value
       - key: CELERY_BROKER_URL
         fromService:
           name: buildpro-kv
@@ -101,24 +137,14 @@ services:
           name: buildpro-kv
           type: keyvalue
           property: connectionString
-      - key: GEMINI_API_KEY
-        sync: false
       - key: AI_PROVIDER
         value: gemini
       - key: AI_MODEL
         value: gemini-2.0-flash
-      - key: AWS_S3_ENDPOINT_URL
-        sync: false
-      - key: AWS_ACCESS_KEY_ID
-        sync: false
-      - key: AWS_SECRET_ACCESS_KEY
-        sync: false
-      - key: AWS_STORAGE_BUCKET_NAME
-        sync: false
 
-  # --- Render Key Value (Redis-compatible) ---
+  # --- Render Key Value (Redis-compatible broker) ---
   - type: keyvalue
     name: buildpro-kv
     plan: starter
     maxmemoryPolicy: noeviction
-    ipAllowList: []  # Allow connections from all Render services
+    ipAllowList: []

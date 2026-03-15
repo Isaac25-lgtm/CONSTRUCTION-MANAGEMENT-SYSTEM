@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://buildpro-web.onrender.com"><img src="https://img.shields.io/badge/🚀_Live_Demo-buildpro--web.onrender.com-1a56db?style=flat-square" alt="Live Demo" /></a>
-  <img src="https://img.shields.io/badge/tests-186_passing-2ea043?style=flat-square&logo=pytest&logoColor=white" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-190_passing-2ea043?style=flat-square&logo=pytest&logoColor=white" alt="Tests" />
   <img src="https://img.shields.io/badge/Django_apps-17-8B5CF6?style=flat-square&logo=django&logoColor=white" alt="Django Apps" />
   <img src="https://img.shields.io/badge/database-~45_tables-F59E0B?style=flat-square&logo=postgresql&logoColor=white" alt="Tables" />
   <img src="https://img.shields.io/badge/license-Proprietary-EF4444?style=flat-square" alt="License" />
@@ -291,7 +291,7 @@ BuildPro implements defence-in-depth access control:
 ## 🧪 Testing
 
 ```
-186 tests passing
+190 tests passing
 ```
 
 | Area | Tests | Coverage |
@@ -306,7 +306,7 @@ BuildPro implements defence-in-depth access control:
 | Documents & Files | 11 | Upload validation, versioning, access control |
 | Reports & Exports | 14 | Generation, format validation, authorisation |
 | AI Permissions & Providers | 11 | Permission gates, adapter switching, error handling |
-| Production Config | 9 | Env validation, startup safety, settings integrity |
+| Production Config | 13 | Env validation, startup safety, settings integrity |
 
 ---
 

@@ -1,97 +1,81 @@
-"""Tests for production settings validation logic.
+"""Tests for production settings validators.
 
-Tests the env-var validation rules without reimporting the full settings module.
-Instead, tests the validation conditions directly.
+Exercises the extracted validator functions directly --
+no module reimporting, no global settings pollution.
 """
-import os
 from unittest import TestCase
-from unittest.mock import patch
 
 from django.core.exceptions import ImproperlyConfigured
 
+from buildpro.settings.validators import validate_database_url, validate_remote_storage
 
-class ProductionDBValidationTests(TestCase):
-    """Test DATABASE_URL enforcement logic."""
 
-    def test_require_db_raises_when_missing(self):
-        """REQUIRE_DATABASE_URL=true with no DATABASE_URL should raise."""
+class ValidateDatabaseURLTests(TestCase):
+
+    def test_raises_when_required_and_missing(self):
         with self.assertRaises(ImproperlyConfigured):
-            _require = "true"
-            _db_url = ""
-            _build_mode = False
-            if _require == "true" and not _db_url and not _build_mode:
-                raise ImproperlyConfigured("DATABASE_URL is required")
+            validate_database_url("", required=True, build_mode=False)
 
-    def test_require_db_accepts_when_present(self):
-        """REQUIRE_DATABASE_URL=true with DATABASE_URL present should not raise."""
-        _require = "true"
-        _db_url = "postgresql://user:pass@host/db"
-        _build_mode = False
-        # Should not raise
-        if _require == "true" and not _db_url and not _build_mode:
-            raise ImproperlyConfigured("DATABASE_URL is required")
+    def test_passes_when_required_and_present(self):
+        validate_database_url("postgresql://u:p@h/db", required=True, build_mode=False)
 
-    def test_build_mode_bypasses_db_check(self):
-        """BUILD_MODE=true should skip validation even without DATABASE_URL."""
-        _require = "true"
-        _db_url = ""
-        _build_mode = True
-        # Should not raise because build mode
-        if _require == "true" and not _db_url and not _build_mode:
-            raise ImproperlyConfigured("DATABASE_URL is required")
+    def test_build_mode_bypasses_check(self):
+        validate_database_url("", required=True, build_mode=True)
+
+    def test_not_required_allows_empty(self):
+        validate_database_url("", required=False, build_mode=False)
 
 
-class ProductionStorageValidationTests(TestCase):
-    """Test R2 storage enforcement logic."""
+class ValidateRemoteStorageTests(TestCase):
 
-    def test_require_storage_raises_when_missing(self):
-        """REQUIRE_REMOTE_STORAGE=true with missing AWS vars should raise."""
-        with self.assertRaises(ImproperlyConfigured):
-            _require = "true"
-            _build_mode = False
-            _vars = {"endpoint": "", "key": "key123", "secret": "sec456", "bucket": ""}
-            missing = [k for k, v in _vars.items() if not v]
-            if _require == "true" and missing and not _build_mode:
-                raise ImproperlyConfigured(f"Missing: {', '.join(missing)}")
+    def test_raises_when_required_and_endpoint_missing(self):
+        with self.assertRaises(ImproperlyConfigured) as ctx:
+            validate_remote_storage("", "key", "secret", "bucket", required=True, build_mode=False)
+        self.assertIn("AWS_S3_ENDPOINT_URL", str(ctx.exception))
 
-    def test_require_storage_accepts_when_complete(self):
-        """REQUIRE_REMOTE_STORAGE=true with all AWS vars should not raise."""
-        _require = "true"
-        _build_mode = False
-        _vars = {"endpoint": "https://r2.example.com", "key": "k", "secret": "s", "bucket": "b"}
-        missing = [k for k, v in _vars.items() if not v]
-        if _require == "true" and missing and not _build_mode:
-            raise ImproperlyConfigured(f"Missing: {', '.join(missing)}")
+    def test_raises_when_required_and_all_missing(self):
+        with self.assertRaises(ImproperlyConfigured) as ctx:
+            validate_remote_storage("", "", "", "", required=True, build_mode=False)
+        msg = str(ctx.exception)
+        self.assertIn("AWS_S3_ENDPOINT_URL", msg)
+        self.assertIn("AWS_ACCESS_KEY_ID", msg)
+        self.assertIn("AWS_SECRET_ACCESS_KEY", msg)
+        self.assertIn("AWS_STORAGE_BUCKET_NAME", msg)
 
-    def test_build_mode_bypasses_storage_check(self):
-        """BUILD_MODE=true should skip storage validation."""
-        _require = "true"
-        _build_mode = True
-        _vars = {"endpoint": "", "key": "", "secret": "", "bucket": ""}
-        missing = [k for k, v in _vars.items() if not v]
-        if _require == "true" and missing and not _build_mode:
-            raise ImproperlyConfigured(f"Missing: {', '.join(missing)}")
+    def test_returns_true_when_all_present(self):
+        result = validate_remote_storage(
+            "https://r2.example.com", "key", "secret", "bucket",
+            required=True, build_mode=False,
+        )
+        self.assertTrue(result)
 
-    def test_no_require_allows_local_fallback(self):
-        """Without REQUIRE_REMOTE_STORAGE, local media is allowed."""
-        _require = ""
-        _build_mode = False
-        _vars = {"endpoint": "", "key": "", "secret": "", "bucket": ""}
-        missing = [k for k, v in _vars.items() if not v]
-        # Should not raise because require is not set
-        if _require == "true" and missing and not _build_mode:
-            raise ImproperlyConfigured(f"Missing: {', '.join(missing)}")
+    def test_build_mode_bypasses_check(self):
+        result = validate_remote_storage("", "", "", "", required=True, build_mode=True)
+        self.assertFalse(result)
+
+    def test_not_required_returns_false_when_missing(self):
+        result = validate_remote_storage("", "", "", "", required=False, build_mode=False)
+        self.assertFalse(result)
+
+    def test_not_required_returns_true_when_all_present(self):
+        result = validate_remote_storage(
+            "https://r2.example.com", "key", "secret", "bucket",
+            required=False, build_mode=False,
+        )
+        self.assertTrue(result)
 
 
-class ProductionSettingsEnvTests(TestCase):
-    """Test that production.py reads expected env vars correctly."""
+class SettingsIntegrityTests(TestCase):
+    """Verify current running settings have correct values."""
 
     def test_static_url_is_absolute(self):
-        """STATIC_URL must start with / for WhiteNoise to work correctly."""
         from django.conf import settings
         self.assertTrue(settings.STATIC_URL.startswith("/"))
 
     def test_media_url_is_absolute(self):
-        """MEDIA_URL must start with /."""
         from django.conf import settings
         self.assertTrue(settings.MEDIA_URL.startswith("/"))
+
+    def test_default_auto_field_is_bigauto(self):
+        from django.conf import settings
+        self.assertEqual(settings.DEFAULT_AUTO_FIELD, "django.db.models.BigAutoField")

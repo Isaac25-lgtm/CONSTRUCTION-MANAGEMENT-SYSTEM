@@ -1,24 +1,24 @@
 # BuildPro Session Handoff
 
-> **Last updated:** 2026-03-16 (Render Production Hardening)
-> **Phase:** Deployment-ready -- Render path hardened
-> **Build status:** See verification results below
+> **Last updated:** 2026-03-16 (Final Production Completion)
+> **Phase:** Deployment-ready -- all blockers resolved
+> **Build status:** 190 tests pass, build clean, lint clean
 
 ---
 
 ## Current Status
 
-All build phases + remediation + Render productionization + production hardening complete. The repo has a coherent, strict Render deployment path. Production settings fail loudly on missing critical configuration.
+All build phases + remediation + Render deployment fixes complete. The Render startup failure (shell builtin in commands) is fixed. Worker env vars are shared from web service. Async AI is wired end-to-end with sync/async toggle. Production settings validators are properly extracted and tested.
 
 ## Render Production Hardening (This Session)
 
-### What Was Fixed
-1. **render.yaml** -- corrected to `type: keyvalue`, `dockerCommand` for worker, `preDeployCommand` runs migrations only (not collectstatic)
-2. **production.py** -- `REQUIRE_DATABASE_URL=true` and `REQUIRE_REMOTE_STORAGE=true` raise `ImproperlyConfigured` if env vars are missing; `BUILD_MODE=true` bypasses validation during image build
-3. **base.py** -- `STATIC_URL` and `MEDIA_URL` changed to absolute paths (`/static/`, `/media/`)
-4. **Dockerfile.render** -- collectstatic runs explicitly with `BUILD_MODE=true` (no silent failure); build-only env vars cleared after
-5. **Production config tests** -- tests for missing DATABASE_URL, missing R2 vars, and BUILD_MODE bypass
-6. **All docs updated** -- preDeploy is migrations only; collectstatic is in Docker build; R2 is required in production
+### Final Production Fixes (This Session)
+1. **render.yaml commands** -- removed `cd` shell builtins that caused `"cd": executable file not found` on Render; preDeployCommand now uses `python manage.py migrate --noinput` directly (WORKDIR is /app/backend); worker uses `celery --workdir /app/backend`
+2. **Worker env sharing** -- worker sources DJANGO_SECRET_KEY, DATABASE_URL, GEMINI_API_KEY, and all AWS_* vars from web service via `fromService.envVarKey` instead of manual duplication
+3. **Production validators extracted** -- validation logic moved to `buildpro/settings/validators.py` with `validate_database_url()` and `validate_remote_storage()` functions; production.py calls these
+4. **Production tests rewritten** -- 13 tests exercising actual validator functions (not toy reimplementations)
+5. **Async AI wired end-to-end** -- useAI.ts has sync + async hook variants; AIAssistantPage has sync/async mode toggle; async calls `?async=true`, polls via useJobStatus, renders output_reference
+6. **All docs updated** -- test count 190, stale claims removed, Render deploy steps corrected
 
 ### Production Architecture
 

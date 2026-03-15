@@ -21,9 +21,9 @@ Safety flags:
 import os
 
 import dj_database_url
-from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F401, F403
+from .validators import validate_database_url, validate_remote_storage
 
 DEBUG = False
 
@@ -37,6 +37,7 @@ _BUILD_MODE = os.environ.get("BUILD_MODE", "").lower() == "true"
 # ---------------------------------------------------------------------------
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY and not _BUILD_MODE:
+    from django.core.exceptions import ImproperlyConfigured
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set in production.")
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
@@ -47,17 +48,14 @@ ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",
 _db_url = os.environ.get("DATABASE_URL", "")
 _require_db = os.environ.get("REQUIRE_DATABASE_URL", "").lower() == "true"
 
+validate_database_url(_db_url, required=_require_db, build_mode=_BUILD_MODE)
+
 if _db_url:
     DATABASES["default"] = dj_database_url.parse(  # noqa: F405
         _db_url,
         conn_max_age=600,
         conn_health_checks=True,
         ssl_require=True,
-    )
-elif _require_db and not _BUILD_MODE:
-    raise ImproperlyConfigured(
-        "DATABASE_URL is required in production (REQUIRE_DATABASE_URL=true). "
-        "Set it to your Neon PostgreSQL connection string."
     )
 
 # ---------------------------------------------------------------------------
@@ -108,7 +106,12 @@ _s3_secret = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 _s3_bucket = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")
 _require_storage = os.environ.get("REQUIRE_REMOTE_STORAGE", "").lower() == "true"
 
-if _s3_endpoint and _s3_key and _s3_secret and _s3_bucket:
+_use_s3 = validate_remote_storage(
+    _s3_endpoint, _s3_key, _s3_secret, _s3_bucket,
+    required=_require_storage, build_mode=_BUILD_MODE,
+)
+
+if _use_s3:
     STORAGES["default"] = {
         "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
     }
@@ -121,17 +124,6 @@ if _s3_endpoint and _s3_key and _s3_secret and _s3_bucket:
     AWS_DEFAULT_ACL = None
     AWS_QUERYSTRING_AUTH = True
     AWS_S3_FILE_OVERWRITE = False
-elif _require_storage and not _BUILD_MODE:
-    missing = [v for v, val in [
-        ("AWS_S3_ENDPOINT_URL", _s3_endpoint),
-        ("AWS_ACCESS_KEY_ID", _s3_key),
-        ("AWS_SECRET_ACCESS_KEY", _s3_secret),
-        ("AWS_STORAGE_BUCKET_NAME", _s3_bucket),
-    ] if not val]
-    raise ImproperlyConfigured(
-        f"Remote storage is required in production (REQUIRE_REMOTE_STORAGE=true). "
-        f"Missing: {', '.join(missing)}"
-    )
 else:
     # Local fallback -- only safe for single-service dev-like environments
     MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # noqa: F405
