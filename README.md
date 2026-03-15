@@ -52,111 +52,117 @@ This is not a generic task manager. Every module, every calculation, and every w
 
 ## 🧠 Data Science & Analytics Core
 
-BuildPro is fundamentally an **analytics platform** disguised as a project management tool. The construction domain provides the context — the engine underneath is data science:
+BuildPro is fundamentally an **analytics platform** disguised as a project management tool. The construction domain provides the context — the engine underneath is data science.
+
+### CPM Scheduling Engine
 
 ```mermaid
-graph TB
-    subgraph engine["⚙️ ANALYTICS ENGINE"]
-        direction TB
-
-        subgraph cpm["📐 CPM Engine"]
-            C1["Kahn's Topological Sort"]
-            C2["Forward Pass → ES / EF"]
-            C3["Backward Pass → LS / LF"]
-            C4["Total Float Calculation"]
-            C5["Critical Path Detection"]
-            C1 --> C2 --> C3 --> C4 --> C5
-        end
-
-        subgraph evm["📊 EVM Engine"]
-            E1["Budget at Completion"]
-            E2["Planned Value · BCWS"]
-            E3["Earned Value · BCWP"]
-            E4["Actual Cost · ACWP"]
-            E5["CPI · SPI · EAC · VAC"]
-            E1 --> E2 & E3 & E4 --> E5
-        end
-
-        subgraph ai["🤖 AI Service Layer"]
-            A1["Provider-Agnostic Interface"]
-            A2["Gemini Adapter"]
-            A3["Stub Adapter"]
-            A4["Context Assembly"]
-            A5["Audit Logger"]
-            A1 --> A2 & A3
-            A1 --> A4 --> A5
-        end
-    end
-
-    subgraph data["🗄️ DETERMINISTIC DATA LAYER"]
-        D1["~45 Normalised Tables"]
-        D2["UUID Primary Keys"]
-        D3["Full Audit Trail"]
-        D4["Project-Scoped"]
-        D5["Org-Scoped"]
-    end
-
-    engine --> data
-
-    style engine fill:#1a1a2e,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0
-    style cpm fill:#0d1526,stroke:#3b82f6,stroke-width:1px,color:#e2e8f0
-    style evm fill:#0d1526,stroke:#22c55e,stroke-width:1px,color:#e2e8f0
-    style ai fill:#0d1526,stroke:#8b5cf6,stroke-width:1px,color:#e2e8f0
-    style data fill:#0f172a,stroke:#f59e0b,stroke-width:1px,color:#e2e8f0
+%%{init: {'theme': 'dark', 'themeVariables': {'fontSize': '16px', 'primaryColor': '#1a56db', 'primaryBorderColor': '#3b82f6', 'lineColor': '#60a5fa', 'textColor': '#e2e8f0', 'mainBkg': '#0f172a'}}}%%
+flowchart LR
+    A[/"📋 Task List &\nDependency Graph"/] --> B["🔀 Kahn's\nTopological Sort"]
+    B --> C["➡️ Forward Pass\nES → EF"]
+    C --> D["⬅️ Backward Pass\nLF → LS"]
+    D --> E["📐 Float\nCalculation"]
+    E --> F{{"🔴 Critical Path\nFloat = 0"}}
+    F --> G["📊 Gantt Chart\nNetwork Diagram\nS-Curve Output"]
 ```
 
-**Key algorithms implemented:**
-- **Critical Path Method (CPM)** — Kahn's topological sort for dependency resolution, forward/backward pass for ES/EF/LS/LF, total float for critical path identification
-- **Earned Value Management (EVM)** — Budget at Completion, Planned Value, Earned Value, Actual Cost → CPI, SPI, EAC, VAC, TCPI
-- **S-Curve Generation** — Cumulative planned vs. actual progress curves for visual schedule performance tracking
-- **Risk Scoring Matrix** — Likelihood × Impact with automatic severity classification
+### Earned Value Management Engine
+
+```mermaid
+%%{init: {'theme': 'dark', 'themeVariables': {'fontSize': '16px', 'primaryColor': '#22c55e', 'primaryBorderColor': '#22c55e', 'lineColor': '#4ade80', 'textColor': '#e2e8f0', 'mainBkg': '#0f172a'}}}%%
+flowchart LR
+    BAC["💰 BAC\nBudget at\nCompletion"] --> PV["📈 PV / BCWS\nPlanned Value"]
+    BAC --> EV["📊 EV / BCWP\nEarned Value"]
+    BAC --> AC["💳 AC / ACWP\nActual Cost"]
+    PV & EV --> SPI["⚡ SPI\nSchedule Performance"]
+    EV & AC --> CPI["⚡ CPI\nCost Performance"]
+    CPI --> EAC["🎯 EAC\nEstimate at\nCompletion"]
+    CPI --> VAC["📉 VAC\nVariance at\nCompletion"]
+```
+
+### Risk & Analytics
+
+```mermaid
+%%{init: {'theme': 'dark', 'themeVariables': {'fontSize': '16px', 'primaryColor': '#f59e0b', 'primaryBorderColor': '#f59e0b', 'lineColor': '#fbbf24', 'textColor': '#e2e8f0', 'mainBkg': '#0f172a'}}}%%
+flowchart LR
+    L["📊 Likelihood\nLow · Medium\nHigh · Critical"] --> SCORE{{"⚠️ Risk Score\nLikelihood × Impact"}}
+    I["💥 Impact\nLow · Medium\nHigh · Critical"] --> SCORE
+    SCORE --> CLASS["🏷️ Severity\nClassification"]
+    SCORE --> MIT["🛡️ Mitigation\nPlanning"]
+    CLASS --> REG["📋 Risk Register\nwith Status Tracking"]
+    MIT --> REG
+```
+
+**Key algorithms:** CPM via Kahn's topological sort (PMBOK 7th Edition) · EVM with deterministic CPI/SPI/EAC/VAC · S-Curve generation · Risk scoring matrix
 
 ---
 
 ## 🏛️ Architecture
 
+### Production Deployment on Render
+
 ```mermaid
-graph TB
-    Browser["🌐 Browser<br/><i>React 19 · TypeScript · Vite</i><br/><i>TanStack Query · Zustand</i>"]
+%%{init: {'theme': 'dark', 'themeVariables': {'fontSize': '16px', 'primaryColor': '#1a56db', 'primaryBorderColor': '#60a5fa', 'lineColor': '#60a5fa', 'textColor': '#e2e8f0', 'mainBkg': '#0f172a'}}}%%
+flowchart TB
+    USER["🌐 User Browser\nReact 19 · TypeScript · TanStack Query · Zustand"]
 
-    subgraph render["☁️ RENDER PLATFORM"]
-        direction TB
+    USER -->|"HTTPS\nSame-Origin\nSession + CSRF"| WEB
 
-        subgraph web["🖥️ Web Service — Gunicorn + WhiteNoise"]
-            SPA["📱 React SPA<br/><code>/</code>"]
-            API["⚡ Django REST API<br/><code>/api/v1/*</code>"]
-            Admin["🔧 Django Admin<br/><code>/admin/*</code>"]
-            Static["📦 Static Files<br/><code>/static/*</code>"]
-        end
+    subgraph RENDER["☁️ &nbsp; RENDER PLATFORM &nbsp; ☁️"]
+        WEB["🖥️ Web Service\nGunicorn · WhiteNoise · Django 5.2\n━━━━━━━━━━━━━━━━━━━━━━━━\n📱 React SPA · ⚡ REST API\n🔧 Admin Panel · 📦 Static Files"]
 
-        Worker["👷 Celery Worker<br/><i>Async AI · Report Exports</i>"]
-        KV["🔴 Key Value<br/><i>Redis-compatible Broker</i>"]
+        WEB -->|"Celery\nTask Queue"| KV["🔴 Key Value\nRedis-compatible\nMessage Broker"]
+
+        KV -->|"Job\nDispatch"| WORKER["👷 Background Worker\nCelery Process\n━━━━━━━━━━━━━━━━━━\n🤖 AI Generation\n📄 Report Exports"]
     end
 
-    subgraph external["🌍 EXTERNAL SERVICES"]
-        Neon["🐘 Neon PostgreSQL<br/><i>~45 normalised tables</i>"]
-        R2["☁️ Cloudflare R2<br/><i>S3-compatible storage</i>"]
+    subgraph EXTERNAL["🌍 &nbsp; EXTERNAL SERVICES &nbsp; 🌍"]
+        NEON["🐘 Neon PostgreSQL\n~45 Normalised Tables\nSSL · Connection Pooling"]
+        R2["☁️ Cloudflare R2\nS3-Compatible\nDocument · Photo · Export Storage"]
     end
 
-    Browser -->|"Same-Origin<br/>Session + CSRF"| web
-    web -->|"DATABASE_URL<br/>SSL required"| Neon
-    web -->|"Task Queue"| KV
-    web -->|"django-storages"| R2
-    KV -->|"Broker"| Worker
-    Worker -->|"Shared DB"| Neon
-    Worker -->|"File I/O"| R2
-
-    style Browser fill:#1e293b,stroke:#60a5fa,stroke-width:2px,color:#e2e8f0
-    style render fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0
-    style web fill:#1a1a2e,stroke:#22c55e,stroke-width:1px,color:#e2e8f0
-    style Worker fill:#1a1a2e,stroke:#8b5cf6,stroke-width:1px,color:#e2e8f0
-    style KV fill:#1a1a2e,stroke:#ef4444,stroke-width:1px,color:#e2e8f0
-    style external fill:#0f172a,stroke:#94a3b8,stroke-width:1px,color:#e2e8f0
-    style Neon fill:#1a1a2e,stroke:#3b82f6,stroke-width:1px,color:#e2e8f0
-    style R2 fill:#1a1a2e,stroke:#f97316,stroke-width:1px,color:#e2e8f0
+    WEB -->|"DATABASE_URL\nSSL Required"| NEON
+    WEB -->|"django-storages\nS3Boto3"| R2
+    WORKER -->|"Shared\nDatabase"| NEON
+    WORKER -->|"File\nRead/Write"| R2
 ```
 
-> **Same-origin architecture** — Django serves both the API and the built React frontend from a single Render web service. No CORS complexity. Session-based auth with CSRF cookies works naturally.
+### Application Layer Detail
+
+```mermaid
+%%{init: {'theme': 'dark', 'themeVariables': {'fontSize': '15px', 'primaryColor': '#22c55e', 'primaryBorderColor': '#22c55e', 'lineColor': '#4ade80', 'textColor': '#e2e8f0', 'mainBkg': '#0f172a'}}}%%
+flowchart LR
+    subgraph FRONTEND["📱 Frontend — React 19"]
+        direction TB
+        F1["18 TanStack Query Hooks"]
+        F2["31 Page Components"]
+        F3["17 Shared UI Primitives"]
+        F4["Zustand State · Tailwind CSS"]
+    end
+
+    subgraph API["⚡ API Layer — Django REST Framework"]
+        direction TB
+        A1["80+ RESTful Endpoints"]
+        A2["Session Auth + CSRF"]
+        A3["Role-Based Permissions"]
+        A4["Project-Scoped Access"]
+    end
+
+    subgraph BACKEND["🏗️ Backend — 17 Django Apps"]
+        direction TB
+        B1["📐 Scheduling · CPM Engine"]
+        B2["📊 Cost · EVM Analytics"]
+        B3["🔗 Procurement Chain"]
+        B4["📋 Field Operations"]
+        B5["📄 Documents · Reports"]
+        B6["🤖 AI Service Layer"]
+    end
+
+    FRONTEND -->|"/api/v1/*"| API --> BACKEND
+```
+
+> **Same-origin architecture** — Django serves both the API and the built React frontend from a single Render web service. No CORS. No cross-domain cookie issues. Session auth works naturally.
 
 ---
 
@@ -222,48 +228,49 @@ graph TB
 
 ## 🤖 AI Integration
 
+### Request Lifecycle
+
 ```mermaid
-graph LR
-    subgraph features["🎯 AI Features"]
-        F1["📝 Cost & Schedule<br/>Narrative"]
-        F2["📄 Report Draft<br/>Generator"]
-        F3["💬 Project<br/>Copilot"]
-    end
+%%{init: {'theme': 'dark', 'themeVariables': {'fontSize': '16px', 'primaryColor': '#8b5cf6', 'primaryBorderColor': '#a78bfa', 'lineColor': '#a78bfa', 'textColor': '#e2e8f0', 'mainBkg': '#0f172a'}}}%%
+flowchart TB
+    REQ["🧑‍💼 User Request\nNarrative · Report Draft · Copilot Q&A"]
 
-    subgraph service["⚙️ AI Service Layer"]
-        Context["🔍 Context Assembly<br/><i>Permission-aware</i><br/><i>Module-scoped</i>"]
-        Prompt["📋 Prompt Builder<br/><i>Structured templates</i>"]
-        Log["📊 Audit Logger<br/><i>AIRequestLog</i>"]
-    end
+    REQ -->|"ai.use\npermission check"| GATE{{"🔒 Permission\nGate"}}
 
-    subgraph providers["🔌 Provider Adapters"]
-        Interface["🔗 Adapter Interface<br/><code>generate_text()</code>"]
-        Gemini["💎 Gemini Adapter<br/><i>gemini-2.0-flash</i>"]
-        Stub["🧪 Stub Adapter<br/><i>Testing / Dev</i>"]
-    end
+    GATE -->|"✅ Authorized"| CTX["🔍 Context Assembly\nSchedule · Cost · Risk · Field Ops\n━━━━━━━━━━━━━━━━━━━━━━━━\nOnly includes modules\nthe user can access"]
 
-    subgraph guards["🛡️ Security Boundaries"]
-        P1["🔒 ai.use permission required"]
-        P2["👁️ ai.history for audit access"]
-        P3["🚫 Never bypasses permissions"]
-        P4["📏 Bounded context windows"]
-    end
+    GATE -->|"❌ Denied"| DENY["🚫 403 Forbidden"]
 
-    features --> Context --> Prompt --> Interface
-    Interface --> Gemini & Stub
-    Prompt --> Log
+    CTX --> PROMPT["📋 Prompt Builder\nStructured templates\nBounded context window"]
 
-    style features fill:#1a1a2e,stroke:#8b5cf6,stroke-width:2px,color:#e2e8f0
-    style service fill:#0f172a,stroke:#f59e0b,stroke-width:1px,color:#e2e8f0
-    style providers fill:#0f172a,stroke:#22c55e,stroke-width:1px,color:#e2e8f0
-    style guards fill:#0f172a,stroke:#ef4444,stroke-width:1px,color:#e2e8f0
+    PROMPT --> PROVIDER{{"🔌 Provider\nRouter"}}
+
+    PROVIDER -->|"Production"| GEMINI["💎 Google Gemini\ngemini-2.0-flash"]
+    PROVIDER -->|"Testing"| STUB["🧪 Stub Provider\nNo API key needed"]
+
+    GEMINI --> LOG["📊 AIRequestLog\nUser · Project · Feature\nProvider · Duration · Status"]
+    STUB --> LOG
+
+    LOG --> RESPONSE["✅ Response\nGenerated text\nreturned to user"]
 ```
 
-| Feature | Description |
+### AI Features
+
+| Feature | Input | Output |
+|---|---|---|
+| **📝 Cost & Schedule Narrative** | Deterministic schedule, cost, EVM, risk data | Management-ready status report paragraph |
+| **📄 Report Draft Generator** | Structured data from any of 13 report types | Formal written summary for project reporting |
+| **💬 Project Copilot** | User question + project structured data | Scoped answer — no RAG, no document search |
+
+### Security Boundaries
+
+| Rule | Enforcement |
 |---|---|
-| **Cost & Schedule Narrative** | Management-ready status reports from deterministic project data |
-| **AI Report Drafts** | Written summaries for all 13 report types |
-| **Project Copilot** | Scoped Q&A using structured project data — no RAG, answers from structured data only |
+| **Permission-gated** | `ai.use` required on project membership |
+| **Context-scoped** | Only assembles data from modules the user can access |
+| **Audit logged** | Every request recorded in `AIRequestLog` with user, duration, status |
+| **Never overrides** | Deterministic calculations (CPM, EVM) remain authoritative |
+| **Provider-agnostic** | Swap providers via `AI_PROVIDER` env var without code changes |
 
 ---
 
