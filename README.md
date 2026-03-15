@@ -54,30 +54,55 @@ This is not a generic task manager. Every module, every calculation, and every w
 
 BuildPro is fundamentally an **analytics platform** disguised as a project management tool. The construction domain provides the context — the engine underneath is data science:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    ANALYTICS ENGINE                          │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │  CPM Engine   │  │  EVM Engine   │  │  AI Service Layer│  │
-│  │              │  │              │  │                  │  │
-│  │ • Topological│  │ • CPI / SPI  │  │ • Gemini Adapter │  │
-│  │   Sort       │  │ • EAC / VAC  │  │ • Audit Logging  │  │
-│  │ • Forward    │  │ • S-Curve    │  │ • Context-Scoped │  │
-│  │   Pass       │  │   Generation │  │   Queries        │  │
-│  │ • Backward   │  │ • Variance   │  │ • Provider-      │  │
-│  │   Pass       │  │   Analysis   │  │   Agnostic       │  │
-│  │ • Float Calc │  │ • Baseline   │  │                  │  │
-│  │ • Critical   │  │   Comparison │  │                  │  │
-│  │   Path       │  │              │  │                  │  │
-│  └──────────────┘  └──────────────┘  └──────────────────┘  │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              DETERMINISTIC DATA LAYER                 │   │
-│  │  ~45 normalised tables • UUID PKs • Soft deletes     │   │
-│  │  Full audit trail • Project-scoped • Org-scoped      │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph engine["⚙️ ANALYTICS ENGINE"]
+        direction TB
+
+        subgraph cpm["📐 CPM Engine"]
+            C1["Kahn's Topological Sort"]
+            C2["Forward Pass → ES / EF"]
+            C3["Backward Pass → LS / LF"]
+            C4["Total Float Calculation"]
+            C5["Critical Path Detection"]
+            C1 --> C2 --> C3 --> C4 --> C5
+        end
+
+        subgraph evm["📊 EVM Engine"]
+            E1["Budget at Completion"]
+            E2["Planned Value · BCWS"]
+            E3["Earned Value · BCWP"]
+            E4["Actual Cost · ACWP"]
+            E5["CPI · SPI · EAC · VAC"]
+            E1 --> E2 & E3 & E4 --> E5
+        end
+
+        subgraph ai["🤖 AI Service Layer"]
+            A1["Provider-Agnostic Interface"]
+            A2["Gemini Adapter"]
+            A3["Stub Adapter"]
+            A4["Context Assembly"]
+            A5["Audit Logger"]
+            A1 --> A2 & A3
+            A1 --> A4 --> A5
+        end
+    end
+
+    subgraph data["🗄️ DETERMINISTIC DATA LAYER"]
+        D1["~45 Normalised Tables"]
+        D2["UUID Primary Keys"]
+        D3["Full Audit Trail"]
+        D4["Project-Scoped"]
+        D5["Org-Scoped"]
+    end
+
+    engine --> data
+
+    style engine fill:#1a1a2e,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0
+    style cpm fill:#0d1526,stroke:#3b82f6,stroke-width:1px,color:#e2e8f0
+    style evm fill:#0d1526,stroke:#22c55e,stroke-width:1px,color:#e2e8f0
+    style ai fill:#0d1526,stroke:#8b5cf6,stroke-width:1px,color:#e2e8f0
+    style data fill:#0f172a,stroke:#f59e0b,stroke-width:1px,color:#e2e8f0
 ```
 
 **Key algorithms implemented:**
@@ -90,37 +115,48 @@ BuildPro is fundamentally an **analytics platform** disguised as a project manag
 
 ## 🏛️ Architecture
 
-```
-                    ┌──────────────────────────────────┐
-                    │          BROWSER (SPA)           │
-                    │   React 19 • TypeScript • Vite   │
-                    │   TanStack Query • Zustand       │
-                    └──────────────┬───────────────────┘
-                                   │ Same-Origin
-                    ┌──────────────▼───────────────────┐
-                    │     RENDER WEB SERVICE            │
-                    │   Gunicorn + WhiteNoise           │
-                    │                                   │
-                    │  ┌─────────┐  ┌───────────────┐  │
-                    │  │React SPA│  │Django REST API │  │
-                    │  │ /       │  │ /api/v1/*      │  │
-                    │  └─────────┘  └───────────────┘  │
-                    └───┬──────────────┬───────────┬───┘
-                        │              │           │
-               ┌────────▼──┐  ┌───────▼──┐  ┌────▼─────────┐
-               │   Neon    │  │  Render  │  │ Cloudflare   │
-               │PostgreSQL │  │Key Value │  │     R2       │
-               │ ~45 tables│  │ (Redis)  │  │ (S3-compat)  │
-               └───────────┘  └────┬─────┘  └──────────────┘
-                                   │
-                            ┌──────▼───────┐
-                            │Celery Worker │
-                            │ Async AI &   │
-                            │ Exports      │
-                            └──────────────┘
+```mermaid
+graph TB
+    Browser["🌐 Browser<br/><i>React 19 · TypeScript · Vite</i><br/><i>TanStack Query · Zustand</i>"]
+
+    subgraph render["☁️ RENDER PLATFORM"]
+        direction TB
+
+        subgraph web["🖥️ Web Service — Gunicorn + WhiteNoise"]
+            SPA["📱 React SPA<br/><code>/</code>"]
+            API["⚡ Django REST API<br/><code>/api/v1/*</code>"]
+            Admin["🔧 Django Admin<br/><code>/admin/*</code>"]
+            Static["📦 Static Files<br/><code>/static/*</code>"]
+        end
+
+        Worker["👷 Celery Worker<br/><i>Async AI · Report Exports</i>"]
+        KV["🔴 Key Value<br/><i>Redis-compatible Broker</i>"]
+    end
+
+    subgraph external["🌍 EXTERNAL SERVICES"]
+        Neon["🐘 Neon PostgreSQL<br/><i>~45 normalised tables</i>"]
+        R2["☁️ Cloudflare R2<br/><i>S3-compatible storage</i>"]
+    end
+
+    Browser -->|"Same-Origin<br/>Session + CSRF"| web
+    web -->|"DATABASE_URL<br/>SSL required"| Neon
+    web -->|"Task Queue"| KV
+    web -->|"django-storages"| R2
+    KV -->|"Broker"| Worker
+    Worker -->|"Shared DB"| Neon
+    Worker -->|"File I/O"| R2
+
+    style Browser fill:#1e293b,stroke:#60a5fa,stroke-width:2px,color:#e2e8f0
+    style render fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0
+    style web fill:#1a1a2e,stroke:#22c55e,stroke-width:1px,color:#e2e8f0
+    style Worker fill:#1a1a2e,stroke:#8b5cf6,stroke-width:1px,color:#e2e8f0
+    style KV fill:#1a1a2e,stroke:#ef4444,stroke-width:1px,color:#e2e8f0
+    style external fill:#0f172a,stroke:#94a3b8,stroke-width:1px,color:#e2e8f0
+    style Neon fill:#1a1a2e,stroke:#3b82f6,stroke-width:1px,color:#e2e8f0
+    style R2 fill:#1a1a2e,stroke:#f97316,stroke-width:1px,color:#e2e8f0
 ```
 
-> **Same-origin architecture** — Django serves both the API and the built React frontend from a single service. No CORS complexity. Session auth works naturally.
+> **Same-origin architecture** — Django serves both the API and the built React frontend from a single Render web service. No CORS complexity. Session-based auth with CSRF cookies works naturally.
 
 ---
 
@@ -186,33 +222,48 @@ BuildPro is fundamentally an **analytics platform** disguised as a project manag
 
 ## 🤖 AI Integration
 
-```
-┌────────────────────────────────────────┐
-│         AI Service Layer               │
-│    Provider-Agnostic Architecture      │
-│                                        │
-│  ┌──────────┐    ┌──────────────────┐  │
-│  │ Gemini   │◄───│ Adapter Interface │  │
-│  │ Adapter  │    │                  │  │
-│  └──────────┘    │ • generateText() │  │
-│  ┌──────────┐    │ • getModelInfo() │  │
-│  │  Stub    │◄───│                  │  │
-│  │ Adapter  │    └──────────────────┘  │
-│  └──────────┘                          │
-│                                        │
-│  Boundaries:                           │
-│  ✓ Assistive only (never overrides)    │
-│  ✓ Permission-gated (ai.use)          │
-│  ✓ Context-scoped (user's data only)  │
-│  ✓ Full audit trail (AIRequestLog)    │
-└────────────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph features["🎯 AI Features"]
+        F1["📝 Cost & Schedule<br/>Narrative"]
+        F2["📄 Report Draft<br/>Generator"]
+        F3["💬 Project<br/>Copilot"]
+    end
+
+    subgraph service["⚙️ AI Service Layer"]
+        Context["🔍 Context Assembly<br/><i>Permission-aware</i><br/><i>Module-scoped</i>"]
+        Prompt["📋 Prompt Builder<br/><i>Structured templates</i>"]
+        Log["📊 Audit Logger<br/><i>AIRequestLog</i>"]
+    end
+
+    subgraph providers["🔌 Provider Adapters"]
+        Interface["🔗 Adapter Interface<br/><code>generate_text()</code>"]
+        Gemini["💎 Gemini Adapter<br/><i>gemini-2.0-flash</i>"]
+        Stub["🧪 Stub Adapter<br/><i>Testing / Dev</i>"]
+    end
+
+    subgraph guards["🛡️ Security Boundaries"]
+        P1["🔒 ai.use permission required"]
+        P2["👁️ ai.history for audit access"]
+        P3["🚫 Never bypasses permissions"]
+        P4["📏 Bounded context windows"]
+    end
+
+    features --> Context --> Prompt --> Interface
+    Interface --> Gemini & Stub
+    Prompt --> Log
+
+    style features fill:#1a1a2e,stroke:#8b5cf6,stroke-width:2px,color:#e2e8f0
+    style service fill:#0f172a,stroke:#f59e0b,stroke-width:1px,color:#e2e8f0
+    style providers fill:#0f172a,stroke:#22c55e,stroke-width:1px,color:#e2e8f0
+    style guards fill:#0f172a,stroke:#ef4444,stroke-width:1px,color:#e2e8f0
 ```
 
 | Feature | Description |
 |---|---|
 | **Cost & Schedule Narrative** | Management-ready status reports from deterministic project data |
 | **AI Report Drafts** | Written summaries for all 13 report types |
-| **Project Copilot** | Scoped Q&A using structured project data |
+| **Project Copilot** | Scoped Q&A using structured project data — no RAG, answers from structured data only |
 
 ---
 
