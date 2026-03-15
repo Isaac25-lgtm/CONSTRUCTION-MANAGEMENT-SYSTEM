@@ -121,3 +121,4 @@ services:
     name: buildpro-kv
     plan: starter
     maxmemoryPolicy: noeviction
+    ipAllowList: []  # Allow connections from all Render services
