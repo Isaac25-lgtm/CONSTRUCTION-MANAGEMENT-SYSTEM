@@ -27,8 +27,8 @@ services:
         - backend/**
         - frontend/**
         - Dockerfile.render
-    # No shell builtins -- WORKDIR is /app/backend from Dockerfile
-    preDeployCommand: "python manage.py migrate --noinput"
+    # preDeployCommand runs from image filesystem, not repo root
+    preDeployCommand: "python /app/backend/manage.py migrate --noinput"
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: buildpro.settings.production
