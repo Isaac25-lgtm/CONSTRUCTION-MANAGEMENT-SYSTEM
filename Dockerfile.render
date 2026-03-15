@@ -1,0 +1,59 @@
+# BuildPro production image for Render
+# Multi-stage: builds frontend with Node, runs backend with Python/Gunicorn.
+# Django serves the SPA via WhiteNoise (same-origin).
+
+# --- Stage 1: Build frontend ---
+FROM node:20-alpine AS frontend-builder
+WORKDIR /build
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# --- Stage 2: Backend + frontend assets ---
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev gcc curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python deps (production)
+COPY backend/requirements/base.txt /app/requirements/base.txt
+COPY backend/requirements/production.txt /app/requirements/production.txt
+RUN pip install --no-cache-dir -r /app/requirements/production.txt
+
+# Copy backend code
+COPY backend/ /app/backend/
+
+# Copy built frontend SPA
+COPY --from=frontend-builder /build/dist /app/frontend-dist
+
+# Collect Django static files at build time.
+# BUILD_MODE=true suppresses runtime validation (no DATABASE_URL/R2 during build).
+# DJANGO_SECRET_KEY placeholder is safe here -- only used for collectstatic.
+ENV DJANGO_SETTINGS_MODULE=buildpro.settings.production
+ENV BUILD_MODE=true
+ENV DJANGO_SECRET_KEY=build-time-collectstatic-only
+RUN cd /app/backend && python manage.py collectstatic --noinput
+
+# Clear build-only env vars so they are not baked into the image
+ENV BUILD_MODE=
+ENV DJANGO_SECRET_KEY=
+
+WORKDIR /app/backend
+
+EXPOSE 8000
+
+# Gunicorn binds to $PORT (Render sets this automatically)
+CMD gunicorn buildpro.wsgi:application \
+    --bind 0.0.0.0:${PORT:-8000} \
+    --workers 3 \
+    --timeout 120 \
+    --access-logfile - \
+    --error-logfile -

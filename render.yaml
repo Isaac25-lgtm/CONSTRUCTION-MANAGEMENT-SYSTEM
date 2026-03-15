@@ -1,0 +1,123 @@
+# BuildPro Render Blueprint
+#
+# Architecture:
+#   - Web: Django + Gunicorn + WhiteNoise (API + SPA, same-origin)
+#   - Worker: Celery for async AI + background jobs
+#   - Key Value: Redis-compatible broker for Celery
+#   - Database: External Neon PostgreSQL (not provisioned here)
+#   - Files: Cloudflare R2 (configured via AWS_* env vars)
+#
+# Prerequisites:
+#   1. Create a Neon PostgreSQL database
+#   2. Create a Cloudflare R2 bucket
+#   3. Set all manual env vars in Render dashboard
+#   4. Sync this Blueprint from GitHub
+
+services:
+  # --- Web service ---
+  - type: web
+    name: buildpro-web
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /api/health/
+    buildFilter:
+      paths:
+        - backend/**
+        - frontend/**
+        - Dockerfile.render
+    preDeployCommand: "cd /app/backend && python manage.py migrate --noinput"
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: buildpro.settings.production
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: REQUIRE_DATABASE_URL
+        value: "true"
+      - key: REQUIRE_REMOTE_STORAGE
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: buildpro-kv
+          type: keyvalue
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          name: buildpro-kv
+          type: keyvalue
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_MODEL
+        value: gemini-2.0-flash
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+
+  # --- Background worker ---
+  - type: worker
+    name: buildpro-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    plan: starter
+    buildFilter:
+      paths:
+        - backend/**
+        - Dockerfile.render
+    dockerCommand: "cd /app/backend && celery -A buildpro worker -l warning -c 2"
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: buildpro.settings.production
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: REQUIRE_DATABASE_URL
+        value: "true"
+      - key: REQUIRE_REMOTE_STORAGE
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: buildpro-kv
+          type: keyvalue
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          name: buildpro-kv
+          type: keyvalue
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_MODEL
+        value: gemini-2.0-flash
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+
+  # --- Render Key Value (Redis-compatible) ---
+  - type: keyvalue
+    name: buildpro-kv
+    plan: starter
+    maxmemoryPolicy: noeviction

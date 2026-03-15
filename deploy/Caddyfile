@@ -1,0 +1,40 @@
+# BuildPro production Caddy config
+# Caddy handles TLS, reverse-proxies to Django and frontend Nginx containers.
+# Static/media files served from shared Docker volumes.
+
+{$DOMAIN:localhost} {
+    # Django API
+    handle /api/* {
+        reverse_proxy web:8000
+    }
+
+    # Django admin
+    handle /admin/* {
+        reverse_proxy web:8000
+    }
+
+    # Django collected static files (admin CSS/JS, DRF browsable API)
+    handle /static/* {
+        root * /srv
+        file_server
+    }
+
+    # Uploaded media files (documents, exports, photos)
+    handle /media/* {
+        root * /srv
+        file_server
+    }
+
+    # Everything else -> frontend Nginx container (SPA)
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+}

@@ -1,0 +1,19 @@
+# BuildPro — Python dependencies (development)
+-r base.txt
+
+# Debugging
+django-debug-toolbar==5.*
+
+# Testing
+pytest==8.*
+pytest-django==4.*
+pytest-cov==6.*
+factory-boy==3.*
+
+# Linting & formatting
+ruff==0.9.*
+
+# Type checking
+mypy==1.*
+django-stubs[compatible-mypy]==5.*
+djangorestframework-stubs[compatible-mypy]==3.*

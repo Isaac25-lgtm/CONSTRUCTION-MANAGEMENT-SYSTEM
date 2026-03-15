@@ -1,0 +1,76 @@
+# BuildPro Docker Compose -- LOCAL DEVELOPMENT
+# Usage: docker compose up
+# For production, see deploy/docker-compose.prod.yml
+
+services:
+  db:
+    image: postgres:17-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: buildpro
+      POSTGRES_USER: buildpro
+      POSTGRES_PASSWORD: buildpro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U buildpro"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: buildpro.settings.development
+      POSTGRES_HOST: db
+      CELERY_BROKER_URL: redis://redis:6379/0
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A buildpro worker -l info -c 2
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: buildpro.settings.development
+      POSTGRES_HOST: db
+      CELERY_BROKER_URL: redis://redis:6379/0
+
+volumes:
+  postgres_data:
+  media_data:

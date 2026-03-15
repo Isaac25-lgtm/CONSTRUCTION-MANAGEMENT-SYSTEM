@@ -1,0 +1,14 @@
+# BuildPro -- Python dependencies (production)
+-r base.txt
+
+# WSGI server (already in base.txt via gunicorn, but pin version)
+
+# Database URL parsing (for Neon DATABASE_URL)
+dj-database-url==2.*
+
+# Static file serving without Nginx
+whitenoise==6.*
+
+# S3-compatible storage (Cloudflare R2)
+django-storages[s3]==1.*
+boto3==1.*

@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+/*
+ * BuildPro Design Tokens
+ * Sourced directly from the HTML prototype (buildpro.html)
+ *
+ * Prototype vars:
+ *   bg="#0b1120"  bg2="#111827"  bg3="#1e293b"
+ *   brd="#334155"  acc="#f59e0b"  bl="#3b82f6"
+ *   gn="#22c55e"  rd="#ef4444"  or="#f97316"
+ *   tx="#e2e8f0"  dm="#94a3b8"
+ */
+
+@theme {
+  --color-bp-bg: #0b1120;
+  --color-bp-bg2: #111827;
+  --color-bp-surface: #1e293b;
+  --color-bp-border: #334155;
+  --color-bp-text: #e2e8f0;
+  --color-bp-muted: #94a3b8;
+  --color-bp-accent: #f59e0b;
+  --color-bp-success: #22c55e;
+  --color-bp-warning: #f97316;
+  --color-bp-danger: #ef4444;
+  --color-bp-info: #3b82f6;
+}
+
+/* Base reset matching prototype */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0b1120;
+  color: #e2e8f0;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar -- matches prototype exactly */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #111827; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* Form elements -- prototype style */
+select {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #475569 !important;
+  border-radius: 4px;
+}
+select:focus {
+  outline: 1px solid #f59e0b;
+  border-color: #f59e0b !important;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="date"],
+input[type="search"],
+textarea {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #e2e8f0;
+  font-size: 13px;
+  width: 100%;
+}
+input:focus, textarea:focus {
+  outline: none;
+  border-color: #f59e0b;
+}
+
+/* Nav button active state -- prototype border-left style */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-left: 3px solid transparent;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 400;
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 1px;
+  color: #94a3b8;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-item:hover {
+  background: #0b1120;
+  color: #e2e8f0;
+}
+.nav-item.active {
+  background: rgba(245, 158, 11, 0.094);
+  color: #f59e0b;
+  border-left-color: #f59e0b;
+  font-weight: 600;
+}
+
+/* Table styles matching prototype sTH/sTD */
+.bp-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.bp-table th {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 2px solid #f59e0b;
+  color: #f59e0b;
+  font-size: 12px;
+  font-weight: 700;
+  background: #111827;
+}
+.bp-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #334155;
+  font-size: 13px;
+  color: #e2e8f0;
+}
+.bp-table tr:hover td {
+  background: rgba(30, 41, 59, 0.5);
+}
