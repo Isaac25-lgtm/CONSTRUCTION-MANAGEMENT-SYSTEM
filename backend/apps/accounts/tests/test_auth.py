@@ -95,6 +95,75 @@ class AuthEndpointTests(TestCase):
         self.assertEqual(me_response.status_code, 403)
 
 
+class BootstrapOrgAdminTests(TestCase):
+    """Test the bootstrap_org_admin management command."""
+
+    def test_creates_org_and_admin(self):
+        from django.core.management import call_command
+        call_command(
+            "bootstrap_org_admin",
+            org_name="Test Corp",
+            username="testadmin",
+            email="admin@test.com",
+            password="securepass123",
+        )
+        org = Organisation.objects.get(name="Test Corp")
+        user = User.objects.get(username="testadmin")
+        self.assertEqual(user.organisation_id, org.id)
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.is_superuser)
+        self.assertEqual(user.system_role.name, "Admin")
+        self.assertTrue(user.check_password("securepass123"))
+
+    def test_idempotent_rerun(self):
+        from django.core.management import call_command
+        call_command(
+            "bootstrap_org_admin",
+            org_name="Idempotent Corp",
+            username="idempotent",
+            email="i@test.com",
+            password="firstpass123",
+        )
+        call_command(
+            "bootstrap_org_admin",
+            org_name="Idempotent Corp",
+            username="idempotent",
+            email="i@test.com",
+            password="secondpass123",
+        )
+        self.assertEqual(Organisation.objects.filter(name="Idempotent Corp").count(), 1)
+        self.assertEqual(User.objects.filter(username="idempotent").count(), 1)
+        user = User.objects.get(username="idempotent")
+        self.assertTrue(user.check_password("secondpass123"))
+
+    def test_attaches_existing_user_to_org(self):
+        """A user created via createsuperuser (no org) gets attached."""
+        from django.core.management import call_command
+        # Simulate createsuperuser: user exists but no org
+        user = User.objects.create_superuser(username="orphan", password="pass12345678", email="o@test.com")
+        self.assertIsNone(user.organisation_id)
+
+        call_command(
+            "bootstrap_org_admin",
+            org_name="Rescue Corp",
+            username="orphan",
+            email="o@test.com",
+            password="newpass12345",
+        )
+        user.refresh_from_db()
+        self.assertIsNotNone(user.organisation_id)
+        self.assertEqual(user.organisation.name, "Rescue Corp")
+
+    def test_orgless_user_gets_403_on_projects(self):
+        """Authenticated user without org gets denied on project endpoints."""
+        role = SystemRole.objects.create(name="TestRole", permissions=[])
+        user = User.objects.create_user(username="noorg", password="pass12345678")
+        # No organisation set
+        self.client.force_login(user)
+        r = self.client.get("/api/v1/projects/")
+        self.assertEqual(r.status_code, 403)
+
+
 class OrganisationTests(TestCase):
     def setUp(self):
         self.org = Organisation.objects.create(name="Test Org", address="Kampala")

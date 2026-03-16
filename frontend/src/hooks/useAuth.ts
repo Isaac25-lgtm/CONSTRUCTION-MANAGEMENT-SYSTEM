@@ -1,8 +1,9 @@
 /**
- * Auth hook -- fetches current user from /api/v1/auth/me/.
+ * Auth hook -- manages session state via /api/v1/auth/me/.
  *
- * Returns the authenticated user with permissions, loading state,
- * and login/logout helpers. Used by RequireAuth and throughout the app.
+ * After login, re-fetches /auth/me/ to get the authoritative session state
+ * (including organisation_id). This prevents "optimistic login success"
+ * from sending users into the app with incomplete account state.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
@@ -44,9 +45,12 @@ export function useAuth() {
   })
 
   const login = async (username: string, password: string) => {
-    const { data } = await api.post<AuthUser>('/auth/login/', { username, password })
-    queryClient.setQueryData(['auth', 'me'], data)
-    return data
+    // Authenticate -- creates session
+    await api.post('/auth/login/', { username, password })
+    // Re-fetch /auth/me/ for authoritative state (includes organisation_id)
+    const confirmed = await fetchMe()
+    queryClient.setQueryData(['auth', 'me'], confirmed)
+    return confirmed
   }
 
   const logout = async () => {

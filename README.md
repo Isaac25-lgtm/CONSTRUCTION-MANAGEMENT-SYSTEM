@@ -551,7 +551,15 @@ Deployed on **[Render](https://render.com)** using a Blueprint (`render.yaml`):
 1. Connect repo to Render → **New > Blueprint**
 2. Set env vars: `DATABASE_URL`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `GEMINI_API_KEY`, R2 credentials
 3. Deploy — Docker builds the image, pre-deploy runs migrations
-4. Create admin: `cd /app/backend && python manage.py createsuperuser`
+4. Bootstrap admin (via Render Shell):
+   ```bash
+   cd /app/backend && python manage.py bootstrap_org_admin \
+     --org-name "Your Company" \
+     --username admin \
+     --email admin@yourcompany.com \
+     --password "YourSecurePassword"
+   ```
+   **Important:** Do not use `createsuperuser` alone — it creates a Django user without a BuildPro organisation, which causes 403 errors on all app pages. Always use `bootstrap_org_admin`.
 
 **Production safety:**
 - App refuses to start without `DATABASE_URL` (raises `ImproperlyConfigured`)

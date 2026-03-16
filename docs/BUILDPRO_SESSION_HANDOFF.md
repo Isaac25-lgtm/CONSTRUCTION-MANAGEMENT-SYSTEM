@@ -86,7 +86,13 @@ npm run dev
 5. Render creates: buildpro-web, buildpro-worker, buildpro-kv
 6. Set manual env vars in Render (see Required Env Vars below)
 7. Deploy -- Docker build runs collectstatic; preDeployCommand runs migrations
-8. Create admin: SSH into web, `cd /app/backend && python manage.py createsuperuser`
+8. Bootstrap admin (via Render Shell):
+   ```
+   cd /app/backend && python manage.py bootstrap_org_admin \
+     --org-name "Your Company" --username admin \
+     --email admin@example.com --password "YourSecurePassword"
+   ```
+   **Do not use `createsuperuser` alone** — it creates a user without an organisation, causing 403s on all app pages.
 
 ## Required Render Env Vars
 
