@@ -1,4 +1,7 @@
-"""Tests for auth endpoints: login, logout, me, inactive user handling."""
+"""Tests for auth endpoints: login, logout, me, bootstrap, first-run setup."""
+import os
+from unittest.mock import patch
+
 from django.test import TestCase
 from django.urls import reverse
 
@@ -96,7 +99,7 @@ class AuthEndpointTests(TestCase):
 
 
 class BootstrapOrgAdminTests(TestCase):
-    """Test the bootstrap_org_admin management command."""
+    """Test the bootstrap_org_admin management command and service."""
 
     def test_creates_org_and_admin(self):
         from django.core.management import call_command
@@ -137,12 +140,9 @@ class BootstrapOrgAdminTests(TestCase):
         self.assertTrue(user.check_password("secondpass123"))
 
     def test_attaches_existing_user_to_org(self):
-        """A user created via createsuperuser (no org) gets attached."""
         from django.core.management import call_command
-        # Simulate createsuperuser: user exists but no org
         user = User.objects.create_superuser(username="orphan", password="pass12345678", email="o@test.com")
         self.assertIsNone(user.organisation_id)
-
         call_command(
             "bootstrap_org_admin",
             org_name="Rescue Corp",
@@ -155,13 +155,123 @@ class BootstrapOrgAdminTests(TestCase):
         self.assertEqual(user.organisation.name, "Rescue Corp")
 
     def test_orgless_user_gets_403_on_projects(self):
-        """Authenticated user without org gets denied on project endpoints."""
-        role = SystemRole.objects.create(name="TestRole", permissions=[])
-        user = User.objects.create_user(username="noorg", password="pass12345678")
-        # No organisation set
-        self.client.force_login(user)
+        User.objects.create_user(username="noorg", password="pass12345678")
+        self.client.force_login(User.objects.get(username="noorg"))
         r = self.client.get("/api/v1/projects/")
         self.assertEqual(r.status_code, 403)
+
+
+class SetupAPITests(TestCase):
+    """Test the first-run setup API endpoints."""
+
+    def test_status_uninitialized(self):
+        """When no org-backed admin exists, status returns initialized=false."""
+        r = self.client.get("/api/v1/auth/setup/status/")
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.json()["initialized"])
+
+    def test_status_initialized(self):
+        """After bootstrap, status returns initialized=true."""
+        org = Organisation.objects.create(name="Init Corp")
+        role = SystemRole.objects.create(name="Admin", permissions=["admin.full_access"])
+        User.objects.create_user(
+            username="admin", password="pass12345678",
+            organisation=org, system_role=role, is_staff=True,
+        )
+        r = self.client.get("/api/v1/auth/setup/status/")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["initialized"])
+
+    @patch.dict(os.environ, {"BOOTSTRAP_SETUP_SECRET": "test-secret-123"})
+    def test_bootstrap_success(self):
+        """Correct secret + valid data creates org and admin."""
+        r = self.client.post(
+            "/api/v1/auth/setup/bootstrap/",
+            {
+                "bootstrap_secret": "test-secret-123",
+                "org_name": "New Corp",
+                "username": "newadmin",
+                "email": "new@test.com",
+                "password": "securepass123",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(r.json()["organisation"], "New Corp")
+        self.assertEqual(r.json()["username"], "newadmin")
+        user = User.objects.get(username="newadmin")
+        self.assertIsNotNone(user.organisation_id)
+        self.assertTrue(user.check_password("securepass123"))
+
+    @patch.dict(os.environ, {"BOOTSTRAP_SETUP_SECRET": "test-secret-123"})
+    def test_bootstrap_wrong_secret(self):
+        """Wrong secret is rejected."""
+        r = self.client.post(
+            "/api/v1/auth/setup/bootstrap/",
+            {
+                "bootstrap_secret": "wrong-secret",
+                "org_name": "Corp",
+                "username": "admin",
+                "email": "a@t.com",
+                "password": "securepass123",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 403)
+
+    @patch.dict(os.environ, {"BOOTSTRAP_SETUP_SECRET": "test-secret-123"})
+    def test_bootstrap_disabled_after_init(self):
+        """Once initialized, bootstrap endpoint returns 404."""
+        # First bootstrap
+        self.client.post(
+            "/api/v1/auth/setup/bootstrap/",
+            {
+                "bootstrap_secret": "test-secret-123",
+                "org_name": "First Corp",
+                "username": "firstadmin",
+                "email": "f@t.com",
+                "password": "securepass123",
+            },
+            content_type="application/json",
+        )
+        # Second attempt
+        r = self.client.post(
+            "/api/v1/auth/setup/bootstrap/",
+            {
+                "bootstrap_secret": "test-secret-123",
+                "org_name": "Second Corp",
+                "username": "secondadmin",
+                "email": "s@t.com",
+                "password": "securepass123",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 404)
+
+    def test_bootstrap_no_secret_configured(self):
+        """If BOOTSTRAP_SETUP_SECRET is not set, returns 503."""
+        r = self.client.post(
+            "/api/v1/auth/setup/bootstrap/",
+            {
+                "bootstrap_secret": "anything",
+                "org_name": "Corp",
+                "username": "admin",
+                "email": "a@t.com",
+                "password": "securepass123",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 503)
+
+    @patch.dict(os.environ, {"BOOTSTRAP_SETUP_SECRET": "test-secret-123"})
+    def test_bootstrap_missing_fields(self):
+        """Missing required fields returns 400."""
+        r = self.client.post(
+            "/api/v1/auth/setup/bootstrap/",
+            {"bootstrap_secret": "test-secret-123", "org_name": "Corp"},
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
 
 
 class OrganisationTests(TestCase):

@@ -1,4 +1,6 @@
-"""Accounts views -- auth, user management, org settings."""
+"""Accounts views -- auth, user management, org settings, first-run setup."""
+import os
+
 from django.contrib.auth import authenticate, login, logout
 from django.middleware.csrf import get_token
 from rest_framework import status, viewsets
@@ -8,6 +10,7 @@ from rest_framework.response import Response
 
 from apps.core.permissions import IsAdmin, HasSystemPermission
 
+from .bootstrap import bootstrap_org_admin, is_system_initialized
 from .models import User, SystemRole
 from .serializers import (
     UserMeSerializer,
@@ -175,3 +178,83 @@ def organisation_view(request):
         serializer.save()
         return Response(serializer.data)
     return Response(OrganisationSerializer(org).data)
+
+
+# ---------------------------------------------------------------------------
+# First-run setup (only available when system is uninitialized)
+# ---------------------------------------------------------------------------
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def setup_status_view(request):
+    """Check if the system needs first-time setup.
+
+    Returns {"initialized": false} only when no org-backed admin exists.
+    Once initialized, returns {"initialized": true}.
+    """
+    return Response({"initialized": is_system_initialized()})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def setup_bootstrap_view(request):
+    """First-run bootstrap: create organisation + admin user.
+
+    Only works when:
+    1. System is not yet initialized (no org-backed admin exists)
+    2. Correct BOOTSTRAP_SETUP_SECRET is provided
+    3. All required fields are present
+
+    After success, this endpoint becomes permanently unavailable.
+    """
+    # Guard 1: already initialized
+    if is_system_initialized():
+        return Response(
+            {"detail": "System is already initialized."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Guard 2: verify bootstrap secret
+    expected_secret = os.environ.get("BOOTSTRAP_SETUP_SECRET", "")
+    if not expected_secret:
+        return Response(
+            {"detail": "BOOTSTRAP_SETUP_SECRET environment variable not configured."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    provided_secret = request.data.get("bootstrap_secret", "")
+    if not provided_secret or provided_secret != expected_secret:
+        return Response(
+            {"detail": "Invalid bootstrap secret."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Guard 3: validate required fields
+    org_name = request.data.get("org_name", "").strip()
+    username = request.data.get("username", "").strip()
+    email = request.data.get("email", "").strip()
+    password = request.data.get("password", "")
+
+    if not all([org_name, username, email, password]):
+        return Response(
+            {"detail": "org_name, username, email, and password are all required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        result = bootstrap_org_admin(
+            org_name=org_name,
+            username=username,
+            email=email,
+            password=password,
+            first_name=request.data.get("first_name", ""),
+            last_name=request.data.get("last_name", ""),
+        )
+    except ValueError as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({
+        "detail": "System initialized successfully. You can now log in.",
+        "organisation": result["organisation"]["name"],
+        "username": result["user"]["username"],
+    }, status=status.HTTP_201_CREATED)

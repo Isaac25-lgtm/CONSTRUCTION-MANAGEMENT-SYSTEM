@@ -15,5 +15,7 @@ urlpatterns = [
     path("me/", views.me_view, name="auth-me"),
     path("organisation/", views.organisation_view, name="auth-organisation"),
     path("user-picker/", views.user_picker_view, name="auth-user-picker"),
+    path("setup/status/", views.setup_status_view, name="setup-status"),
+    path("setup/bootstrap/", views.setup_bootstrap_view, name="setup-bootstrap"),
     path("", include(router.urls)),
 ]

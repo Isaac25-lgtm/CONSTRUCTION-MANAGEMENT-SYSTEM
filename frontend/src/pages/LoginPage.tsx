@@ -1,20 +1,36 @@
 /**
  * LoginPage -- session-based login form.
  *
- * Uses the useAuth hook's login() which calls POST /api/v1/auth/login/
- * and sets session data in TanStack Query cache.
+ * On mount, checks /api/v1/auth/setup/status/ to detect if the system
+ * needs first-time setup. If uninitialized, redirects to /setup.
  */
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { api } from '../api/client'
 
 export function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checkingSetup, setCheckingSetup] = useState(true)
   const navigate = useNavigate()
   const { login } = useAuth()
+
+  // Check if system needs first-time setup
+  useEffect(() => {
+    api.get('/auth/setup/status/')
+      .then(({ data }) => {
+        if (!data.initialized) {
+          navigate('/setup', { replace: true })
+        }
+      })
+      .catch(() => {
+        // If endpoint fails, proceed to normal login
+      })
+      .finally(() => setCheckingSetup(false))
+  }, [navigate])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -30,6 +46,14 @@ export function LoginPage() {
     }
   }
 
+  if (checkingSetup) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ background: '#0b1120' }}>
+        <div className="text-bp-muted text-sm">Checking system status...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center" style={{ background: '#0b1120' }}>
       <form
@@ -38,7 +62,7 @@ export function LoginPage() {
         style={{ background: '#111827' }}
       >
         <div className="mb-6 text-center">
-          <span className="text-3xl">🏗️</span>
+          <span className="text-3xl">&#127959;&#65039;</span>
           <h1 className="mt-2 text-xl font-extrabold text-bp-accent">BuildPro</h1>
           <p className="mt-1 text-xs text-bp-muted">
             Construction Project Management

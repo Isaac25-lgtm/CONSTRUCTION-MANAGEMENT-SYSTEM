@@ -3,6 +3,7 @@ import { RequireAuth } from './components/shared/RequireAuth'
 import { AppShell } from './components/layout/AppShell'
 import { ProjectWorkspace } from './components/layout/ProjectWorkspace'
 import { LoginPage } from './pages/LoginPage'
+import { SetupPage } from './pages/SetupPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { ProjectsPage } from './pages/projects/ProjectsPage'
 import { NotificationsPage } from './pages/notifications/NotificationsPage'
@@ -40,6 +41,7 @@ export default function App() {
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/setup" element={<SetupPage />} />
 
       {/* Protected routes */}
       <Route element={<RequireAuth />}>
