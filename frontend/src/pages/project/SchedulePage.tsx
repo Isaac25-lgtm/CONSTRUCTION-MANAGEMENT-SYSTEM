@@ -308,13 +308,13 @@ export function SchedulePage() {
                     </span>
                   </td>
 
-                  {/* Start date */}
+                  {/* Start date — onChange triggers immediately like prototype */}
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <input
                         type="date"
                         defaultValue={startVal}
-                        onBlur={e => onStartDateChange(t, e.target.value)}
+                        onChange={e => onStartDateChange(t, e.target.value)}
                         style={{ ...sIL, width: 112, fontSize: 10 }}
                       />
                     ) : (
@@ -322,13 +322,13 @@ export function SchedulePage() {
                     )}
                   </td>
 
-                  {/* End date */}
+                  {/* End date — onChange triggers immediately like prototype */}
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <input
                         type="date"
                         defaultValue={endVal}
-                        onBlur={e => onEndDateChange(t, e.target.value)}
+                        onChange={e => onEndDateChange(t, e.target.value)}
                         style={{ ...sIL, width: 112, fontSize: 10 }}
                       />
                     ) : (
@@ -336,7 +336,7 @@ export function SchedulePage() {
                     )}
                   </td>
 
-                  {/* Duration */}
+                  {/* Duration — changing dur also updates EF */}
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <input
@@ -344,7 +344,13 @@ export function SchedulePage() {
                         defaultValue={t.duration_days}
                         onBlur={e => {
                           const v = parseInt(e.target.value) || 0
-                          if (v !== t.duration_days) onUpdate(t, 'duration_days', v)
+                          if (v !== t.duration_days) {
+                            updateTask.mutate({
+                              taskId: t.id,
+                              data: { duration_days: v, early_finish: t.early_start + v },
+                            })
+                            setManualOverride(true)
+                          }
                         }}
                         style={{ ...sIL, width: 48 }}
                       />
