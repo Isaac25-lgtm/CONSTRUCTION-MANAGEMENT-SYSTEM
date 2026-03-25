@@ -5,6 +5,7 @@ import {
   Modal, LoadingState, EmptyState, Tabs,
 } from '../../components/ui'
 import { useBudgetLines, useExpenses, useCostSummary, useCreateBudgetLine, useCreateExpense, useDeleteBudgetLine, useDeleteExpense, useUpdateBudgetLine, useUpdateExpense, type BudgetLineData, type ExpenseData } from '../../hooks/useCost'
+import { useTasks } from '../../hooks/useSchedule'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
 import { useUIStore } from '../../stores/uiStore'
 import { formatUGX } from '../../lib/formatters'
@@ -22,6 +23,7 @@ export function CostBudgetPage() {
   const { data: summary, isLoading: loadingSummary } = useCostSummary(projectId)
   const { data: lines, isLoading: loadingLines } = useBudgetLines(projectId)
   const { data: expenses, isLoading: loadingExpenses } = useExpenses(projectId)
+  const { data: tasks } = useTasks(projectId)
   const { canEditBudget } = useProjectPermissions(projectId)
   const deleteBL = useDeleteBudgetLine(pid)
   const deleteExp = useDeleteExpense(pid)
@@ -43,6 +45,7 @@ export function CostBudgetPage() {
     { key: 'code', header: 'Code', width: '70px', render: (l: BudgetLineData) => <span className="font-mono text-xs text-bp-accent">{l.code}</span> },
     { key: 'name', header: 'Budget Item', render: (l: BudgetLineData) => <span className="font-medium text-bp-text">{l.name}</span> },
     { key: 'cat', header: 'Category', render: (l: BudgetLineData) => <span className="text-xs text-bp-muted">{l.category_display}</span> },
+    { key: 'task', header: 'Task', render: (l: BudgetLineData) => <span className="font-mono text-xs text-bp-muted">{l.linked_task_code || '-'}</span> },
     { key: 'budget', header: 'Budget', render: (l: BudgetLineData) => <span className="font-mono text-xs text-bp-info">{formatUGX(parseFloat(l.budget_amount))}</span> },
     { key: 'actual', header: 'Actual', render: (l: BudgetLineData) => <span className="font-mono text-xs text-bp-warning">{formatUGX(parseFloat(l.actual_amount))}</span> },
     { key: 'variance', header: 'Variance', render: (l: BudgetLineData) => { const v = parseFloat(l.variance); return <span className={`font-mono text-xs font-semibold ${v >= 0 ? 'text-bp-success' : 'text-bp-danger'}`}>{formatUGX(v)}</span> } },
@@ -107,19 +110,20 @@ export function CostBudgetPage() {
         )
       )}
 
-      {showAddLine && <AddBudgetLineModal projectId={pid} onClose={() => setShowAddLine(false)} />}
+      {showAddLine && <AddBudgetLineModal projectId={pid} tasks={tasks || []} onClose={() => setShowAddLine(false)} />}
       {showAddExpense && <AddExpenseModal projectId={pid} budgetLines={lines || []} onClose={() => setShowAddExpense(false)} />}
-      {editLine && <EditBudgetLineModal projectId={pid} line={editLine} onClose={() => setEditLine(null)} />}
+      {editLine && <EditBudgetLineModal projectId={pid} line={editLine} tasks={tasks || []} onClose={() => setEditLine(null)} />}
       {editExpense && <EditExpenseModal projectId={pid} expense={editExpense} budgetLines={lines || []} onClose={() => setEditExpense(null)} />}
     </div>
   )
 }
 
-function AddBudgetLineModal({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+function AddBudgetLineModal({ projectId, tasks, onClose }: { projectId: string; tasks: Array<{ id: string; code: string; name: string }>; onClose: () => void }) {
   const [code, setCode] = useState('')
   const [name, setName] = useState('')
   const [category, setCategory] = useState('other')
   const [amount, setAmount] = useState('')
+  const [linkedTask, setLinkedTask] = useState('')
   const create = useCreateBudgetLine(projectId)
   const { showToast } = useUIStore()
 
@@ -150,9 +154,16 @@ function AddBudgetLineModal({ projectId, onClose }: { projectId: string; onClose
             <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
           </div>
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">Linked Task</label>
+          <select value={linkedTask} onChange={(e) => setLinkedTask(e.target.value)}>
+            <option value="">-- None --</option>
+            {tasks.map(task => <option key={task.id} value={task.id}>{task.code} - {task.name}</option>)}
+          </select>
+        </div>
         <ActionButton variant="green" className="!w-full !mt-1" onClick={async () => {
           if (!code || !name) { showToast('Code and name required', 'warning'); return }
-          await create.mutateAsync({ code, name, category, budget_amount: parseFloat(amount) || 0 })
+          await create.mutateAsync({ code, name, category, budget_amount: parseFloat(amount) || 0, linked_task: linkedTask || undefined })
           showToast('Budget line added', 'success'); onClose()
         }} disabled={create.isPending}>{create.isPending ? 'Adding...' : 'Add Budget Line'}</ActionButton>
       </div>
@@ -209,11 +220,12 @@ function AddExpenseModal({ projectId, budgetLines, onClose }: { projectId: strin
   )
 }
 
-function EditBudgetLineModal({ projectId, line, onClose }: { projectId: string; line: BudgetLineData; onClose: () => void }) {
+function EditBudgetLineModal({ projectId, line, tasks, onClose }: { projectId: string; line: BudgetLineData; tasks: Array<{ id: string; code: string; name: string }>; onClose: () => void }) {
   const [name, setName] = useState(line.name)
   const [amount, setAmount] = useState(line.budget_amount)
   const [category, setCategory] = useState(line.category)
   const [status, setStatus] = useState(line.status)
+  const [linkedTask, setLinkedTask] = useState(line.linked_task || '')
   const update = useUpdateBudgetLine(projectId)
   const { showToast } = useUIStore()
 
@@ -246,8 +258,15 @@ function EditBudgetLineModal({ projectId, line, onClose }: { projectId: string; 
             <option value="revised">Revised</option>
           </select>
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">Linked Task</label>
+          <select value={linkedTask} onChange={(e) => setLinkedTask(e.target.value)}>
+            <option value="">-- None --</option>
+            {tasks.map(task => <option key={task.id} value={task.id}>{task.code} - {task.name}</option>)}
+          </select>
+        </div>
         <ActionButton variant="accent" className="!w-full !mt-1" onClick={async () => {
-          await update.mutateAsync({ id: line.id, data: { name, budget_amount: amount, category, status } })
+          await update.mutateAsync({ id: line.id, data: { name, budget_amount: amount, category, status, linked_task: linkedTask || null } })
           showToast('Budget line updated', 'success'); onClose()
         }} disabled={update.isPending}>{update.isPending ? 'Saving...' : 'Save Changes'}</ActionButton>
       </div>

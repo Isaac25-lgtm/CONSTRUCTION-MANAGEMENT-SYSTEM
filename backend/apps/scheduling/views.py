@@ -1,4 +1,7 @@
 """Scheduling views -- task CRUD, dependencies, milestones, baselines, CPM."""
+from decimal import Decimal, ROUND_HALF_UP
+from datetime import timedelta
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -32,6 +35,136 @@ def _can_edit_schedule(request, project):
     return request.user.has_project_perm(project, "schedule.edit")
 
 
+def _derive_linked_target_date(project, task):
+    if not task or not project.start_date:
+        return None
+    if task.duration_days == 0 and task.early_start == 0 and task.early_finish == 0:
+        return None
+    return project.start_date + timedelta(days=task.early_finish)
+
+
+def _sync_linked_milestones(project, tasks, user=None):
+    task_map = {task.id: task for task in tasks}
+    if not task_map:
+        return
+
+    milestones = list(
+        Milestone.objects.filter(project=project, linked_task_id__in=task_map.keys())
+    )
+    if not milestones:
+        return
+
+    for milestone in milestones:
+        linked_task = task_map.get(milestone.linked_task_id)
+        milestone.target_date = _derive_linked_target_date(project, linked_task)
+        if user is not None:
+            milestone.updated_by = user
+
+    fields = ["target_date"]
+    if user is not None:
+        fields.append("updated_by")
+    Milestone.objects.bulk_update(milestones, fields)
+
+
+def _quantize_money(value):
+    return Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _sync_linked_budget_lines(task, updated_fields, user=None):
+    from apps.cost.models import BudgetLine
+
+    lines = list(
+        BudgetLine.objects.filter(project=task.project, linked_task=task)
+        .order_by("sort_order", "code")
+    )
+    if not lines:
+        code_matches = list(
+            BudgetLine.objects.filter(
+                project=task.project,
+                linked_task__isnull=True,
+                code=task.code,
+            ).order_by("sort_order", "code")
+        )
+        if len(code_matches) == 1:
+            lines = code_matches
+
+    if not lines and "budget" in updated_fields and Decimal(task.budget) > 0:
+        project_has_cost_structure = BudgetLine.objects.filter(project=task.project).exists()
+        if not project_has_cost_structure:
+            BudgetLine.objects.create(
+                project=task.project,
+                linked_task=task,
+                code=task.code,
+                name=task.name,
+                description=task.description,
+                category="other",
+                budget_amount=task.budget,
+                status="draft",
+                sort_order=task.sort_order,
+                created_by=user,
+                updated_by=user,
+            )
+        return
+
+    if not lines:
+        return
+
+    if len(lines) == 1:
+        line = lines[0]
+        line.linked_task = task
+        update_fields = {"linked_task"}
+        if "code" in updated_fields:
+            line.code = task.code
+            update_fields.add("code")
+        if "name" in updated_fields:
+            line.name = task.name
+            update_fields.add("name")
+        if "description" in updated_fields:
+            line.description = task.description
+            update_fields.add("description")
+        if "budget" in updated_fields:
+            line.budget_amount = task.budget
+            update_fields.add("budget_amount")
+        if "sort_order" in updated_fields:
+            line.sort_order = task.sort_order
+            update_fields.add("sort_order")
+        if user is not None:
+            line.updated_by = user
+            update_fields.add("updated_by")
+        line.save(update_fields=list(update_fields))
+        return
+
+    bulk_fields = set()
+    for line in lines:
+        if line.linked_task_id != task.id:
+            line.linked_task = task
+            bulk_fields.add("linked_task")
+        if user is not None:
+            line.updated_by = user
+            bulk_fields.add("updated_by")
+
+    if "budget" in updated_fields:
+        total_existing = sum((line.budget_amount for line in lines), Decimal("0"))
+        target_total = _quantize_money(task.budget)
+        remaining = target_total
+        for index, line in enumerate(lines):
+            if index == len(lines) - 1:
+                new_amount = remaining
+            elif total_existing > 0:
+                ratio = line.budget_amount / total_existing
+                new_amount = _quantize_money(target_total * ratio)
+                remaining -= new_amount
+            else:
+                divisor = Decimal(len(lines))
+                new_amount = _quantize_money(target_total / divisor)
+                remaining -= new_amount
+            line.budget_amount = new_amount
+        bulk_fields.add("budget_amount")
+
+    if bulk_fields:
+        BudgetLine.objects.bulk_update(lines, list(bulk_fields))
+
+
 # ---------------------------------------------------------------------------
 # Tasks
 # ---------------------------------------------------------------------------
@@ -57,6 +190,11 @@ def task_list(request, project_id):
     )
     serializer.is_valid(raise_exception=True)
     serializer.save(project=project, created_by=request.user)
+    _sync_linked_budget_lines(
+        serializer.instance,
+        {"code", "name", "description", "budget", "sort_order"},
+        request.user,
+    )
     return Response(
         TaskSerializer(serializer.instance).data,
         status=status.HTTP_201_CREATED,
@@ -97,9 +235,10 @@ def task_detail(request, project_id, task_id):
 
     # Keep row-level CPM-derived fields coherent during manual overrides.
     t = serializer.instance
+    updated_fields = set(request.data.keys())
     update_fields = []
     if any(
-        field in request.data
+        field in updated_fields
         for field in [
             "duration_days",
             "early_start",
@@ -125,6 +264,21 @@ def task_detail(request, project_id, task_id):
 
     if update_fields:
         t.save(update_fields=list(dict.fromkeys(update_fields)))
+
+    _sync_linked_budget_lines(t, updated_fields, request.user)
+    if any(
+        field in updated_fields
+        for field in [
+            "duration_days",
+            "planned_start",
+            "planned_end",
+            "early_start",
+            "early_finish",
+            "late_start",
+            "late_finish",
+        ]
+    ):
+        _sync_linked_milestones(project, [t], request.user)
 
     return Response(TaskSerializer(t).data)
 
@@ -215,6 +369,11 @@ def recalculate_cpm(request, project_id):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
     result = run_cpm(project_id)
+    _sync_linked_milestones(
+        project,
+        list(ProjectTask.objects.filter(project=project)),
+        request.user,
+    )
     return Response({
         "duration": result.duration,
         "critical_path": result.critical_path,
@@ -261,6 +420,7 @@ def clear_schedule(request, project_id):
                 "updated_by",
             ],
         )
+        _sync_linked_milestones(project, tasks, request.user)
 
     return Response({"tasks_cleared": len(tasks)})
 

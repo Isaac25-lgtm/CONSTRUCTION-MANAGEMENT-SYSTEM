@@ -1,4 +1,6 @@
 """Scheduling serializers."""
+from datetime import timedelta
+
 from rest_framework import serializers
 
 from apps.core.serializers import ProjectScopedValidationMixin
@@ -204,6 +206,13 @@ class MilestoneSerializer(ProjectScopedValidationMixin, serializers.ModelSeriali
     def validate(self, attrs):
         attrs = super().validate(attrs)
         self._validate_same_project(attrs, "linked_task", label="linked task")
+        linked_task = attrs.get("linked_task", getattr(self.instance, "linked_task", None))
+        project = self._current_project(attrs)
+        if "target_date" not in attrs and linked_task and project and project.start_date:
+            if linked_task.duration_days == 0 and linked_task.early_start == 0 and linked_task.early_finish == 0:
+                attrs["target_date"] = None
+            else:
+                attrs["target_date"] = project.start_date + timedelta(days=linked_task.early_finish)
         return attrs
 
 

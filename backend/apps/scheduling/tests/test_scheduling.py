@@ -1,10 +1,13 @@
 """Tests for scheduling: CPM engine, tasks, milestones, baselines."""
 import json
+from datetime import date
+from datetime import timedelta
 
 from django.test import TestCase
 from django.urls import reverse
 
 from apps.accounts.models import User, Organisation, SystemRole, DEFAULT_PROJECT_ROLE_PERMISSIONS
+from apps.cost.models import BudgetLine
 from apps.projects.models import Project, ProjectMembership
 from apps.scheduling.models import ProjectTask, TaskDependency, Milestone, ScheduleBaseline
 from apps.scheduling.engine import run_cpm, create_baseline, seed_tasks_from_setup
@@ -202,6 +205,7 @@ class TaskAPITests(TestCase):
             project_type="residential",
             contract_type="lump_sum",
             organisation=self.org,
+            start_date="2026-01-01",
         )
         ProjectMembership.objects.create(
             project=self.project,
@@ -302,6 +306,103 @@ class TaskAPITests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("predecessors", response.json())
 
+    def test_task_patch_syncs_linked_milestones_and_budget_lines(self):
+        milestone = Milestone.objects.create(
+            project=self.project,
+            name="Task A Complete",
+            linked_task=self.task,
+            target_date="2026-01-06",
+            created_by=self.user,
+        )
+        budget_line = BudgetLine.objects.create(
+            project=self.project,
+            linked_task=self.task,
+            code="A",
+            name="Task A Budget",
+            description="Original line",
+            budget_amount="100.00",
+            created_by=self.user,
+        )
+
+        response = self.client.patch(
+            f"/api/v1/scheduling/{self.project.id}/tasks/{self.task.id}/",
+            data=json.dumps(
+                {
+                    "code": "A1",
+                    "name": "Task A Updated",
+                    "description": "Updated description",
+                    "budget": "250.00",
+                    "early_finish": 9,
+                    "late_finish": 9,
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        milestone.refresh_from_db()
+        budget_line.refresh_from_db()
+        self.assertEqual(str(milestone.target_date), "2026-01-10")
+        self.assertEqual(budget_line.code, "A1")
+        self.assertEqual(budget_line.name, "Task A Updated")
+        self.assertEqual(budget_line.description, "Updated description")
+        self.assertEqual(str(budget_line.budget_amount), "250.00")
+
+    def test_task_create_with_budget_bootstraps_budget_line_when_project_has_none(self):
+        response = self.client.post(
+            f"/api/v1/scheduling/{self.project.id}/tasks/",
+            data=json.dumps(
+                {
+                    "code": "B",
+                    "name": "Task B",
+                    "duration_days": 3,
+                    "budget": "300.00",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        task = ProjectTask.objects.get(project=self.project, code="B")
+        line = BudgetLine.objects.get(project=self.project, linked_task=task)
+        self.assertEqual(line.code, "B")
+        self.assertEqual(line.name, "Task B")
+        self.assertEqual(str(line.budget_amount), "300.00")
+
+    def test_milestone_create_with_linked_task_derives_target_date(self):
+        response = self.client.post(
+            f"/api/v1/scheduling/{self.project.id}/milestones/",
+            data=json.dumps(
+                {
+                    "name": "Derived milestone",
+                    "linked_task": str(self.task.id),
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["target_date"], "2026-01-06")
+
+    def test_recalculate_syncs_linked_milestone_target_dates(self):
+        self.task.duration_days = 6
+        self.task.save(update_fields=["duration_days"])
+        milestone = Milestone.objects.create(
+            project=self.project,
+            name="Task A Complete",
+            linked_task=self.task,
+            target_date=None,
+            created_by=self.user,
+        )
+
+        response = self.client.post(f"/api/v1/scheduling/{self.project.id}/recalculate/")
+        self.assertEqual(response.status_code, 200)
+
+        milestone.refresh_from_db()
+        self.task.refresh_from_db()
+        self.assertEqual(
+            str(milestone.target_date),
+            str(date.fromisoformat(str(self.project.start_date)) + timedelta(days=self.task.early_finish))
+        )
+
     def test_clear_schedule_resets_manual_fields(self):
         self.task.duration_days = 12
         self.task.planned_start = "2026-01-02"
@@ -328,6 +429,21 @@ class TaskAPITests(TestCase):
         self.assertEqual(self.task.late_finish, 0)
         self.assertEqual(self.task.total_float, 0)
         self.assertFalse(self.task.is_critical)
+
+    def test_clear_schedule_clears_linked_milestone_target_dates(self):
+        milestone = Milestone.objects.create(
+            project=self.project,
+            name="Task A Complete",
+            linked_task=self.task,
+            target_date="2026-01-06",
+            created_by=self.user,
+        )
+
+        response = self.client.post(f"/api/v1/scheduling/{self.project.id}/clear/")
+        self.assertEqual(response.status_code, 200)
+
+        milestone.refresh_from_db()
+        self.assertIsNone(milestone.target_date)
 
 
 class MilestoneQualityTests(TestCase):

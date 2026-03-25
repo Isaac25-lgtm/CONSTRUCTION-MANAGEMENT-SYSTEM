@@ -9,7 +9,7 @@ export interface BudgetLineData {
   category: string; category_display: string
   budget_amount: string; actual_amount: string; variance: string
   status: string; status_display: string; sort_order: number
-  linked_task: string | null
+  linked_task: string | null; linked_task_code: string | null
 }
 
 export interface ExpenseData {
@@ -18,6 +18,7 @@ export interface ExpenseData {
   category: string; category_display: string
   status: string; status_display: string; notes: string
   budget_line: string | null; budget_line_name: string | null
+  linked_task: string | null; linked_task_code: string | null
 }
 
 export interface CostSummary {
@@ -47,7 +48,7 @@ export function useBudgetLines(projectId: string | undefined) {
 
 export function useCreateBudgetLine(projectId: string) {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: async (d: { code: string; name: string; category: string; budget_amount: number }) => { const { data } = await api.post(`/cost/${projectId}/budget-lines/`, d); return data }, onSuccess: () => qc.invalidateQueries({ queryKey: ['cost', projectId] }) })
+  return useMutation({ mutationFn: async (d: { code: string; name: string; category: string; budget_amount: number; linked_task?: string }) => { const { data } = await api.post(`/cost/${projectId}/budget-lines/`, d); return data }, onSuccess: () => qc.invalidateQueries({ queryKey: ['cost', projectId] }) })
 }
 
 export function useExpenses(projectId: string | undefined) {

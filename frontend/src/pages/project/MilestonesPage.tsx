@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom'
 import { useState } from 'react'
 import { PageHeader, DataTable, StatusBadge, LoadingState, EmptyState, ActionButton, Modal, SectionCard } from '../../components/ui'
-import { useMilestones, useCreateMilestone, useUpdateMilestone, useDeleteMilestone, useBaselines, useCreateBaseline, type MilestoneData, type BaselineData } from '../../hooks/useSchedule'
+import { useMilestones, useCreateMilestone, useUpdateMilestone, useDeleteMilestone, useBaselines, useCreateBaseline, useTasks, type MilestoneData, type BaselineData } from '../../hooks/useSchedule'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
 import { useUIStore } from '../../stores/uiStore'
 
@@ -14,6 +14,7 @@ export function MilestonesPage() {
   const pid = projectId!
   const { data: milestones, isLoading } = useMilestones(projectId)
   const { data: baselines } = useBaselines(projectId)
+  const { data: tasks } = useTasks(projectId)
   const { canEditSchedule } = useProjectPermissions(projectId)
   const [showAdd, setShowAdd] = useState(false)
   const createBaseline = useCreateBaseline(pid)
@@ -106,14 +107,15 @@ export function MilestonesPage() {
       )}
 
       {/* Add milestone modal */}
-      {showAdd && <AddMilestoneModal projectId={pid} onClose={() => setShowAdd(false)} />}
+      {showAdd && <AddMilestoneModal projectId={pid} tasks={tasks || []} onClose={() => setShowAdd(false)} />}
     </div>
   )
 }
 
-function AddMilestoneModal({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+function AddMilestoneModal({ projectId, tasks, onClose }: { projectId: string; tasks: Array<{ id: string; code: string; name: string }>; onClose: () => void }) {
   const [name, setName] = useState('')
   const [targetDate, setTargetDate] = useState('')
+  const [linkedTask, setLinkedTask] = useState('')
   const createMs = useCreateMilestone(projectId)
   const { showToast } = useUIStore()
 
@@ -128,11 +130,18 @@ function AddMilestoneModal({ projectId, onClose }: { projectId: string; onClose:
           <label className="mb-1 block text-xs font-semibold text-bp-muted">Target Date</label>
           <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">Linked Task</label>
+          <select value={linkedTask} onChange={(e) => setLinkedTask(e.target.value)}>
+            <option value="">-- None --</option>
+            {tasks.map(task => <option key={task.id} value={task.id}>{task.code} - {task.name}</option>)}
+          </select>
+        </div>
         <ActionButton
           variant="green" className="!w-full !mt-1"
           onClick={async () => {
             if (!name.trim()) { showToast('Name required', 'warning'); return }
-            await createMs.mutateAsync({ name, target_date: targetDate || undefined })
+            await createMs.mutateAsync({ name, target_date: targetDate || undefined, linked_task: linkedTask || undefined })
             showToast('Milestone added', 'success')
             onClose()
           }}

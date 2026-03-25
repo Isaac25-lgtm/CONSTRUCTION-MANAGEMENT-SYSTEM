@@ -10,18 +10,19 @@ class BudgetLineSerializer(ProjectScopedValidationMixin, serializers.ModelSerial
     variance = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
     category_display = serializers.CharField(source="get_category_display", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
+    linked_task_code = serializers.CharField(source="linked_task.code", read_only=True, default=None)
 
     class Meta:
         model = BudgetLine
         fields = [
-            "id", "project", "linked_task", "code", "name", "description",
+            "id", "project", "linked_task", "linked_task_code", "code", "name", "description",
             "category", "category_display", "budget_amount",
             "actual_amount", "variance",
             "status", "status_display", "sort_order",
             "created_at", "updated_at",
         ]
         read_only_fields = [
-            "id", "actual_amount", "variance", "category_display",
+            "id", "linked_task_code", "actual_amount", "variance", "category_display",
             "status_display", "created_at", "updated_at",
         ]
 
@@ -49,17 +50,18 @@ class ExpenseSerializer(ProjectScopedValidationMixin, serializers.ModelSerialize
     category_display = serializers.CharField(source="get_category_display", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     budget_line_name = serializers.CharField(source="budget_line.name", read_only=True, default=None)
+    linked_task_code = serializers.CharField(source="linked_task.code", read_only=True, default=None)
 
     class Meta:
         model = Expense
         fields = [
-            "id", "project", "budget_line", "budget_line_name", "linked_task",
+            "id", "project", "budget_line", "budget_line_name", "linked_task", "linked_task_code",
             "description", "amount", "expense_date", "vendor", "reference",
             "category", "category_display", "status", "status_display", "notes",
             "created_at", "updated_at",
         ]
         read_only_fields = [
-            "id", "category_display", "status_display", "budget_line_name",
+            "id", "linked_task_code", "category_display", "status_display", "budget_line_name",
             "created_at", "updated_at",
         ]
 
