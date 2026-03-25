@@ -1,5 +1,6 @@
 import { Outlet, useParams } from 'react-router-dom'
 import { SectionCard, MetricCard, LoadingState, StatusBadge } from '../ui'
+import { FloatingProjectCopilot } from '../ai/FloatingProjectCopilot'
 import { useProject } from '../../hooks/useProjects'
 import { formatUGX } from '../../lib/formatters'
 import { PROJECT_STATUSES } from '../../types'
@@ -119,6 +120,8 @@ export function ProjectWorkspace() {
 
       {/* Active module view */}
       <Outlet />
+
+      {projectId && <FloatingProjectCopilot projectId={projectId} />}
     </div>
   )
 }

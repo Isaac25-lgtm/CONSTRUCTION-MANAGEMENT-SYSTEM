@@ -55,26 +55,41 @@ class ProjectListSerializer(serializers.ModelSerializer):
                             "can_edit", "can_archive"]
 
     def get_member_count(self, project):
-        return project.memberships.count()
+        return getattr(project, "member_count_value", project.memberships.count())
 
     def _get_user(self):
         request = self.context.get("request")
         return request.user if request else None
 
+    def _get_membership(self, project):
+        user = self._get_user()
+        if not user or user.is_admin:
+            return None
+        prefetched = getattr(project, "current_user_memberships", None)
+        if prefetched is not None:
+            return prefetched[0] if prefetched else None
+        return project.memberships.filter(user=user).only("role", "permissions").first()
+
     def get_can_edit(self, project):
         user = self._get_user()
         if not user:
             return False
-        return user.has_project_perm(project, "project.edit")
+        if user.is_admin:
+            return True
+        membership = self._get_membership(project)
+        return bool(membership and "project.edit" in membership.permissions)
 
     def get_can_archive(self, project):
         user = self._get_user()
         if not user:
             return False
+        if user.is_admin:
+            return project.status != "cancelled"
+        membership = self._get_membership(project)
         # Archive requires edit permission and project is not already cancelled
         return (
             project.status != "cancelled"
-            and user.has_project_perm(project, "project.edit")
+            and bool(membership and "project.edit" in membership.permissions)
         )
 
 
@@ -122,10 +137,8 @@ class ProjectDetailSerializer(ProjectListSerializer):
         user = request.user
         if user.is_admin:
             return "admin"
-        try:
-            return project.memberships.get(user=user).role
-        except ProjectMembership.DoesNotExist:
-            return None
+        membership = self._get_membership(project)
+        return membership.role if membership else None
 
     def get_user_permissions(self, project):
         request = self.context.get("request")
@@ -134,16 +147,14 @@ class ProjectDetailSerializer(ProjectListSerializer):
         user = request.user
         if user.is_admin:
             return ["admin.full_access"]
-        try:
-            return project.memberships.get(user=user).permissions
-        except ProjectMembership.DoesNotExist:
-            return []
+        membership = self._get_membership(project)
+        return membership.permissions if membership else []
 
     def get_setup_config(self, project):
-        try:
-            return SetupConfigSerializer(project.setup_config).data
-        except ProjectSetupConfig.DoesNotExist:
+        setup_config = getattr(project, "setup_config", None)
+        if not setup_config:
             return None
+        return SetupConfigSerializer(setup_config).data
 
 
 class ProjectCreateSerializer(serializers.ModelSerializer):

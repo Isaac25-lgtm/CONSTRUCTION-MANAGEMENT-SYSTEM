@@ -58,6 +58,8 @@ services:
         sync: false
       - key: TEST_ADMIN_LAST_NAME
         sync: false
+      - key: SEED_DEMO_PROJECTS
+        sync: false
       - key: CELERY_BROKER_URL
         fromService:
           name: buildpro-kv

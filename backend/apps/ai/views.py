@@ -96,6 +96,26 @@ def generate_narrative(request, project_id):
         return _safe_error_response(e)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def project_intelligence(request, project_id):
+    """Return a fast, structured project intelligence snapshot for the AI workspace."""
+    project = _get_project_or_404(request, project_id)
+    if not project:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+    if not _can_use_ai(request, project):
+        return Response({"detail": "AI access requires ai.use permission."}, status=status.HTTP_403_FORBIDDEN)
+
+    user_perms = _get_user_module_perms(request.user, project)
+    try:
+        from .services.intelligence import build_project_intelligence
+
+        data = build_project_intelligence(project, user_perms=user_perms)
+        return Response(data)
+    except Exception as e:
+        return _safe_error_response(e, fallback_msg="Could not build the AI workspace snapshot.")
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def generate_report_draft(request, project_id):

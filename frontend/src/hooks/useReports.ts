@@ -3,6 +3,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
+import { triggerDownload } from '../lib/download'
 
 export interface AvailableReport {
   key: string
@@ -28,25 +29,25 @@ export interface ExportHistoryItem {
   created_at: string
 }
 
-export function useAvailableReports(projectId: string | undefined) {
+export function useAvailableReports(projectId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ['reports', projectId, 'available'],
     queryFn: async () => {
       const { data } = await api.get<AvailableReport[]>(`/reports/${projectId}/available/`)
       return data
     },
-    enabled: !!projectId,
+    enabled: !!projectId && enabled,
   })
 }
 
-export function useExportHistory(projectId: string | undefined) {
+export function useExportHistory(projectId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ['reports', projectId, 'history'],
     queryFn: async () => {
       const { data } = await api.get<ExportHistoryItem[]>(`/reports/${projectId}/history/`)
       return data
     },
-    enabled: !!projectId,
+    enabled: !!projectId && enabled,
   })
 }
 
@@ -55,17 +56,6 @@ function parseFilename(response: { headers: any }, fallback: string): string {
   const disposition = response.headers['content-disposition'] || ''
   const match = disposition.match(/filename="?([^";\n]+)"?/)
   return match ? match[1] : fallback
-}
-
-function triggerDownload(blob: Blob, filename: string) {
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
 }
 
 export function useGenerateExport(projectId: string) {

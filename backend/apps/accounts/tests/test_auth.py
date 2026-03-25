@@ -9,6 +9,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.accounts.models import User, Organisation, SystemRole
+from apps.documents.models import Document
+from apps.projects.models import Project
+from apps.scheduling.models import ProjectTask
 from apps.accounts.throttles import LoginRateThrottle, SetupBootstrapRateThrottle
 
 
@@ -223,6 +226,45 @@ class BootstrapOrgAdminTests(TestCase):
                 (("seed_env_admin",), {}),
             ],
         )
+
+    @patch.dict(os.environ, {"SEED_DEMO_PROJECTS": "true"}, clear=False)
+    @patch("apps.accounts.management.commands.prepare_render_deploy.call_command")
+    def test_prepare_render_deploy_can_seed_demo_projects(self, mocked_call_command):
+        call_command("prepare_render_deploy")
+        self.assertEqual(
+            mocked_call_command.call_args_list,
+            [
+                (("migrate",), {"interactive": False}),
+                (("seed_env_admin",), {}),
+                (("seed_demo_projects",), {}),
+            ],
+        )
+
+    def test_seed_demo_projects_creates_five_projects_without_extra_users(self):
+        org = Organisation.objects.create(name="Demo Org")
+        role = SystemRole.objects.create(name="Demo Admin", permissions=["admin.full_access"])
+        admin = User.objects.create_user(
+            username="demo-admin",
+            password="pass12345678",
+            organisation=org,
+            system_role=role,
+            is_staff=True,
+        )
+        User.objects.create_user(
+            username="baseline-user",
+            password="pass12345678",
+            organisation=org,
+        )
+        call_command(
+            "seed_demo_projects",
+            username=admin.username,
+        )
+        self.assertEqual(Project.objects.filter(organisation=org).count(), 5)
+        self.assertEqual(User.objects.filter(organisation=org).count(), 2)
+        completed = Project.objects.filter(organisation=org, status="completed").count()
+        self.assertGreaterEqual(completed, 1)
+        self.assertGreater(ProjectTask.objects.filter(project__organisation=org).count(), 0)
+        self.assertGreater(Document.objects.filter(project__organisation=org).count(), 0)
 
 
 class SetupAPITests(TestCase):

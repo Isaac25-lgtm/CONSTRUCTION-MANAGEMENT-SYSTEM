@@ -111,6 +111,16 @@ class AIPermissionTests(TestCase):
         # Audit log created
         self.assertEqual(AIRequestLog.objects.filter(project=self.project).count(), 1)
 
+    def test_user_with_ai_use_can_load_project_intelligence(self):
+        self.client.force_login(self.ai_user)
+        r = self.client.get(f"/api/v1/ai/{self.project.id}/intelligence/")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("health", data)
+        self.assertIn("recommended_actions", data)
+        self.assertIn("charts", data)
+        self.assertIn("suggested_questions", data)
+
     @patch.dict(os.environ, {"AI_PROVIDER": "stub"})
     def test_user_with_ai_use_can_copilot(self):
         self.client.force_login(self.ai_user)

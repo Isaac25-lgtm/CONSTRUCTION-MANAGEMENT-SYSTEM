@@ -37,6 +37,7 @@ export function useProjectPermissions(projectId: string | undefined) {
     canUploadDocuments: hasProjectPerm('documents.upload'),
     canDeleteDocuments: hasProjectPerm('documents.delete'),
     canUploadDocs: hasProjectPerm('documents.upload'),
+    canViewReports: hasProjectPerm('reports.view'),
     canExportReports: hasProjectPerm('reports.export'),
     canUseAI: hasProjectPerm('ai.use'),
     canViewAIHistory: hasProjectPerm('ai.history'),

@@ -1,4 +1,5 @@
 """Projects views -- access-controlled project CRUD + membership + setup."""
+from django.db.models import Count, Prefetch
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
@@ -51,11 +52,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Project.objects.filter(organisation=user.organisation)
-        if user.is_admin or user.has_system_perm("projects.view_all"):
-            return qs.order_by("-created_at")
-        accessible_ids = user.get_accessible_project_ids()
-        return qs.filter(id__in=accessible_ids).order_by("-created_at")
+        qs = (
+            Project.objects.filter(organisation=user.organisation)
+            .select_related("setup_config")
+            .annotate(member_count_value=Count("memberships", distinct=True))
+            .prefetch_related(
+                Prefetch(
+                    "memberships",
+                    queryset=ProjectMembership.objects.filter(user=user),
+                    to_attr="current_user_memberships",
+                )
+            )
+        )
+        if not (user.is_admin or user.has_system_perm("projects.view_all")):
+            accessible_ids = user.get_accessible_project_ids()
+            qs = qs.filter(id__in=accessible_ids)
+        return qs.order_by("-created_at")
 
     def get_permissions(self):
         if self.action == "create":
