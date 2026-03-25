@@ -28,7 +28,7 @@ services:
         - frontend/**
         - Dockerfile.render
     # preDeployCommand runs from image filesystem, not repo root
-    preDeployCommand: "python /app/backend/manage.py migrate --noinput && python /app/backend/manage.py seed_env_admin"
+    preDeployCommand: "python /app/backend/manage.py prepare_render_deploy"
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: buildpro.settings.production

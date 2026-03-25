@@ -213,6 +213,17 @@ class BootstrapOrgAdminTests(TestCase):
         call_command("seed_env_admin", stdout=out)
         self.assertIn("Skipping env admin seed", out.getvalue())
 
+    @patch("apps.accounts.management.commands.prepare_render_deploy.call_command")
+    def test_prepare_render_deploy_runs_migrate_then_seed(self, mocked_call_command):
+        call_command("prepare_render_deploy")
+        self.assertEqual(
+            mocked_call_command.call_args_list,
+            [
+                (("migrate",), {"interactive": False}),
+                (("seed_env_admin",), {}),
+            ],
+        )
+
 
 class SetupAPITests(TestCase):
     """Test the first-run setup API endpoints."""
