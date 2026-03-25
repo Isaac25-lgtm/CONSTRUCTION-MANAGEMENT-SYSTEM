@@ -17,6 +17,7 @@ export function MilestonesPage() {
   const { data: tasks } = useTasks(projectId)
   const { canEditSchedule } = useProjectPermissions(projectId)
   const [showAdd, setShowAdd] = useState(false)
+  const [editMs, setEditMs] = useState<MilestoneData | null>(null)
   const createBaseline = useCreateBaseline(pid)
   const deleteMilestone = useDeleteMilestone(pid)
   const updateMilestone = useUpdateMilestone(pid)
@@ -29,7 +30,18 @@ export function MilestonesPage() {
   const columns = [
     { key: 'idx', header: '#', width: '40px', render: (_: MilestoneData, i: number) => <span className="text-xs text-bp-muted">{i + 1}</span> },
     { key: 'icon', header: '', width: '30px', render: (m: MilestoneData) => <span>{m.status === 'achieved' ? '✅' : '🏁'}</span> },
-    { key: 'name', header: 'Milestone', render: (m: MilestoneData) => <span className="font-medium text-bp-text">{m.name}</span> },
+    {
+      key: 'name', header: 'Milestone',
+      render: (m: MilestoneData) => (
+        <div
+          className="flex cursor-pointer items-center gap-1.5"
+          onClick={() => canEditSchedule && setEditMs(m)}
+        >
+          <span className="font-medium text-bp-text">{m.name}</span>
+          {canEditSchedule && <span className="text-[10px] text-bp-muted opacity-60">✏</span>}
+        </div>
+      ),
+    },
     { key: 'task', header: 'Linked Task', render: (m: MilestoneData) => <span className="font-mono text-xs text-bp-muted">{m.linked_task_code || '-'}</span> },
     { key: 'target', header: 'Target Date', render: (m: MilestoneData) => <span className="text-xs text-bp-muted">{m.target_date || '-'}</span> },
     { key: 'status', header: 'Status', render: (m: MilestoneData) => {
@@ -50,9 +62,10 @@ export function MilestonesPage() {
       key: 'actions', header: '', width: '40px',
       render: (m: MilestoneData) => (
         <button
-          onClick={() => { if (confirm(`Delete milestone "${m.name}"?`)) deleteMilestone.mutate(m.id) }}
-          className="cursor-pointer border-none bg-transparent text-bp-danger text-sm"
-        >✕</button>
+          onClick={() => setEditMs(m)}
+          className="cursor-pointer border-none bg-transparent text-bp-info text-sm"
+          title="Edit milestone"
+        >✏️</button>
       ),
     }] : []),
   ]
@@ -108,6 +121,21 @@ export function MilestonesPage() {
 
       {/* Add milestone modal */}
       {showAdd && <AddMilestoneModal projectId={pid} tasks={tasks || []} onClose={() => setShowAdd(false)} />}
+
+      {/* Edit milestone modal */}
+      {editMs && (
+        <EditMilestoneModal
+          projectId={pid}
+          milestone={editMs}
+          tasks={tasks || []}
+          onClose={() => setEditMs(null)}
+          onDelete={() => {
+            deleteMilestone.mutate(editMs.id, {
+              onSuccess: () => { setEditMs(null); showToast('Milestone deleted', 'success') },
+            })
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -150,6 +178,97 @@ function AddMilestoneModal({ projectId, tasks, onClose }: { projectId: string; t
           {createMs.isPending ? 'Adding...' : 'Add Milestone'}
         </ActionButton>
       </div>
+    </Modal>
+  )
+}
+
+function EditMilestoneModal({ projectId, milestone, tasks, onClose, onDelete }: {
+  projectId: string
+  milestone: MilestoneData
+  tasks: Array<{ id: string; code: string; name: string }>
+  onClose: () => void
+  onDelete: () => void
+}) {
+  const [name, setName] = useState(milestone.name)
+  const [targetDate, setTargetDate] = useState(milestone.target_date || '')
+  const [linkedTask, setLinkedTask] = useState(milestone.linked_task || '')
+  const [msStatus, setMsStatus] = useState(milestone.status)
+  const [confirmDel, setConfirmDel] = useState(false)
+  const updateMs = useUpdateMilestone(projectId)
+  const { showToast } = useUIStore()
+
+  return (
+    <Modal open={true} onClose={onClose} title="Edit Milestone">
+      <div className="grid gap-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-bp-muted">Name</label>
+            <input value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-bp-muted">Linked Task</label>
+            <select value={linkedTask} onChange={(e) => setLinkedTask(e.target.value)}
+              className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text">
+              <option value="">-- None --</option>
+              {tasks.map(task => <option key={task.id} value={task.id}>{task.code} - {task.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-bp-muted">Target Date</label>
+            <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)}
+              className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-bp-muted">Status</label>
+            <select value={msStatus} onChange={(e) => setMsStatus(e.target.value)}
+              className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text">
+              <option value="pending">Pending</option>
+              <option value="achieved">Achieved</option>
+              <option value="missed">Missed</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <ActionButton
+            variant="green"
+            style={{ flex: 1 }}
+            onClick={async () => {
+              await updateMs.mutateAsync({
+                id: milestone.id,
+                data: {
+                  name,
+                  target_date: targetDate || null,
+                  linked_task: linkedTask || null,
+                  status: msStatus,
+                },
+              })
+              showToast('Milestone updated', 'success')
+              onClose()
+            }}
+            disabled={updateMs.isPending}
+          >
+            {updateMs.isPending ? 'Saving...' : '✓ Save'}
+          </ActionButton>
+          <ActionButton variant="red" style={{ flex: 1 }} onClick={() => setConfirmDel(true)}>
+            ✕ Delete
+          </ActionButton>
+        </div>
+      </div>
+
+      {/* Delete confirmation */}
+      {confirmDel && (
+        <div className="mt-4 rounded-lg border border-red-500/30 bg-red-900/10 p-3">
+          <p className="mb-2 text-sm text-bp-text">Delete <strong>{milestone.name}</strong>?</p>
+          <div className="flex gap-2">
+            <ActionButton variant="red" size="sm" onClick={onDelete}>Yes, Delete</ActionButton>
+            <ActionButton variant="ghost" size="sm" onClick={() => setConfirmDel(false)}>Cancel</ActionButton>
+          </div>
+        </div>
+      )}
     </Modal>
   )
 }
