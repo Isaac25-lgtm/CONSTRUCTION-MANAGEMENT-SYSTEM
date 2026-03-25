@@ -13,6 +13,7 @@ It is the server-side authority -- the frontend never computes CPM values.
 from collections import defaultdict, deque
 from typing import NamedTuple
 
+from django.db.models import F
 
 from .models import ProjectTask, TaskDependency
 
@@ -33,7 +34,16 @@ def build_critical_path_codes(tasks) -> list[str]:
     parent-to-parent FS chain but their children may have high slack —
     so parents are excluded from the critical path display.
     """
-    critical_tasks = [t for t in tasks if t.total_float == 0 and not t.is_parent]
+    critical_tasks = [
+        t
+        for t in tasks
+        if (
+            t.total_float == 0
+            and t.duration_days > 0
+            and t.early_finish == t.early_start + t.duration_days
+            and t.late_finish == t.late_start + t.duration_days
+        )
+    ]
     critical_tasks.sort(
         key=lambda t: (t.early_start, t.early_finish, t.sort_order, t.code)
     )
@@ -47,7 +57,11 @@ def get_critical_path_codes(project_id) -> list[str]:
     """
     tasks = list(
         ProjectTask.objects.filter(
-            project_id=project_id, total_float=0, is_parent=False
+            project_id=project_id,
+            total_float=0,
+            duration_days__gt=0,
+            early_finish=F("early_start") + F("duration_days"),
+            late_finish=F("late_start") + F("duration_days"),
         )
         .order_by("early_start", "early_finish", "sort_order", "code")
     )
