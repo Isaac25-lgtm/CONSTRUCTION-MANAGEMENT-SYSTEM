@@ -1,5 +1,3 @@
-import html2canvas from 'html2canvas'
-import { jsPDF } from 'jspdf'
 import { useState, useRef, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { ActionButton, PageHeader, SectionCard, LoadingState, Modal } from '../../components/ui'
@@ -51,24 +49,6 @@ function fmtDate(d: Date): string {
   return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number) {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob)
-      else reject(new Error('Could not create export file'))
-    }, type, quality)
-  })
-}
-
 interface GanttTask {
   id: string; code: string; name: string; phase: string
   start: number; end: number; duration: number; progress: number; status: string
@@ -95,7 +75,7 @@ export function GanttPage() {
 
   const [scale, setScale] = useState<ScaleType>('days')
   const [exportingFormat, setExportingFormat] = useState<string | null>(null)
-  const exportSourceRef = useRef<HTMLDivElement>(null)
+  const chartRef = useRef<HTMLDivElement>(null)
 
   // Task menu state
   const [activeMenu, setActiveMenu] = useState<GanttTask | null>(null)
@@ -189,68 +169,77 @@ export function GanttPage() {
   const scaleIdx = SCALES.indexOf(scale)
 
   /* ---------- Visual Gantt export ---------- */
-  function buildGanttHTML(): string {
+  /* ---------- Gantt Export — pure HTML generation, no canvas/screenshot ---------- */
+
+  function buildGanttHTML(forExcel = false): string {
     const tasks = data!.tasks as GanttTask[]
-    const projName = data!.project_start ? `Project Gantt Chart` : 'Gantt Chart'
     const maxEF = Math.max(...tasks.map(t => t.end), 1)
-    const barAreaW = 500
+    const barAreaW = 520
     const barScale = barAreaW / maxEF
-    const rH = 28
 
     let taskRows = ''
     tasks.forEach((t, i) => {
       const isChild = !!t.parent_code
       const barLeft = Math.round(t.start * barScale)
-      const barW = Math.max(Math.round(t.duration * barScale), 2)
+      const barW = Math.max(Math.round(t.duration * barScale), 3)
       const progW = Math.round(barW * t.progress / 100)
       const color = t.is_critical ? '#ef4444' : t.status === 'completed' ? '#22c55e' : t.status === 'delayed' ? '#f97316' : '#3b82f6'
       const bgRow = i % 2 === 0 ? '#f8fafc' : '#ffffff'
-      const indent = isChild ? 'padding-left:18px;' : 'font-weight:700;'
+      const critBg = t.is_critical ? 'background:#fef2f2;' : ''
+      const nameStyle = isChild ? 'padding-left:20px;font-size:11px;' : 'font-weight:700;font-size:12px;'
       const sd = t.start_date || ''
       const ed = t.end_date || ''
 
-      taskRows += `<tr style="background:${bgRow};height:${rH}px">
-        <td style="font-family:monospace;color:${t.is_critical ? '#ef4444' : '#f59e0b'};font-weight:700;font-size:10px;padding:4px 6px">${t.code}</td>
-        <td style="${indent}font-size:11px;padding:4px 6px;max-width:180px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${t.name}</td>
-        <td style="font-family:monospace;font-size:9px;color:#666;padding:4px">${sd}</td>
-        <td style="font-family:monospace;font-size:9px;color:#666;padding:4px">${ed}</td>
-        <td style="font-size:10px;font-weight:700;text-align:center;color:${t.progress >= 100 ? '#22c55e' : t.progress > 0 ? '#f59e0b' : '#999'};padding:4px">${t.progress}%</td>
-        <td style="font-size:9px;color:#666;padding:4px">${t.assigned || ''}</td>
-        <td style="padding:4px;position:relative;width:${barAreaW}px">
-          <div style="position:relative;height:14px;margin-top:2px">
-            <div style="position:absolute;left:${barLeft}px;top:0;width:${barW}px;height:14px;background:${color};opacity:0.2;border-radius:3px"></div>
-            <div style="position:absolute;left:${barLeft}px;top:0;width:${progW}px;height:14px;background:${color};opacity:0.8;border-radius:3px"></div>
-            <div style="position:absolute;left:${barLeft}px;top:0;width:${barW}px;height:14px;border:1px solid ${color};border-radius:3px;box-sizing:border-box"></div>
+      taskRows += `<tr style="${critBg}background:${bgRow}">
+        <td style="font-family:Consolas,monospace;color:${t.is_critical ? '#ef4444' : '#f59e0b'};font-weight:700;font-size:10px;padding:5px 8px;white-space:nowrap">${t.code}</td>
+        <td style="${nameStyle}padding:5px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</td>
+        <td style="font-family:Consolas,monospace;font-size:9px;color:#475569;padding:5px 6px;white-space:nowrap">${sd}</td>
+        <td style="font-family:Consolas,monospace;font-size:9px;color:#475569;padding:5px 6px;white-space:nowrap">${ed}</td>
+        <td style="font-size:10px;font-weight:700;text-align:center;color:${t.progress >= 100 ? '#16a34a' : t.progress > 0 ? '#d97706' : '#9ca3af'};padding:5px 4px">${t.progress}%</td>
+        <td style="font-size:9px;color:#475569;padding:5px 6px">${t.assigned || ''}</td>
+        <td style="padding:5px 6px;width:${barAreaW}px">
+          <div style="position:relative;height:16px">
+            <div style="position:absolute;left:${barLeft}px;top:0;width:${barW}px;height:16px;background:${color};opacity:0.15;border-radius:3px"></div>
+            <div style="position:absolute;left:${barLeft}px;top:0;width:${progW}px;height:16px;background:${color};opacity:0.85;border-radius:3px"></div>
+            <div style="position:absolute;left:${barLeft}px;top:0;width:${barW}px;height:16px;border:1.5px solid ${color};border-radius:3px;box-sizing:border-box"></div>
+            ${barW > 30 ? `<div style="position:absolute;left:${barLeft}px;top:0;width:${barW}px;height:16px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700">${t.progress}%</div>` : ''}
           </div>
         </td>
       </tr>`
     })
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${projName}</title>
+    const excelStyle = forExcel
+      ? 'td,th{border:1px solid #cbd5e1;padding:5px 8px;font-size:10pt;font-family:Calibri,sans-serif}th{background:#0f172a;color:#f59e0b;font-weight:bold}'
+      : ''
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>BuildPro Gantt Chart</title>
 <style>
-@media print{@page{size:A4 landscape;margin:10mm}}
+@media print{@page{size:A4 landscape;margin:8mm}.no-print{display:none!important}}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:Calibri,Arial,sans-serif;padding:24px;background:#fff;color:#1e293b}
-h1{font-size:18px;color:#0f172a;border-bottom:3px solid #f59e0b;padding-bottom:6px;margin-bottom:4px}
-.meta{color:#64748b;font-size:10px;margin-bottom:14px}
-.legend{display:flex;gap:16px;margin-bottom:10px;font-size:10px;color:#64748b}
-.legend span{display:inline-flex;align-items:center;gap:4px}
-.dot{width:10px;height:10px;border-radius:2px;display:inline-block}
+body{font-family:Calibri,Arial,sans-serif;padding:20px 24px;background:#fff;color:#1e293b}
+h1{font-size:20px;color:#0f172a;border-bottom:3px solid #f59e0b;padding-bottom:8px;margin-bottom:6px}
+.meta{color:#64748b;font-size:10px;padding:6px 0 12px;border-left:4px solid #f59e0b;padding-left:10px;margin-bottom:14px;background:#fffbeb}
+.legend{display:flex;gap:18px;margin-bottom:12px;font-size:10px;color:#475569}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.dot{width:12px;height:12px;border-radius:2px;display:inline-block}
 table{width:100%;border-collapse:collapse}
-th{background:#0f172a;color:#f59e0b;padding:6px 8px;font-size:10px;text-align:left;font-weight:700}
-td{border-bottom:1px solid #e2e8f0;vertical-align:middle}
-.foot{margin-top:16px;text-align:center;color:#94a3b8;font-size:9px}
-.btn{display:block;margin:0 auto 16px;padding:12px 28px;background:#f59e0b;color:#0f172a;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}
-@media print{.btn{display:none!important}}
+th{background:#0f172a;color:#f59e0b;padding:7px 8px;font-size:10px;text-align:left;font-weight:700;border:1px solid #1e293b}
+td{border-bottom:1px solid #e2e8f0;border-right:1px solid #f1f5f9;vertical-align:middle}
+.crit td{background:#fef2f2!important}
+.foot{margin-top:20px;text-align:center;color:#94a3b8;font-size:9px;border-top:1px solid #e2e8f0;padding-top:10px}
+.no-print{display:block;text-align:center;margin-bottom:16px}
+.btn{padding:12px 28px;background:#f59e0b;color:#0f172a;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}
+${excelStyle}
 </style></head><body>
-<button class="btn" onclick="window.print()">Print / Save as PDF</button>
+<div class="no-print"><button class="btn" onclick="window.print()">Print / Save as PDF</button></div>
 <h1>BuildPro — Gantt Chart</h1>
-<div class="meta">Generated: ${new Date().toLocaleDateString()} | Duration: ${duration} days | Tasks: ${tasks.length}</div>
+<div class="meta">Generated: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} | Scale: ${scale} | Duration: ${duration} days | Tasks: ${tasks.length}</div>
 <div class="legend">
   <span><span class="dot" style="background:#3b82f6"></span> Normal</span>
   <span><span class="dot" style="background:#ef4444"></span> Critical</span>
   <span><span class="dot" style="background:#22c55e"></span> Complete</span>
   <span><span class="dot" style="background:#f97316"></span> Delayed</span>
+  <span><span class="dot" style="background:#f59e0b"></span> Milestone</span>
 </div>
 <table>
 <thead><tr><th>ID</th><th>Activity</th><th>Start</th><th>End</th><th>%</th><th>Assignee</th><th style="width:${barAreaW}px">Timeline</th></tr></thead>
@@ -260,167 +249,15 @@ td{border-bottom:1px solid #e2e8f0;vertical-align:middle}
 </body></html>`
   }
 
-  function downloadBlob(blob: Blob, filename: string) {
+  function dlBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url; a.download = filename; a.style.display = 'none'
     document.body.appendChild(a); a.click()
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 100)
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 200)
   }
 
-  async function captureGanttCanvas() {
-    const source = exportSourceRef.current
-    if (!source) throw new Error('Gantt export source not ready')
-
-    const temp = document.createElement('div')
-    temp.style.position = 'fixed'
-    temp.style.left = '-10000px'
-    temp.style.top = '0'
-    temp.style.padding = '24px'
-    temp.style.background = '#0b1120'
-    temp.style.color = '#e2e8f0'
-    temp.style.width = `${Math.max(TABLE_W + chartWidth + 96, source.scrollWidth + 48)}px`
-    temp.style.pointerEvents = 'none'
-    temp.style.zIndex = '-1'
-
-    const titleBlock = document.createElement('div')
-    titleBlock.style.marginBottom = '12px'
-    titleBlock.innerHTML = `
-      <div style="font-size:24px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">Gantt Chart</div>
-      <div style="font-size:11px;color:#94a3b8;">Scale: ${escapeHtml(scale)} | Duration: ${duration} days | Rows: ${rows.length}</div>
-    `
-    temp.appendChild(titleBlock)
-
-    const clone = source.cloneNode(true) as HTMLElement
-    const scrollRoot = clone.querySelector('[data-gantt-scroll-root="true"]') as HTMLElement | null
-    if (scrollRoot) {
-      scrollRoot.style.overflow = 'visible'
-      scrollRoot.style.maxHeight = 'none'
-      scrollRoot.style.height = 'auto'
-    }
-
-    temp.appendChild(clone)
-    document.body.appendChild(temp)
-
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-    })
-
-    try {
-      return await html2canvas(temp, {
-        backgroundColor: '#0b1120',
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        width: temp.scrollWidth,
-        height: temp.scrollHeight,
-        windowWidth: temp.scrollWidth,
-        windowHeight: temp.scrollHeight,
-      })
-    } finally {
-      document.body.removeChild(temp)
-    }
-  }
-
-  function buildOfficeDocument(imageDataUrl: string, title: string) {
-    const taskRows = rows.map((row) => {
-      const task = row.task
-      if (row.isMilestone) {
-        return `
-          <tr>
-            <td></td>
-            <td>${escapeHtml(task.name)}</td>
-            <td>${task.status === 'achieved' ? 'Achieved' : 'Pending'}</td>
-            <td>${task.start_date || ''}</td>
-            <td>${task.end_date || ''}</td>
-            <td></td>
-          </tr>
-        `
-      }
-
-      return `
-        <tr>
-          <td>${escapeHtml(row.num)}</td>
-          <td>${escapeHtml(task.name)}</td>
-          <td>${escapeHtml(task.status.replaceAll('_', ' '))}</td>
-          <td>${task.start_date || ''}</td>
-          <td>${task.end_date || ''}</td>
-          <td>${task.progress}%</td>
-        </tr>
-      `
-    }).join('')
-
-    return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${escapeHtml(title)}</title>
-  <style>
-    body { font-family: Calibri, Arial, sans-serif; margin: 20px; color: #0f172a; }
-    h1 { margin: 0 0 8px; font-size: 22px; }
-    .meta { margin-bottom: 16px; color: #475569; font-size: 12px; }
-    .image-wrap { margin: 0 0 18px; padding: 12px; background: #0b1120; border-radius: 12px; }
-    img { width: 100%; height: auto; display: block; }
-    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    th, td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; text-align: left; }
-    th { background: #e2e8f0; }
-  </style>
-</head>
-<body>
-  <h1>${escapeHtml(title)}</h1>
-  <div class="meta">Scale: ${escapeHtml(scale)} | Duration: ${duration} days | Rows: ${rows.length}</div>
-  <div class="image-wrap">
-    <img src="${imageDataUrl}" alt="Gantt chart" />
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Activity</th>
-        <th>Status</th>
-        <th>Start</th>
-        <th>End</th>
-        <th>Progress</th>
-      </tr>
-    </thead>
-    <tbody>${taskRows}</tbody>
-  </table>
-</body>
-</html>`
-  }
-
-  async function exportPdf(canvas: HTMLCanvasElement) {
-    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
-    const pageWidth = pdf.internal.pageSize.getWidth()
-    const pageHeight = pdf.internal.pageSize.getHeight()
-    const margin = 24
-    const printableWidth = pageWidth - margin * 2
-    const printableHeight = pageHeight - margin * 2
-    const scaleFactor = printableWidth / canvas.width
-    const pageSliceHeight = printableHeight / scaleFactor
-    let offsetY = 0
-    let firstPage = true
-
-    while (offsetY < canvas.height) {
-      const sliceHeight = Math.min(Math.ceil(pageSliceHeight), canvas.height - offsetY)
-      const pageCanvas = document.createElement('canvas')
-      pageCanvas.width = canvas.width
-      pageCanvas.height = sliceHeight
-      const context = pageCanvas.getContext('2d')
-      if (!context) throw new Error('Could not render PDF page')
-
-      context.drawImage(canvas, 0, offsetY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight)
-      if (!firstPage) pdf.addPage()
-      pdf.addImage(pageCanvas.toDataURL('image/png'), 'PNG', margin, margin, printableWidth, sliceHeight * scaleFactor)
-
-      firstPage = false
-      offsetY += sliceHeight
-    }
-
-    pdf.save('BuildPro_Gantt.pdf')
-  }
-
-  const legacyHandleExport = (format: 'csv' | 'xlsx' | 'pdf' | 'docx') => {
+  const handleExport = (format: 'csv' | 'xlsx' | 'doc' | 'pdf') => {
     setExportingFormat(format)
     try {
       const tasks = data!.tasks as GanttTask[]
@@ -430,57 +267,25 @@ td{border-bottom:1px solid #e2e8f0;vertical-align:middle}
         const csvRows = tasks.map(t =>
           `"${t.code}","${t.name}","${t.start_date || ''}","${t.end_date || ''}",${t.duration},${t.progress}%,"${t.status}",${t.is_critical ? 'Yes' : 'No'},"${t.assigned || ''}"`
         ).join('\n')
-        downloadBlob(new Blob(['\uFEFF' + header + csvRows], { type: 'text/csv;charset=utf-8' }), 'BuildPro_Gantt.csv')
+        dlBlob(new Blob(['\uFEFF' + header + csvRows], { type: 'text/csv;charset=utf-8' }), 'BuildPro_Gantt.csv')
         showToast('CSV downloaded!', 'success')
       } else if (format === 'xlsx') {
-        // Generate rich HTML-as-XLS (same approach as prototype's toExcel)
-        const html = buildGanttHTML().replace(/<style>[\s\S]*?<\/style>/, '<style>td,th{border:1px solid #ccc;padding:4px;font-size:10pt;font-family:Calibri}th{background:#0f172a;color:#f59e0b}@media print{.btn{display:none}}</style>')
-        downloadBlob(new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' }), 'BuildPro_Gantt.xls')
+        const html = buildGanttHTML(true)
+        dlBlob(new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' }), 'BuildPro_Gantt.xls')
         showToast('Excel downloaded!', 'success')
-      } else if (format === 'docx') {
+      } else if (format === 'doc') {
         const html = buildGanttHTML()
-        downloadBlob(new Blob(['\uFEFF' + html], { type: 'application/msword;charset=utf-8' }), 'BuildPro_Gantt.doc')
+        dlBlob(new Blob(['\uFEFF' + html], { type: 'application/msword;charset=utf-8' }), 'BuildPro_Gantt.doc')
         showToast('Word downloaded!', 'success')
       } else {
-        // PDF: generate print-ready HTML that user can Print > Save as PDF
         const html = buildGanttHTML()
-        downloadBlob(new Blob([html], { type: 'text/html;charset=utf-8' }), 'BuildPro_Gantt.html')
-        showToast('PDF-ready file downloaded — open and print to PDF', 'success')
+        dlBlob(new Blob([html], { type: 'text/html;charset=utf-8' }), 'BuildPro_Gantt_Print.html')
+        showToast('Open the file and click Print → Save as PDF', 'success')
       }
     } catch {
       showToast('Export failed', 'error')
     }
     setExportingFormat(null)
-  }
-  void legacyHandleExport
-
-  const handleExport = async (format: 'jpg' | 'xlsx' | 'pdf' | 'doc') => {
-    setExportingFormat(format)
-    try {
-      const canvas = await captureGanttCanvas()
-      const title = 'BuildPro Gantt Chart'
-
-      if (format === 'jpg') {
-        downloadBlob(await canvasToBlob(canvas, 'image/jpeg', 0.95), 'BuildPro_Gantt.jpg')
-        showToast('JPG downloaded!', 'success')
-      } else if (format === 'pdf') {
-        await exportPdf(canvas)
-        showToast('PDF downloaded!', 'success')
-      } else {
-        const html = buildOfficeDocument(canvas.toDataURL('image/png'), title)
-        if (format === 'xlsx') {
-          downloadBlob(new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' }), 'BuildPro_Gantt.xls')
-          showToast('Excel downloaded!', 'success')
-        } else {
-          downloadBlob(new Blob(['\uFEFF' + html], { type: 'application/msword;charset=utf-8' }), 'BuildPro_Gantt.doc')
-          showToast('Word downloaded!', 'success')
-        }
-      }
-    } catch {
-      showToast('Gantt export failed', 'error')
-    } finally {
-      setExportingFormat(null)
-    }
   }
 
   function handleDeleteTask(task: GanttTask) {
@@ -524,14 +329,14 @@ td{border-bottom:1px solid #e2e8f0;vertical-align:middle}
           <button className="px-2 py-0.5 text-xs bg-bp-surface border border-bp-border rounded text-bp-text hover:bg-bp-border"
             onClick={() => { if (scaleIdx < 3) setScale(SCALES[scaleIdx + 1]) }} title="Zoom Out">−</button>
 
-          {/* Export buttons — client-side visual export, no permission needed */}
+          {/* Export buttons — instant client-side generation */}
           <div className="ml-auto flex flex-wrap gap-1">
-            {(['jpg', 'xlsx', 'doc', 'pdf'] as const).map(format => {
-              const labels: Record<string, string> = { jpg: 'JPG', xlsx: 'Excel', doc: 'Word', pdf: 'PDF' }
+            {(['csv', 'xlsx', 'doc', 'pdf'] as const).map(format => {
+              const labels: Record<string, string> = { csv: 'CSV', xlsx: 'Excel', doc: 'Word', pdf: 'PDF' }
               return (
                 <ActionButton key={format} variant="blue" size="sm"
                   disabled={!!exportingFormat}
-                  onClick={() => void handleExport(format)}>
+                  onClick={() => handleExport(format)}>
                   {exportingFormat === format ? '...' : labels[format]}
                 </ActionButton>
               )
@@ -540,7 +345,7 @@ td{border-bottom:1px solid #e2e8f0;vertical-align:middle}
         </div>
       </PageHeader>
 
-      <div ref={exportSourceRef}>
+      <div ref={chartRef}>
       {/* Legend */}
       <div className="flex gap-4 mb-2 text-[10px] text-bp-muted flex-wrap">
         <span><span className="text-[#3b82f6]">&#9632;</span> Normal</span>
