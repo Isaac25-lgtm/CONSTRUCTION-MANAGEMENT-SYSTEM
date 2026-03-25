@@ -157,6 +157,76 @@ class CPMEngineTests(TestCase):
         self.assertEqual(c.early_start, 1)
         self.assertEqual(result.duration, 15)
 
+    def test_parent_task_with_zero_slack_is_critical(self):
+        """Prototype rule: critical = (slack === 0). Parents included."""
+        parent = self._make_task("P", 10, is_parent=True)
+        child = self._make_task("Pa", 10)
+        child.parent = parent
+        child.save()
+        TaskDependency.objects.create(
+            project=self.project, predecessor=parent, successor=child,
+            dependency_type="SS",
+        )
+        result = run_cpm(self.project.id)
+        parent.refresh_from_db()
+        child.refresh_from_db()
+        # Both have zero slack on the same path => both critical
+        self.assertEqual(parent.total_float, 0)
+        self.assertTrue(parent.is_critical)
+        self.assertEqual(child.total_float, 0)
+        self.assertTrue(child.is_critical)
+        self.assertIn("P", result.critical_path)
+        self.assertIn("Pa", result.critical_path)
+
+    def test_positive_slack_task_not_critical(self):
+        """Tasks with positive slack must NOT be critical."""
+        a = self._make_task("A", 10)
+        b = self._make_task("B", 5)
+        c = self._make_task("C", 3)
+        TaskDependency.objects.create(project=self.project, predecessor=a, successor=b)
+        TaskDependency.objects.create(project=self.project, predecessor=a, successor=c)
+        run_cpm(self.project.id)
+        c.refresh_from_db()
+        self.assertGreater(c.total_float, 0)
+        self.assertFalse(c.is_critical)
+
+    def test_zero_duration_task_not_critical(self):
+        """Cleared tasks (duration=0) should not false-positive as critical."""
+        t = self._make_task("Z", 0)
+        run_cpm(self.project.id)
+        t.refresh_from_db()
+        self.assertFalse(t.is_critical)
+
+    def test_network_data_returns_parent_and_child_tasks(self):
+        """Network endpoint must return ALL tasks, including parents."""
+        from django.test import TestCase as TC
+        org = Organisation.objects.create(name="Net Test Org")
+        role = SystemRole.objects.create(name="NetAdmin", permissions=["admin.full_access"])
+        user = User.objects.create_user(
+            username="netadmin", password="pass123",
+            organisation=org, system_role=role, is_staff=True,
+        )
+        project = Project.objects.create(
+            name="Net Test", project_type="residential",
+            contract_type="lump_sum", organisation=org,
+        )
+        parent = ProjectTask.objects.create(
+            project=project, code="P", name="Phase", duration_days=10, is_parent=True,
+        )
+        child = ProjectTask.objects.create(
+            project=project, code="Pa", name="Activity", duration_days=5,
+            is_parent=False, parent=parent,
+        )
+        self.client.force_login(user)
+        response = self.client.get(f"/api/v1/scheduling/{project.id}/network/")
+        self.assertEqual(response.status_code, 200)
+        codes = [n["code"] for n in response.json()["nodes"]]
+        self.assertIn("P", codes)
+        self.assertIn("Pa", codes)
+        # Verify is_parent field is included
+        parent_node = next(n for n in response.json()["nodes"] if n["code"] == "P")
+        self.assertTrue(parent_node["is_parent"])
+
 
 class CycleRejectionAPITests(TestCase):
     """Test that cycle-causing dependencies are rejected at write time."""
@@ -716,7 +786,8 @@ class ScheduleAPITests(TestCase):
         response = self.client.get(f"/api/v1/scheduling/{self.project.id}/summary/")
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["critical_path"], ["P", "Pa"])
+        # setUp task "A" also has total_float=0 and duration>0, so it appears too
+        self.assertEqual(data["critical_path"], ["A", "P", "Pa"])
 
     def test_schedule_summary_excludes_positive_slack_even_if_critical_flag_is_stale(self):
         ProjectTask.objects.create(

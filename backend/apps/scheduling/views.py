@@ -250,7 +250,7 @@ def task_detail(request, project_id, task_id):
         ]
     ):
         t.total_float = t.late_start - t.early_start
-        t.is_critical = t.total_float == 0
+        t.is_critical = (t.total_float == 0 and t.duration_days > 0)
         update_fields.extend(["total_float", "is_critical"])
 
     # Auto-sync progress and status
@@ -644,7 +644,7 @@ def network_data(request, project_id):
     if not project:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
-    tasks = ProjectTask.objects.filter(project=project, is_parent=False).order_by("sort_order")
+    tasks = ProjectTask.objects.filter(project=project).order_by("sort_order")
     deps = TaskDependency.objects.filter(project=project).select_related("predecessor", "successor")
 
     nodes = [
@@ -659,6 +659,7 @@ def network_data(request, project_id):
             "lf": t.late_finish,
             "slack": t.total_float,
             "is_critical": t.is_critical,
+            "is_parent": t.is_parent,
             "progress": t.progress,
         }
         for t in tasks
@@ -672,7 +673,6 @@ def network_data(request, project_id):
             "lag": d.lag_days,
         }
         for d in deps
-        if not d.predecessor.is_parent and not d.successor.is_parent
     ]
 
     return Response({"nodes": nodes, "edges": edges})

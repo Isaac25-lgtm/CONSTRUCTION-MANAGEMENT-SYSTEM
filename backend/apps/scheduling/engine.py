@@ -13,8 +13,6 @@ It is the server-side authority -- the frontend never computes CPM values.
 from collections import defaultdict, deque
 from typing import NamedTuple
 
-from django.db.models import F
-
 from .models import ProjectTask, TaskDependency
 
 
@@ -29,20 +27,14 @@ def build_critical_path_codes(tasks) -> list[str]:
     """
     Return critical activity codes in display order.
 
-    Only leaf tasks (is_parent=False) with zero slack form the real
-    critical path. Parent/summary tasks can show slack=0 due to the
-    parent-to-parent FS chain but their children may have high slack —
-    so parents are excluded from the critical path display.
+    Prototype rule: critical = (slack === 0).
+    Guard: duration_days > 0 prevents cleared/untouched rows from appearing.
+    Parents are NOT excluded — they participate in the critical path
+    like any other task when their slack is genuinely zero.
     """
     critical_tasks = [
-        t
-        for t in tasks
-        if (
-            t.total_float == 0
-            and t.duration_days > 0
-            and t.early_finish == t.early_start + t.duration_days
-            and t.late_finish == t.late_start + t.duration_days
-        )
+        t for t in tasks
+        if t.total_float == 0 and t.duration_days > 0
     ]
     critical_tasks.sort(
         key=lambda t: (t.early_start, t.early_finish, t.sort_order, t.code)
@@ -53,15 +45,14 @@ def build_critical_path_codes(tasks) -> list[str]:
 def get_critical_path_codes(project_id) -> list[str]:
     """Return persisted critical activity codes for a project in display order.
 
-    Only leaf tasks with zero slack — parent summary tasks excluded.
+    Matches prototype: all tasks with slack == 0 and duration > 0.
+    Parents included when they are genuinely critical.
     """
     tasks = list(
         ProjectTask.objects.filter(
             project_id=project_id,
             total_float=0,
             duration_days__gt=0,
-            early_finish=F("early_start") + F("duration_days"),
-            late_finish=F("late_start") + F("duration_days"),
         )
         .order_by("early_start", "early_finish", "sort_order", "code")
     )
@@ -234,7 +225,7 @@ def run_cpm(project_id) -> CPMResult:
     # --- Phase 5: Float and critical path ---
     for task in tasks:
         task.total_float = task.late_start - task.early_start
-        task.is_critical = (task.total_float == 0 and not task.is_parent)
+        task.is_critical = (task.total_float == 0 and task.duration_days > 0)
     critical_path = build_critical_path_codes(tasks)
 
     # --- Phase 6: Persist ---

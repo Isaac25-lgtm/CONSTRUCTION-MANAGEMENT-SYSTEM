@@ -36,7 +36,7 @@ export interface GanttData {
 export interface NetworkNode {
   id: string; code: string; name: string; duration: number
   es: number; ef: number; ls: number; lf: number; slack: number
-  is_critical: boolean; progress: number
+  is_critical: boolean; is_parent: boolean; progress: number
 }
 export interface NetworkEdge { from: string; to: string; type: string; lag: number }
 export interface NetworkData { nodes: NetworkNode[]; edges: NetworkEdge[] }
