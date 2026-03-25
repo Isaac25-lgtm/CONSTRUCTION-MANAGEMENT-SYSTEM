@@ -48,12 +48,13 @@ export function SchedulePage() {
   const [manualOverride, setManualOverride] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<Task | null>(null)
   const [addTaskOpen, setAddTaskOpen] = useState(false)
-  const [newTask, setNewTask] = useState({ code: '', name: '', duration_days: 0 })
+  const [newTask, setNewTask] = useState({ code: '', name: '', description: '', duration_days: 5, budget: '0', resource: '', predecessors: '' })
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [editTaskOpen, setEditTaskOpen] = useState<Task | null>(null)
   const [addSiblingFor, setAddSiblingFor] = useState<Task | null>(null)
   const [addChildFor, setAddChildFor] = useState<Task | null>(null)
   const [clearScheduleOpen, setClearScheduleOpen] = useState(false)
+  const [editProgress, setEditProgress] = useState(0)
 
   if (isLoading) return <LoadingState rows={6} />
 
@@ -68,13 +69,32 @@ export function SchedulePage() {
   /* ---------- date change handlers ---------- */
   function onStartDateChange(task: Task, dateStr: string) {
     if (!dateStr) return
-    onUpdate(task, 'planned_start', toISO(new Date(dateStr)))
+    const nd = new Date(dateStr)
+    const newES = Math.max(0, Math.round((nd.getTime() - pStart.getTime()) / 864e5))
+    const shift = newES - task.early_start
+    updateTask.mutate({
+      taskId: task.id,
+      data: {
+        planned_start: toISO(nd),
+        early_start: newES,
+        early_finish: Math.max(newES + 1, task.early_finish + shift),
+      },
+    })
     setManualOverride(true)
   }
 
   function onEndDateChange(task: Task, dateStr: string) {
     if (!dateStr) return
-    onUpdate(task, 'planned_end', toISO(new Date(dateStr)))
+    const nd = new Date(dateStr)
+    const newEF = Math.max(task.early_start + 1, Math.round((nd.getTime() - pStart.getTime()) / 864e5))
+    updateTask.mutate({
+      taskId: task.id,
+      data: {
+        planned_end: toISO(nd),
+        early_finish: newEF,
+        duration_days: newEF - task.early_start,
+      },
+    })
     setManualOverride(true)
   }
 
@@ -90,10 +110,18 @@ export function SchedulePage() {
       showToast('Code and name are required', 'error')
       return
     }
-    createTask.mutate(newTask, {
+    const payload: Record<string, unknown> = {
+      code: newTask.code,
+      name: newTask.name,
+      description: newTask.description,
+      duration_days: newTask.duration_days,
+      budget: newTask.budget,
+      resource: newTask.resource,
+    }
+    createTask.mutate(payload as Parameters<typeof createTask.mutate>[0], {
       onSuccess: () => {
         setAddTaskOpen(false)
-        setNewTask({ code: '', name: '', duration_days: 0 })
+        setNewTask({ code: '', name: '', description: '', duration_days: 5, budget: '0', resource: '', predecessors: '' })
         showToast('Task created', 'success')
       },
     })
@@ -107,13 +135,17 @@ export function SchedulePage() {
     }
     const data: Record<string, unknown> = {
       ...newTask,
-      ...(isChild ? { parent: parentTask.id } : {}),
+      // Child: set parent to the target task
+      // Sibling: inherit the target task's parent (so it stays under the same parent)
+      ...(isChild
+        ? { parent: parentTask.id }
+        : parentTask.parent ? { parent: parentTask.parent } : {}),
     }
     createTask.mutate(data as Parameters<typeof createTask.mutate>[0], {
       onSuccess: () => {
         setAddSiblingFor(null)
         setAddChildFor(null)
-        setNewTask({ code: '', name: '', duration_days: 0 })
+        setNewTask({ code: '', name: '', description: '', duration_days: 5, budget: '0', resource: '', predecessors: '' })
         showToast(`Task created`, 'success')
       },
     })
@@ -134,7 +166,15 @@ export function SchedulePage() {
     list.forEach(t => {
       updateTask.mutate({
         taskId: t.id,
-        data: { duration_days: 0, planned_start: null as unknown as string, planned_end: null as unknown as string },
+        data: {
+          duration_days: 0,
+          early_start: 0,
+          early_finish: 0,
+          late_start: 0,
+          late_finish: 0,
+          planned_start: null as unknown as string,
+          planned_end: null as unknown as string,
+        },
       })
     })
     setManualOverride(true)
@@ -147,10 +187,10 @@ export function SchedulePage() {
       {/* Header with action buttons */}
       <PageHeader title="Schedule & CPM" icon="📝" count={list.length}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <ActionButton variant="ghost" onClick={() => navigate(`/projects/${projectId}/gantt`)}>
+          <ActionButton variant="ghost" onClick={() => navigate('../gantt')}>
             📅 Gantt
           </ActionButton>
-          <ActionButton variant="ghost" onClick={() => navigate(`/projects/${projectId}/cost`)}>
+          <ActionButton variant="ghost" onClick={() => navigate('../budget')}>
             💰 Budget
           </ActionButton>
           {canEditSchedule && (
@@ -481,9 +521,9 @@ export function SchedulePage() {
               <div style={{ width: 40, height: 4, background: '#334155', borderRadius: 2, margin: '0 auto 12px' }} />
               <div className="mb-3 text-center text-xs text-bp-muted">{menuTask.name}</div>
               {[
-                { label: 'Edit Task', color: '#3b82f6', action: () => { setEditTaskOpen(menuTask); setActiveMenu(null) } },
-                { label: 'Add Sibling Task', color: '#22c55e', action: () => { setAddSiblingFor(menuTask); setNewTask({ code: '', name: '', duration_days: 0 }); setActiveMenu(null) } },
-                { label: 'Add Child Task', color: '#f59e0b', action: () => { setAddChildFor(menuTask); setNewTask({ code: '', name: '', duration_days: 0 }); setActiveMenu(null) } },
+                { label: 'Edit Task', color: '#3b82f6', action: () => { setEditTaskOpen(menuTask); setEditProgress(menuTask.progress); setActiveMenu(null) } },
+                { label: 'Add Sibling Task', color: '#22c55e', action: () => { setAddSiblingFor(menuTask); setNewTask({ code: '', name: '', description: '', duration_days: 5, budget: '0', resource: '', predecessors: '' }); setActiveMenu(null) } },
+                { label: 'Add Child Task', color: '#f59e0b', action: () => { setAddChildFor(menuTask); setNewTask({ code: '', name: '', description: '', duration_days: 5, budget: '0', resource: '', predecessors: '' }); setActiveMenu(null) } },
                 { label: 'Remove Task', color: '#ef4444', action: () => { setConfirmDelete(menuTask); setActiveMenu(null) } },
               ].map(opt => (
                 <button
@@ -552,11 +592,11 @@ export function SchedulePage() {
                 <label className="mb-1 block text-xs font-bold text-bp-muted">Progress</label>
                 <input
                   type="range" min={0} max={100} step={5}
-                  defaultValue={editTaskOpen.progress}
-                  onChange={e => onUpdate(editTaskOpen, 'progress', parseInt(e.target.value))}
+                  value={editProgress}
+                  onChange={e => { const v = parseInt(e.target.value); setEditProgress(v); onUpdate(editTaskOpen, 'progress', v) }}
                   style={{ width: '100%', accentColor: '#f59e0b' }}
                 />
-                <div className="text-center text-xs font-bold text-bp-accent">{editTaskOpen.progress}%</div>
+                <div className="text-center text-xs font-bold text-bp-accent">{editProgress}%</div>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-bold text-bp-muted">Status</label>
@@ -570,7 +610,17 @@ export function SchedulePage() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-bold text-bp-muted">Description / Notes</label>
+              <label className="mb-1 block text-xs font-bold text-bp-muted">Predecessors</label>
+              <input
+                type="text"
+                defaultValue={editTaskOpen.predecessor_codes.join(', ')}
+                disabled
+                className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-muted"
+                placeholder="e.g. A, B"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-bold text-bp-muted">Notes / Memo</label>
               <textarea
                 defaultValue={editTaskOpen.description}
                 onBlur={e => { if (e.target.value !== editTaskOpen.description) onUpdate(editTaskOpen, 'description', e.target.value) }}
@@ -657,29 +707,54 @@ export function SchedulePage() {
 
       {/* ---- Add Task Modal (standalone) ---- */}
       {addTaskOpen && (
-        <Modal open={addTaskOpen} title="Add Task" onClose={() => setAddTaskOpen(false)}>
+        <Modal open={addTaskOpen} title="Add New Task" onClose={() => setAddTaskOpen(false)}>
           <div className="flex flex-col gap-3">
+            {/* Row 1: Task ID + Task Name */}
+            <div className="grid grid-cols-[80px_1fr] gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-bold text-bp-muted">Task ID *</label>
+                <input type="text" value={newTask.code} onChange={e => setNewTask(p => ({ ...p, code: e.target.value }))}
+                  placeholder="K" className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold text-bp-muted">Task Name *</label>
+                <input type="text" value={newTask.name} onChange={e => setNewTask(p => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. Quality Inspection" className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
+              </div>
+            </div>
+            {/* Row 2: Description */}
             <div>
-              <label className="mb-1 block text-xs font-bold text-bp-muted">Task Code</label>
-              <input type="text" value={newTask.code} onChange={e => setNewTask(p => ({ ...p, code: e.target.value }))}
-                placeholder="e.g. H" className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
+              <label className="mb-1 block text-xs font-bold text-bp-muted">Description</label>
+              <input type="text" value={newTask.description} onChange={e => setNewTask(p => ({ ...p, description: e.target.value }))}
+                placeholder="Task description" className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
             </div>
+            {/* Row 3: Duration + Budget + Resources */}
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-bold text-bp-muted">Duration (days)</label>
+                <input type="number" value={newTask.duration_days} onChange={e => setNewTask(p => ({ ...p, duration_days: parseInt(e.target.value) || 0 }))}
+                  className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold text-bp-muted">Budget (UGX)</label>
+                <input type="number" value={newTask.budget} onChange={e => setNewTask(p => ({ ...p, budget: e.target.value }))}
+                  className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold text-bp-muted">Resources</label>
+                <input type="text" value={newTask.resource} onChange={e => setNewTask(p => ({ ...p, resource: e.target.value }))}
+                  placeholder="e.g. QA Team" className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
+              </div>
+            </div>
+            {/* Row 4: Predecessors */}
             <div>
-              <label className="mb-1 block text-xs font-bold text-bp-muted">Activity Name</label>
-              <input type="text" value={newTask.name} onChange={e => setNewTask(p => ({ ...p, name: e.target.value }))}
-                placeholder="e.g. New Phase" className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
+              <label className="mb-1 block text-xs font-bold text-bp-muted">Predecessors (comma-separated IDs)</label>
+              <input type="text" value={newTask.predecessors} onChange={e => setNewTask(p => ({ ...p, predecessors: e.target.value }))}
+                placeholder="e.g. A,B" className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-bold text-bp-muted">Duration (days)</label>
-              <input type="number" value={newTask.duration_days} onChange={e => setNewTask(p => ({ ...p, duration_days: parseInt(e.target.value) || 0 }))}
-                className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <ActionButton variant="ghost" onClick={() => setAddTaskOpen(false)}>Cancel</ActionButton>
-              <ActionButton variant="green" onClick={handleAddTask} disabled={createTask.isPending}>
-                {createTask.isPending ? 'Creating...' : 'Create Task'}
-              </ActionButton>
-            </div>
+            <ActionButton variant="green" onClick={handleAddTask} disabled={createTask.isPending} style={{ width: '100%', marginTop: 4 }}>
+              {createTask.isPending ? 'Creating...' : 'Add Task'}
+            </ActionButton>
           </div>
         </Modal>
       )}
