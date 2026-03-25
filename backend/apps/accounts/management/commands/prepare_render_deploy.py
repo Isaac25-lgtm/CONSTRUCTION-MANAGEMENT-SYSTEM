@@ -26,4 +26,5 @@ class Command(BaseCommand):
             if env_username:
                 seed_kwargs["username"] = env_username
             call_command("seed_demo_projects", **seed_kwargs)
+        call_command("sync_project_membership_permissions")
         self.stdout.write(self.style.SUCCESS("Render deploy preparation complete!"))

@@ -11,7 +11,7 @@ from django.urls import reverse
 from apps.accounts.models import User, Organisation, SystemRole
 from apps.accounts.management.commands.seed_demo_projects import PROJECT_BLUEPRINTS
 from apps.documents.models import Document
-from apps.projects.models import Project
+from apps.projects.models import Project, ProjectMembership
 from apps.scheduling.models import ProjectTask
 from apps.accounts.throttles import LoginRateThrottle, SetupBootstrapRateThrottle
 
@@ -226,6 +226,7 @@ class BootstrapOrgAdminTests(TestCase):
                 (("migrate",), {"interactive": False}),
                 (("seed_env_admin",), {}),
                 (("prune_to_env_admin",), {}),
+                (("sync_project_membership_permissions",), {}),
             ],
         )
 
@@ -240,6 +241,7 @@ class BootstrapOrgAdminTests(TestCase):
                 (("seed_env_admin",), {}),
                 (("prune_to_env_admin",), {}),
                 (("seed_demo_projects",), {"replace": True}),
+                (("sync_project_membership_permissions",), {}),
             ],
         )
 
@@ -262,8 +264,65 @@ class BootstrapOrgAdminTests(TestCase):
                 (("seed_env_admin",), {}),
                 (("prune_to_env_admin",), {}),
                 (("seed_demo_projects",), {"replace": True, "username": "render-admin"}),
+                (("sync_project_membership_permissions",), {}),
             ],
         )
+
+    def test_sync_project_membership_permissions_backfills_ai_use(self):
+        org = Organisation.objects.create(name="Sync Org")
+        role = SystemRole.objects.create(name="User", permissions=[])
+        user = User.objects.create_user(
+            username="sync-user",
+            password="pass12345678",
+            organisation=org,
+            system_role=role,
+        )
+        project = Project.objects.create(
+            name="Sync Project",
+            project_type="residential",
+            contract_type="lump_sum",
+            organisation=org,
+        )
+        membership = ProjectMembership.objects.create(
+            project=project,
+            user=user,
+            role="viewer",
+            permissions=["project.view"],
+        )
+
+        call_command("sync_project_membership_permissions")
+
+        membership.refresh_from_db()
+        self.assertIn("ai.use", membership.permissions)
+        self.assertIn("reports.view", membership.permissions)
+
+    def test_sync_project_membership_permissions_preserves_custom_permissions(self):
+        org = Organisation.objects.create(name="Custom Sync Org")
+        role = SystemRole.objects.create(name="User", permissions=[])
+        user = User.objects.create_user(
+            username="custom-sync-user",
+            password="pass12345678",
+            organisation=org,
+            system_role=role,
+        )
+        project = Project.objects.create(
+            name="Custom Sync Project",
+            project_type="commercial",
+            contract_type="lump_sum",
+            organisation=org,
+        )
+        membership = ProjectMembership.objects.create(
+            project=project,
+            user=user,
+            role="supervisor",
+            permissions=["project.view", "custom.permission"],
+        )
+
+        call_command("sync_project_membership_permissions")
+
+        membership.refresh_from_db()
+        self.assertIn("ai.use", membership.permissions)
+        self.assertIn("custom.permission", membership.permissions)
 
     def test_seed_demo_projects_creates_demo_projects_without_extra_users(self):
         org = Organisation.objects.create(name="Demo Org")
