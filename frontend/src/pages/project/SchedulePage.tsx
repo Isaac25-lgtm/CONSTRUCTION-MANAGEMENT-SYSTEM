@@ -147,10 +147,10 @@ export function SchedulePage() {
       {/* Header with action buttons */}
       <PageHeader title="Schedule & CPM" icon="📝" count={list.length}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <ActionButton variant="muted" onClick={() => navigate(`/projects/${projectId}/gantt`)}>
+          <ActionButton variant="ghost" onClick={() => navigate(`/projects/${projectId}/gantt`)}>
             📅 Gantt
           </ActionButton>
-          <ActionButton variant="muted" onClick={() => navigate(`/projects/${projectId}/cost`)}>
+          <ActionButton variant="ghost" onClick={() => navigate(`/projects/${projectId}/cost`)}>
             💰 Budget
           </ActionButton>
           {canEditSchedule && (
@@ -169,7 +169,7 @@ export function SchedulePage() {
               >
                 {recalculate.isPending ? 'Calculating...' : '↻ Recalculate CPM'}
               </ActionButton>
-              <ActionButton variant="danger" onClick={() => setClearScheduleOpen(true)}>
+              <ActionButton variant="red" onClick={() => setClearScheduleOpen(true)}>
                 Clear Schedule
               </ActionButton>
             </>
@@ -516,7 +516,7 @@ export function SchedulePage() {
 
       {/* ---- Edit Task Modal ---- */}
       {editTaskOpen && (
-        <Modal title="Edit Task" onClose={() => setEditTaskOpen(null)}>
+        <Modal open={!!editTaskOpen} title="Edit Task" onClose={() => setEditTaskOpen(null)}>
           <div className="flex flex-col gap-3">
             <div>
               <label className="mb-1 block text-xs font-bold text-bp-muted">Task Name</label>
@@ -591,7 +591,7 @@ export function SchedulePage() {
               >
                 Save & Recalculate
               </ActionButton>
-              <ActionButton variant="muted" onClick={() => setEditTaskOpen(null)}>Close</ActionButton>
+              <ActionButton variant="ghost" onClick={() => setEditTaskOpen(null)}>Close</ActionButton>
             </div>
           </div>
         </Modal>
@@ -599,7 +599,7 @@ export function SchedulePage() {
 
       {/* ---- Add Sibling Task Modal ---- */}
       {addSiblingFor && (
-        <Modal title={`Add Sibling Task after: ${addSiblingFor.name}`} onClose={() => setAddSiblingFor(null)}>
+        <Modal open={!!addSiblingFor} title={`Add Sibling Task after: ${addSiblingFor.name}`} onClose={() => setAddSiblingFor(null)}>
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
@@ -619,7 +619,7 @@ export function SchedulePage() {
                 className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <ActionButton variant="muted" onClick={() => setAddSiblingFor(null)}>Cancel</ActionButton>
+              <ActionButton variant="ghost" onClick={() => setAddSiblingFor(null)}>Cancel</ActionButton>
               <ActionButton variant="green" onClick={() => handleAddRelatedTask(addSiblingFor, false)}>Add Task</ActionButton>
             </div>
           </div>
@@ -628,7 +628,7 @@ export function SchedulePage() {
 
       {/* ---- Add Child Task Modal ---- */}
       {addChildFor && (
-        <Modal title={`Add Child Task under: ${addChildFor.name}`} onClose={() => setAddChildFor(null)}>
+        <Modal open={!!addChildFor} title={`Add Child Task under: ${addChildFor.name}`} onClose={() => setAddChildFor(null)}>
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-[80px_1fr] gap-3">
               <div>
@@ -648,7 +648,7 @@ export function SchedulePage() {
                 className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <ActionButton variant="muted" onClick={() => setAddChildFor(null)}>Cancel</ActionButton>
+              <ActionButton variant="ghost" onClick={() => setAddChildFor(null)}>Cancel</ActionButton>
               <ActionButton variant="green" onClick={() => handleAddRelatedTask(addChildFor, true)}>Add Task</ActionButton>
             </div>
           </div>
@@ -657,7 +657,7 @@ export function SchedulePage() {
 
       {/* ---- Add Task Modal (standalone) ---- */}
       {addTaskOpen && (
-        <Modal title="Add Task" onClose={() => setAddTaskOpen(false)}>
+        <Modal open={addTaskOpen} title="Add Task" onClose={() => setAddTaskOpen(false)}>
           <div className="flex flex-col gap-3">
             <div>
               <label className="mb-1 block text-xs font-bold text-bp-muted">Task Code</label>
@@ -675,7 +675,7 @@ export function SchedulePage() {
                 className="w-full rounded border border-bp-border bg-bp-input px-3 py-2 text-sm text-bp-text" />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <ActionButton variant="muted" onClick={() => setAddTaskOpen(false)}>Cancel</ActionButton>
+              <ActionButton variant="ghost" onClick={() => setAddTaskOpen(false)}>Cancel</ActionButton>
               <ActionButton variant="green" onClick={handleAddTask} disabled={createTask.isPending}>
                 {createTask.isPending ? 'Creating...' : 'Create Task'}
               </ActionButton>
@@ -686,13 +686,13 @@ export function SchedulePage() {
 
       {/* ---- Delete Confirmation Modal ---- */}
       {confirmDelete && (
-        <Modal title="Delete Task" onClose={() => setConfirmDelete(null)}>
+        <Modal open={!!confirmDelete} title="Delete Task" onClose={() => setConfirmDelete(null)}>
           <p className="mb-4 text-sm text-bp-text">
             Delete task <strong>{confirmDelete.code}: {confirmDelete.name}</strong>?
           </p>
           <div className="flex justify-end gap-2">
-            <ActionButton variant="muted" onClick={() => setConfirmDelete(null)}>Cancel</ActionButton>
-            <ActionButton variant="danger" onClick={() => handleDeleteTask(confirmDelete)} disabled={deleteTask.isPending}>
+            <ActionButton variant="ghost" onClick={() => setConfirmDelete(null)}>Cancel</ActionButton>
+            <ActionButton variant="red" onClick={() => handleDeleteTask(confirmDelete)} disabled={deleteTask.isPending}>
               {deleteTask.isPending ? 'Deleting...' : 'Delete'}
             </ActionButton>
           </div>
@@ -701,7 +701,7 @@ export function SchedulePage() {
 
       {/* ---- Clear Schedule Confirmation Modal ---- */}
       {clearScheduleOpen && (
-        <Modal title="Clear Schedule Data" onClose={() => setClearScheduleOpen(false)}>
+        <Modal open={clearScheduleOpen} title="Clear Schedule Data" onClose={() => setClearScheduleOpen(false)}>
           <p className="mb-2 text-sm text-bp-text">
             This will reset ALL task durations and planned dates to zero. You can then manually input your schedule.
           </p>
@@ -709,8 +709,8 @@ export function SchedulePage() {
             Existing task names, predecessors, progress, and budgets will be preserved.
           </p>
           <div className="flex justify-end gap-2">
-            <ActionButton variant="muted" onClick={() => setClearScheduleOpen(false)}>Cancel</ActionButton>
-            <ActionButton variant="danger" onClick={handleClearSchedule}>
+            <ActionButton variant="ghost" onClick={() => setClearScheduleOpen(false)}>Cancel</ActionButton>
+            <ActionButton variant="red" onClick={handleClearSchedule}>
               Yes, Clear Schedule
             </ActionButton>
           </div>
