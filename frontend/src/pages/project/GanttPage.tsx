@@ -261,72 +261,143 @@ ${excelStyle}
     setExportingFormat(format)
     try {
       if (format === 'jpg') {
-        // Render Gantt as SVG → convert to canvas → download as JPG
+        // Draw Gantt directly on canvas — no SVG, no html2canvas
         const tasks = data!.tasks as GanttTask[]
         const maxEF = Math.max(...tasks.map(t => t.end), 1)
-        const tblW = 360, barW = 500, rowH = 24, hdrH = 30
-        const svgW = tblW + barW + 20
-        const svgH = hdrH + tasks.length * rowH + 10
-        const barScale = barW / maxEF
-
-        let svgRows = ''
-        tasks.forEach((t, i) => {
-          const y = hdrH + i * rowH
-          const bgFill = i % 2 === 0 ? '#f8fafc' : '#ffffff'
-          const critBg = t.is_critical ? '#fef2f2' : bgFill
-          const color = t.is_critical ? '#ef4444' : t.status === 'completed' ? '#22c55e' : t.status === 'delayed' ? '#f97316' : '#3b82f6'
-          const isChild = !!t.parent_code
-          const nameX = tblW * 0.12 + (isChild ? 12 : 0)
-          const bx = tblW + Math.round(t.start * barScale)
-          const bw = Math.max(Math.round(t.duration * barScale), 2)
-          const pw = Math.round(bw * t.progress / 100)
-
-          svgRows += `<rect x="0" y="${y}" width="${svgW}" height="${rowH}" fill="${critBg}"/>`
-          svgRows += `<text x="8" y="${y + 16}" font-size="9" font-family="monospace" fill="${t.is_critical ? '#ef4444' : '#d97706'}" font-weight="bold">${t.code}</text>`
-          svgRows += `<text x="${nameX}" y="${y + 16}" font-size="${isChild ? 9 : 10}" font-family="Calibri,sans-serif" fill="#1e293b" font-weight="${isChild ? 'normal' : 'bold'}">${t.name.length > 28 ? t.name.slice(0, 26) + '…' : t.name}</text>`
-          svgRows += `<text x="${tblW * 0.7}" y="${y + 16}" font-size="8" font-family="monospace" fill="#64748b">${t.start_date || ''}</text>`
-          svgRows += `<text x="${tblW * 0.85}" y="${y + 16}" font-size="8" font-family="monospace" fill="#64748b">${t.end_date || ''}</text>`
-          svgRows += `<text x="${tblW - 8}" y="${y + 16}" font-size="9" font-family="Calibri" fill="${t.progress >= 100 ? '#16a34a' : '#d97706'}" text-anchor="end" font-weight="bold">${t.progress}%</text>`
-          // Bar
-          svgRows += `<rect x="${bx}" y="${y + 4}" width="${bw}" height="${rowH - 8}" rx="3" fill="${color}" opacity="0.15"/>`
-          svgRows += `<rect x="${bx}" y="${y + 4}" width="${pw}" height="${rowH - 8}" rx="3" fill="${color}" opacity="0.85"/>`
-          svgRows += `<rect x="${bx}" y="${y + 4}" width="${bw}" height="${rowH - 8}" rx="3" fill="none" stroke="${color}" stroke-width="1"/>`
-        })
-
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
-          <rect width="${svgW}" height="${svgH}" fill="#ffffff"/>
-          <rect width="${svgW}" height="${hdrH}" fill="#0f172a"/>
-          <text x="8" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold">ID</text>
-          <text x="${tblW * 0.12}" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold">Activity</text>
-          <text x="${tblW * 0.7}" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold">Start</text>
-          <text x="${tblW * 0.85}" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold">End</text>
-          <text x="${tblW - 8}" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold" text-anchor="end">%</text>
-          <text x="${tblW + 8}" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold">Timeline</text>
-          <line x1="${tblW}" y1="0" x2="${tblW}" y2="${svgH}" stroke="#e2e8f0" stroke-width="1"/>
-          ${svgRows}
-        </svg>`
+        const tblW = 380, timelineW = 520, pad = 16, rowH = 26, hdrH = 32
+        const canvasW = tblW + timelineW + pad * 2
+        const canvasH = hdrH + tasks.length * rowH + pad * 2 + 30
+        const barScale = timelineW / maxEF
+        const dpr = 2
 
         const canvas = document.createElement('canvas')
-        const scale = 2
-        canvas.width = svgW * scale
-        canvas.height = svgH * scale
-        const ctx = canvas.getContext('2d')!
-        ctx.scale(scale, scale)
-        const img = new Image()
-        const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
-        const url = URL.createObjectURL(blob)
-        img.onload = () => {
-          ctx.drawImage(img, 0, 0)
-          URL.revokeObjectURL(url)
-          canvas.toBlob((jpgBlob) => {
-            if (jpgBlob) dlBlob(jpgBlob, 'BuildPro_Gantt.jpg')
-            showToast('JPG downloaded!', 'success')
-            setExportingFormat(null)
-          }, 'image/jpeg', 0.95)
-        }
-        img.onerror = () => { showToast('JPG export failed', 'error'); setExportingFormat(null) }
-        img.src = url
-        return // async — setExportingFormat handled in callbacks
+        canvas.width = canvasW * dpr
+        canvas.height = canvasH * dpr
+        const c = canvas.getContext('2d')!
+        c.scale(dpr, dpr)
+
+        // Background
+        c.fillStyle = '#ffffff'
+        c.fillRect(0, 0, canvasW, canvasH)
+
+        // Title
+        c.fillStyle = '#0f172a'
+        c.font = 'bold 14px Calibri, Arial, sans-serif'
+        c.fillText('BuildPro — Gantt Chart', pad, pad + 14)
+        c.fillStyle = '#64748b'
+        c.font = '9px Calibri, Arial, sans-serif'
+        c.fillText(`Generated: ${new Date().toLocaleDateString()} | Duration: ${duration} days | Tasks: ${tasks.length}`, pad, pad + 26)
+
+        const tableTop = pad + 34
+
+        // Header row
+        c.fillStyle = '#0f172a'
+        c.fillRect(pad, tableTop, canvasW - pad * 2, hdrH)
+        c.fillStyle = '#f59e0b'
+        c.font = 'bold 10px Calibri, Arial, sans-serif'
+        c.fillText('ID', pad + 6, tableTop + 20)
+        c.fillText('Activity', pad + 50, tableTop + 20)
+        c.fillText('Start', pad + tblW * 0.62, tableTop + 20)
+        c.fillText('End', pad + tblW * 0.78, tableTop + 20)
+        c.fillText('%', pad + tblW * 0.93, tableTop + 20)
+        c.fillText('Timeline', pad + tblW + 8, tableTop + 20)
+
+        // Divider line between table and timeline
+        c.strokeStyle = '#e2e8f0'
+        c.lineWidth = 1
+        c.beginPath()
+        c.moveTo(pad + tblW, tableTop)
+        c.lineTo(pad + tblW, tableTop + hdrH + tasks.length * rowH)
+        c.stroke()
+
+        // Task rows
+        tasks.forEach((t, i) => {
+          const y = tableTop + hdrH + i * rowH
+          const isChild = !!t.parent_code
+          const color = t.is_critical ? '#ef4444' : t.status === 'completed' ? '#22c55e' : t.status === 'delayed' ? '#f97316' : '#3b82f6'
+
+          // Row background
+          c.fillStyle = t.is_critical ? '#fef2f2' : (i % 2 === 0 ? '#f8fafc' : '#ffffff')
+          c.fillRect(pad, y, canvasW - pad * 2, rowH)
+
+          // Row border
+          c.strokeStyle = '#f1f5f9'
+          c.beginPath(); c.moveTo(pad, y + rowH); c.lineTo(canvasW - pad, y + rowH); c.stroke()
+
+          // ID
+          c.fillStyle = t.is_critical ? '#ef4444' : '#d97706'
+          c.font = 'bold 9px Consolas, monospace'
+          c.fillText(t.code, pad + 6, y + 17)
+
+          // Activity name
+          c.fillStyle = '#1e293b'
+          c.font = isChild ? '9px Calibri, sans-serif' : 'bold 10px Calibri, sans-serif'
+          const nameX = pad + 50 + (isChild ? 14 : 0)
+          const name = t.name.length > 30 ? t.name.slice(0, 28) + '…' : t.name
+          c.fillText(name, nameX, y + 17)
+
+          // Start/End dates
+          c.fillStyle = '#64748b'
+          c.font = '8px Consolas, monospace'
+          c.fillText(t.start_date || '', pad + tblW * 0.62, y + 17)
+          c.fillText(t.end_date || '', pad + tblW * 0.78, y + 17)
+
+          // Progress %
+          c.fillStyle = t.progress >= 100 ? '#16a34a' : t.progress > 0 ? '#d97706' : '#9ca3af'
+          c.font = 'bold 9px Calibri, sans-serif'
+          c.fillText(`${t.progress}%`, pad + tblW * 0.93, y + 17)
+
+          // Timeline bar
+          const bx = pad + tblW + Math.round(t.start * barScale)
+          const bw = Math.max(Math.round(t.duration * barScale), 3)
+          const pw = Math.round(bw * t.progress / 100)
+          const by = y + 5, bh = rowH - 10
+
+          // Background bar
+          c.globalAlpha = 0.15
+          c.fillStyle = color
+          c.beginPath(); c.roundRect(bx, by, bw, bh, 3); c.fill()
+
+          // Progress fill
+          c.globalAlpha = 0.85
+          c.fillStyle = color
+          if (pw > 0) { c.beginPath(); c.roundRect(bx, by, pw, bh, 3); c.fill() }
+
+          // Border
+          c.globalAlpha = 1
+          c.strokeStyle = color
+          c.lineWidth = 1
+          c.beginPath(); c.roundRect(bx, by, bw, bh, 3); c.stroke()
+
+          // Progress text inside bar
+          if (bw > 30) {
+            c.fillStyle = '#ffffff'
+            c.font = 'bold 7px Calibri, sans-serif'
+            c.textAlign = 'center'
+            c.fillText(`${t.progress}%`, bx + bw / 2, by + bh / 2 + 3)
+            c.textAlign = 'start'
+          }
+        })
+
+        // Legend
+        const ly = tableTop + hdrH + tasks.length * rowH + 12
+        const legends = [['#3b82f6', 'Normal'], ['#ef4444', 'Critical'], ['#22c55e', 'Complete'], ['#f97316', 'Delayed']]
+        let lx = pad
+        legends.forEach(([col, label]) => {
+          c.fillStyle = col
+          c.fillRect(lx, ly, 10, 10)
+          c.fillStyle = '#64748b'
+          c.font = '9px Calibri, sans-serif'
+          c.fillText(label, lx + 14, ly + 9)
+          lx += 70
+        })
+
+        canvas.toBlob((jpgBlob) => {
+          if (jpgBlob) { dlBlob(jpgBlob, 'BuildPro_Gantt.jpg'); showToast('JPG downloaded!', 'success') }
+          else showToast('JPG export failed', 'error')
+          setExportingFormat(null)
+        }, 'image/jpeg', 0.95)
+        return
       } else if (format === 'xlsx') {
         const html = buildGanttHTML(true)
         dlBlob(new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' }), 'BuildPro_Gantt.xls')
