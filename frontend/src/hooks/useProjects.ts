@@ -31,8 +31,30 @@ export interface ProjectSummary {
 }
 
 export interface SetupConfig {
-  phase_templates: Array<{ id: string; name: string; children: string[] }>
-  milestone_templates: string[]
+  phase_templates: Array<{
+    id: string
+    name: string
+    durP?: number
+    budP?: number
+    res?: string
+    children: Array<
+      | string
+      | {
+          id: string
+          name: string
+          durP?: number
+          budP?: number
+          res?: string
+        }
+    >
+  }>
+  milestone_templates: Array<
+    | string
+    | {
+        name: string
+        task_code: string
+      }
+  >
   has_design_phase: boolean
   workspace_modules: string[]
 }

@@ -254,30 +254,71 @@ def create_baseline(project_id, name: str, created_by=None) -> "ScheduleBaseline
     return baseline
 
 
+def _prototype_round(value: float) -> int:
+    """
+    Mirror the prototype's JavaScript Math.round behavior.
+
+    Python's built-in round() uses banker's rounding, which diverges from
+    the prototype for .5 values. The task seeding algorithm should match
+    the frontend prototype exactly.
+    """
+    if value >= 0:
+        return int(value + 0.5)
+    return int(value - 0.5)
+
+
+def _unique_task_code(preferred: str, fallback_prefix: str, index: int, used_codes: set[str]) -> str:
+    """
+    Keep prototype codes where possible, but guarantee per-project uniqueness.
+
+    Design-build projects can legitimately collide because the prototype uses
+    D1/D2/D3 for design phases and some construction templates also use D1/D2/D3
+    as child task codes. We preserve the preferred code when it's free and fall
+    back to the classic letter suffix pattern only when needed.
+    """
+    if preferred and preferred not in used_codes:
+        return preferred
+
+    base = f"{fallback_prefix}{chr(97 + index)}"
+    if base not in used_codes:
+        return base
+
+    serial = 1
+    candidate = f"{base}{serial}"
+    while candidate in used_codes:
+        serial += 1
+        candidate = f"{base}{serial}"
+    return candidate
+
+
 def seed_tasks_from_setup(project):
     """
     Generate real ProjectTask and TaskDependency records from the
-    project's setup_config phase_templates.
+    project's setup_config phase_templates using weighted distribution.
 
-    Called by the seed data command to populate schedules.
+    Mirrors the prototype's genTasks() algorithm exactly:
+    - Phase durP/budP weights control proportional duration and budget allocation
+    - Child durP/budP weights distribute within each phase
+    - Predecessor chain: phases sequential, children sequential within phase
+    - CPM runs after seeding to populate ES/EF/LS/LF/Slack/Critical
+    - Milestones linked to phase tasks with derived target dates
     """
     from apps.projects.setup import ProjectSetupConfig
 
     try:
         config = project.setup_config
     except ProjectSetupConfig.DoesNotExist:
-        return
+        return 0
 
     phases = config.phase_templates
     if not phases:
-        return
+        return 0
 
-    # Calculate duration distribution based on project dates
+    # Calculate total project days from start/end dates
     from datetime import date, timedelta
     total_days = 180  # default
     start = project.start_date
     end = project.end_date
-    # Handle string dates from seed data
     if isinstance(start, str):
         start = date.fromisoformat(start)
     if isinstance(end, str):
@@ -287,18 +328,28 @@ def seed_tasks_from_setup(project):
         if delta > 0:
             total_days = delta
 
+    total_budget = float(project.budget) if project.budget else 0
+
+    # Normalize phase weights (prototype: totalDurP, totalBudP)
+    total_dur_p = sum(p.get("durP", 0.1) for p in phases) or 1.0
+    total_bud_p = sum(p.get("budP", 0.1) for p in phases) or 1.0
+
     sort_idx = 0
     prev_phase_task = None
     all_tasks = []
+    used_codes = set()
 
     for phase in phases:
-        phase_id = phase["id"]
+        phase_id = _unique_task_code(phase["id"], phase["id"], 0, used_codes)
         phase_name = phase["name"]
         children = phase.get("children", [])
-        num_children = len(children) if children else 1
+        phase_dur_p = phase.get("durP", 0.1)
+        phase_bud_p = phase.get("budP", 0.1)
+        phase_res = phase.get("res", "")
 
-        # Phase duration proportional to children count
-        phase_dur = max(round(total_days * num_children / max(sum(len(p.get("children", [])) for p in phases), 1)), 1)
+        # Weighted phase duration and budget (prototype: phaseDur, phaseBud)
+        phase_dur = max(_prototype_round(total_days * (phase_dur_p / total_dur_p)), 1)
+        phase_bud = _prototype_round(total_budget * (phase_bud_p / total_bud_p))
 
         # Create parent phase task
         phase_task = ProjectTask.objects.create(
@@ -309,12 +360,14 @@ def seed_tasks_from_setup(project):
             duration_days=phase_dur,
             sort_order=sort_idx,
             is_parent=True,
-            budget=0,
+            budget=phase_bud,
+            resource=phase_res,
         )
         sort_idx += 1
         all_tasks.append(phase_task)
+        used_codes.add(phase_task.code)
 
-        # Create FS dependency from previous phase
+        # Phase-to-phase FS dependency (prototype: parentPred)
         if prev_phase_task:
             TaskDependency.objects.create(
                 project=project,
@@ -323,73 +376,97 @@ def seed_tasks_from_setup(project):
                 dependency_type="FS",
             )
 
-        # Create child tasks (use lowercase letter suffix to avoid code collisions)
-        prev_child = None
-        for ci, child_name in enumerate(children):
-            suffix = chr(97 + ci)  # a, b, c, d...
-            child_code = f"{phase_id}{suffix}"
-            child_dur = max(round(phase_dur / num_children), 1)
-            child_task = ProjectTask.objects.create(
-                project=project,
-                parent=phase_task,
-                code=child_code,
-                name=child_name,
-                phase=phase_name,
-                duration_days=child_dur,
-                sort_order=sort_idx,
-                is_parent=False,
-                budget=0,
-            )
-            sort_idx += 1
-            all_tasks.append(child_task)
+        # Create child tasks with weighted distribution
+        if children:
+            child_total_dur_p = sum(c.get("durP", 0.01) for c in children) or 1.0
+            child_total_bud_p = sum(c.get("budP", 0.01) for c in children) or 1.0
 
-            # Child depends on parent (start) or previous child
-            if ci == 0:
-                TaskDependency.objects.create(
+            prev_child = None
+            for ci, child in enumerate(children):
+                # Support both old format (string name) and new format (dict with weights)
+                if isinstance(child, str):
+                    child_name = child
+                    child_dur_p = 1.0 / len(children)
+                    child_bud_p = 1.0 / len(children)
+                    child_res = ""
+                    child_code_id = ""
+                else:
+                    child_name = child["name"]
+                    child_dur_p = child.get("durP", 0.01)
+                    child_bud_p = child.get("budP", 0.01)
+                    child_res = child.get("res", "")
+                    child_code_id = child.get("id", "")
+
+                # Weighted child duration and budget (prototype: cDur, cBud)
+                c_dur = max(_prototype_round(phase_dur * (child_dur_p / child_total_dur_p)), 1)
+                c_bud = _prototype_round(phase_bud * (child_bud_p / child_total_bud_p))
+
+                # Child code: prefer prototype id, but keep project codes unique.
+                child_code = _unique_task_code(child_code_id, phase_id, ci, used_codes)
+
+                child_task = ProjectTask.objects.create(
                     project=project,
-                    predecessor=phase_task,
-                    successor=child_task,
-                    dependency_type="SS",
+                    parent=phase_task,
+                    code=child_code,
+                    name=child_name,
+                    phase=phase_name,
+                    duration_days=c_dur,
+                    sort_order=sort_idx,
+                    is_parent=False,
+                    budget=c_bud,
+                    resource=child_res,
                 )
-            elif prev_child:
-                TaskDependency.objects.create(
-                    project=project,
-                    predecessor=prev_child,
-                    successor=child_task,
-                    dependency_type="FS",
-                )
-            prev_child = child_task
+                sort_idx += 1
+                all_tasks.append(child_task)
+                used_codes.add(child_task.code)
+
+                # Child dependency chain (prototype: first child → parent SS, rest → prev child FS)
+                if ci == 0:
+                    TaskDependency.objects.create(
+                        project=project,
+                        predecessor=phase_task,
+                        successor=child_task,
+                        dependency_type="SS",
+                    )
+                elif prev_child:
+                    TaskDependency.objects.create(
+                        project=project,
+                        predecessor=prev_child,
+                        successor=child_task,
+                        dependency_type="FS",
+                    )
+                prev_child = child_task
 
         prev_phase_task = phase_task
 
-    # Run CPM to populate schedule values
+    # Run CPM to populate ES/EF/LS/LF/Slack/Critical (prototype: runCPM)
     run_cpm(project.id)
 
-    # Distribute project budget across leaf tasks proportionally by duration
-    # This gives baseline snapshots meaningful task budgets for EVM
-    project_budget = float(project.budget) if project.budget else 0
-    leaf_tasks = [t for t in all_tasks if not t.is_parent]
-    total_leaf_dur = sum(t.duration_days for t in leaf_tasks) or 1
-    if project_budget > 0 and leaf_tasks:
-        for t in leaf_tasks:
-            t.budget = round(project_budget * t.duration_days / total_leaf_dur)
-        ProjectTask.objects.bulk_update(leaf_tasks, ["budget"])
-
-    # Seed milestones from config -- link to phase tasks and derive target dates
+    # Seed milestones from config using the prototype's explicit task-code linkage.
     from .models import Milestone as MilestoneModel
-    from datetime import date as date_type, timedelta
 
-    milestone_names = config.milestone_templates or []
-    phase_tasks = [t for t in all_tasks if t.is_parent]
+    milestone_templates = config.milestone_templates or []
+    task_by_code = {task.code: task for task in all_tasks}
+    phase_tasks = [task for task in all_tasks if task.is_parent]
     project_start = project.start_date
     if isinstance(project_start, str):
-        project_start = date_type.fromisoformat(project_start)
+        project_start = date.fromisoformat(project_start)
 
-    for mi, ms_name in enumerate(milestone_names):
-        # Link milestone to the phase task at the corresponding index (or last)
-        linked = phase_tasks[min(mi, len(phase_tasks) - 1)] if phase_tasks else None
+    for mi, milestone in enumerate(milestone_templates):
+        if isinstance(milestone, dict):
+            ms_name = milestone.get("name", "")
+            task_code = milestone.get("task_code", "")
+        else:
+            # Backward compatibility for older configs created before the
+            # prototype task-code mapping was stored in setup_config.
+            ms_name = milestone
+            linked = phase_tasks[min(mi, len(phase_tasks) - 1)] if phase_tasks else None
+            task_code = linked.code if linked else ""
 
-        # Derive target date from linked task's early_finish
+        linked = task_by_code.get(task_code)
+        if not ms_name or not linked:
+            continue
+
         target = None
         if linked and project_start:
             linked.refresh_from_db()
@@ -397,6 +474,7 @@ def seed_tasks_from_setup(project):
 
         MilestoneModel.objects.create(
             project=project,
+            code=task_code,
             name=ms_name,
             linked_task=linked,
             target_date=target,

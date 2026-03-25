@@ -82,7 +82,7 @@ class ProjectSetupEngineTests(TestCase):
         config = initialize_project(p)
         self.assertTrue(config.has_design_phase)
         milestones = config.milestone_templates
-        self.assertIn("Design Concept Approved", milestones)
+        self.assertIn("Design Concept Approved", [m["name"] for m in milestones])
 
     def test_milestones_match_project_type(self):
         p = Project.objects.create(
@@ -90,8 +90,33 @@ class ProjectSetupEngineTests(TestCase):
             contract_type="admeasure", organisation=self.org,
         )
         config = initialize_project(p)
-        self.assertIn("Earthworks Complete", config.milestone_templates)
-        self.assertIn("Surfacing Complete", config.milestone_templates)
+        milestone_names = [m["name"] for m in config.milestone_templates]
+        self.assertIn("Earthworks Complete", milestone_names)
+        self.assertIn("Surfacing Complete", milestone_names)
+
+        by_name = {m["name"]: m["task_code"] for m in config.milestone_templates}
+        self.assertEqual(by_name["Right of Way Acquired"], "A3")
+        self.assertEqual(by_name["Sub-base Complete"], "D1")
+
+    def test_water_treatment_project_gets_specific_milestone_mapping(self):
+        p = Project.objects.create(
+            name="Water Plant", project_type="water_treatment",
+            contract_type="lump_sum", organisation=self.org,
+        )
+        config = initialize_project(p)
+        by_name = {m["name"]: m["task_code"] for m in config.milestone_templates}
+        self.assertEqual(by_name["Hydraulic Testing Passed"], "G1")
+        self.assertEqual(by_name["Operator Training Complete"], "G")
+
+    def test_custom_project_uses_generic_task_code_milestones(self):
+        p = Project.objects.create(
+            name="Generic Job", project_type="custom",
+            contract_type="lump_sum", organisation=self.org,
+        )
+        config = initialize_project(p)
+        by_name = {m["name"]: m["task_code"] for m in config.milestone_templates}
+        self.assertEqual(by_name["Main Structure Complete"], "C")
+        self.assertEqual(by_name["Practical Completion"], "G")
 
     def test_workspace_modules_set(self):
         p = Project.objects.create(

@@ -468,6 +468,28 @@ class MilestoneQualityTests(TestCase):
         dated = milestones.filter(target_date__isnull=False)
         self.assertGreater(dated.count(), 0)
 
+    def test_seeded_road_milestones_link_to_exact_prototype_task_codes(self):
+        proj = Project.objects.create(
+            name="Road MS Test",
+            project_type="road",
+            contract_type="lump_sum",
+            organisation=self.org,
+            start_date="2026-01-01",
+            end_date="2027-01-01",
+        )
+        initialize_project(proj)
+        seed_tasks_from_setup(proj)
+
+        milestones = {
+            ms.name: ms.linked_task.code if ms.linked_task else None
+            for ms in Milestone.objects.filter(project=proj)
+        }
+        self.assertEqual(milestones["Right of Way Acquired"], "A3")
+        self.assertEqual(milestones["Sub-base Complete"], "D1")
+        self.assertEqual(milestones["Base Course Complete"], "D2")
+        self.assertEqual(milestones["First Coat of Asphalt"], "D3")
+        self.assertEqual(milestones["Surfacing Complete"], "D4")
+
 
 class AutoSeedOnCreateTests(TestCase):
     """Test that creating a project via API auto-seeds schedule records."""
@@ -545,6 +567,34 @@ class TaskSeedingTests(TestCase):
         self.assertTrue(TaskDependency.objects.filter(project=proj).exists())
         self.assertTrue(Milestone.objects.filter(project=proj).exists())
 
+    def test_seed_road_project_uses_weighted_prototype_distribution(self):
+        proj = Project.objects.create(
+            name="Road Weights",
+            project_type="road",
+            contract_type="lump_sum",
+            organisation=self.org,
+            start_date="2026-01-01",
+            end_date="2027-01-01",
+            budget=1000000,
+        )
+        initialize_project(proj)
+        seed_tasks_from_setup(proj)
+
+        self.assertEqual(ProjectTask.objects.get(project=proj, code="A").duration_days, 54)
+        self.assertEqual(str(ProjectTask.objects.get(project=proj, code="A").budget), "106061.00")
+        self.assertEqual(ProjectTask.objects.get(project=proj, code="A3").duration_days, 11)
+        self.assertEqual(str(ProjectTask.objects.get(project=proj, code="A3").budget), "22727.00")
+        self.assertEqual(ProjectTask.objects.get(project=proj, code="D").duration_days, 97)
+        self.assertEqual(str(ProjectTask.objects.get(project=proj, code="D").budget), "393939.00")
+        self.assertEqual(ProjectTask.objects.get(project=proj, code="D1").duration_days, 25)
+        self.assertEqual(str(ProjectTask.objects.get(project=proj, code="D1").budget), "90909.00")
+        self.assertEqual(ProjectTask.objects.get(project=proj, code="D2").duration_days, 25)
+        self.assertEqual(str(ProjectTask.objects.get(project=proj, code="D2").budget), "106061.00")
+        self.assertEqual(ProjectTask.objects.get(project=proj, code="D3").duration_days, 7)
+        self.assertEqual(str(ProjectTask.objects.get(project=proj, code="D3").budget), "15152.00")
+        self.assertEqual(ProjectTask.objects.get(project=proj, code="D4").duration_days, 22)
+        self.assertEqual(str(ProjectTask.objects.get(project=proj, code="D4").budget), "98485.00")
+
     def test_seed_design_build_includes_design_phases(self):
         proj = Project.objects.create(
             name="D&B", project_type="commercial",
@@ -556,6 +606,26 @@ class TaskSeedingTests(TestCase):
         codes = list(ProjectTask.objects.filter(project=proj).values_list("code", flat=True))
         self.assertIn("D1", codes)  # Design phase
         self.assertIn("D2", codes)
+
+    def test_seeded_design_build_milestones_link_to_design_phase_codes(self):
+        proj = Project.objects.create(
+            name="Design Build Milestones",
+            project_type="commercial",
+            contract_type="design_build",
+            organisation=self.org,
+            start_date="2026-01-01",
+            end_date="2027-01-01",
+        )
+        initialize_project(proj)
+        seed_tasks_from_setup(proj)
+
+        milestones = {
+            ms.name: ms.linked_task.code if ms.linked_task else None
+            for ms in Milestone.objects.filter(project=proj)
+        }
+        self.assertEqual(milestones["Design Concept Approved"], "D1")
+        self.assertEqual(milestones["Detailed Design Complete"], "D2")
+        self.assertEqual(milestones["Regulatory Approvals Obtained"], "D3")
 
 
 class ScheduleAPITests(TestCase):
