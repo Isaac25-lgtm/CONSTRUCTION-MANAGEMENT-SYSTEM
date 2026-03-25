@@ -338,7 +338,7 @@ class Command(BaseCommand):
         return project
 
     def _ensure_membership(self, project: Project, owner: User):
-        ProjectMembership.objects.get_or_create(
+        membership, created = ProjectMembership.objects.get_or_create(
             project=project,
             user=owner,
             defaults={
@@ -346,6 +346,10 @@ class Command(BaseCommand):
                 "permissions": DEFAULT_PROJECT_ROLE_PERMISSIONS["manager"],
             },
         )
+        # Always refresh permissions to pick up newly added ones (e.g. ai.use)
+        if not created:
+            membership.permissions = DEFAULT_PROJECT_ROLE_PERMISSIONS["manager"]
+            membership.save(update_fields=["permissions"])
 
     def _ensure_schedule(self, project: Project, owner: User, stage: str):
         if not ProjectTask.objects.filter(project=project).exists():

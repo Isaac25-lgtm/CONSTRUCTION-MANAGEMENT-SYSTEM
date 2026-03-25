@@ -217,6 +217,7 @@ DEFAULT_PROJECT_ROLE_PERMISSIONS = {
         "rfis.view", "rfis.edit",
         "changes.view",
         "reports.view",
+        "ai.use",
         "comms.view", "comms.edit", "comms.send",
     ],
     # Note: supervisor gets comms.edit for meeting management
@@ -231,6 +232,7 @@ DEFAULT_PROJECT_ROLE_PERMISSIONS = {
         "rfis.view",
         "changes.view",
         "reports.view",
+        "ai.use",
         "comms.view",
     ],
 }
