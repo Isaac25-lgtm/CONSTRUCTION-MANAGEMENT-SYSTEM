@@ -257,18 +257,76 @@ ${excelStyle}
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 200)
   }
 
-  const handleExport = (format: 'csv' | 'xlsx' | 'doc' | 'pdf') => {
+  const handleExport = (format: 'jpg' | 'xlsx' | 'doc' | 'pdf') => {
     setExportingFormat(format)
     try {
-      const tasks = data!.tasks as GanttTask[]
+      if (format === 'jpg') {
+        // Render Gantt as SVG → convert to canvas → download as JPG
+        const tasks = data!.tasks as GanttTask[]
+        const maxEF = Math.max(...tasks.map(t => t.end), 1)
+        const tblW = 360, barW = 500, rowH = 24, hdrH = 30
+        const svgW = tblW + barW + 20
+        const svgH = hdrH + tasks.length * rowH + 10
+        const barScale = barW / maxEF
 
-      if (format === 'csv') {
-        const header = 'ID,Activity,Start,End,Duration,Progress,Status,Critical,Assignee\n'
-        const csvRows = tasks.map(t =>
-          `"${t.code}","${t.name}","${t.start_date || ''}","${t.end_date || ''}",${t.duration},${t.progress}%,"${t.status}",${t.is_critical ? 'Yes' : 'No'},"${t.assigned || ''}"`
-        ).join('\n')
-        dlBlob(new Blob(['\uFEFF' + header + csvRows], { type: 'text/csv;charset=utf-8' }), 'BuildPro_Gantt.csv')
-        showToast('CSV downloaded!', 'success')
+        let svgRows = ''
+        tasks.forEach((t, i) => {
+          const y = hdrH + i * rowH
+          const bgFill = i % 2 === 0 ? '#f8fafc' : '#ffffff'
+          const critBg = t.is_critical ? '#fef2f2' : bgFill
+          const color = t.is_critical ? '#ef4444' : t.status === 'completed' ? '#22c55e' : t.status === 'delayed' ? '#f97316' : '#3b82f6'
+          const isChild = !!t.parent_code
+          const nameX = tblW * 0.12 + (isChild ? 12 : 0)
+          const bx = tblW + Math.round(t.start * barScale)
+          const bw = Math.max(Math.round(t.duration * barScale), 2)
+          const pw = Math.round(bw * t.progress / 100)
+
+          svgRows += `<rect x="0" y="${y}" width="${svgW}" height="${rowH}" fill="${critBg}"/>`
+          svgRows += `<text x="8" y="${y + 16}" font-size="9" font-family="monospace" fill="${t.is_critical ? '#ef4444' : '#d97706'}" font-weight="bold">${t.code}</text>`
+          svgRows += `<text x="${nameX}" y="${y + 16}" font-size="${isChild ? 9 : 10}" font-family="Calibri,sans-serif" fill="#1e293b" font-weight="${isChild ? 'normal' : 'bold'}">${t.name.length > 28 ? t.name.slice(0, 26) + '…' : t.name}</text>`
+          svgRows += `<text x="${tblW * 0.7}" y="${y + 16}" font-size="8" font-family="monospace" fill="#64748b">${t.start_date || ''}</text>`
+          svgRows += `<text x="${tblW * 0.85}" y="${y + 16}" font-size="8" font-family="monospace" fill="#64748b">${t.end_date || ''}</text>`
+          svgRows += `<text x="${tblW - 8}" y="${y + 16}" font-size="9" font-family="Calibri" fill="${t.progress >= 100 ? '#16a34a' : '#d97706'}" text-anchor="end" font-weight="bold">${t.progress}%</text>`
+          // Bar
+          svgRows += `<rect x="${bx}" y="${y + 4}" width="${bw}" height="${rowH - 8}" rx="3" fill="${color}" opacity="0.15"/>`
+          svgRows += `<rect x="${bx}" y="${y + 4}" width="${pw}" height="${rowH - 8}" rx="3" fill="${color}" opacity="0.85"/>`
+          svgRows += `<rect x="${bx}" y="${y + 4}" width="${bw}" height="${rowH - 8}" rx="3" fill="none" stroke="${color}" stroke-width="1"/>`
+        })
+
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
+          <rect width="${svgW}" height="${svgH}" fill="#ffffff"/>
+          <rect width="${svgW}" height="${hdrH}" fill="#0f172a"/>
+          <text x="8" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold">ID</text>
+          <text x="${tblW * 0.12}" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold">Activity</text>
+          <text x="${tblW * 0.7}" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold">Start</text>
+          <text x="${tblW * 0.85}" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold">End</text>
+          <text x="${tblW - 8}" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold" text-anchor="end">%</text>
+          <text x="${tblW + 8}" y="19" font-size="10" font-family="Calibri" fill="#f59e0b" font-weight="bold">Timeline</text>
+          <line x1="${tblW}" y1="0" x2="${tblW}" y2="${svgH}" stroke="#e2e8f0" stroke-width="1"/>
+          ${svgRows}
+        </svg>`
+
+        const canvas = document.createElement('canvas')
+        const scale = 2
+        canvas.width = svgW * scale
+        canvas.height = svgH * scale
+        const ctx = canvas.getContext('2d')!
+        ctx.scale(scale, scale)
+        const img = new Image()
+        const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0)
+          URL.revokeObjectURL(url)
+          canvas.toBlob((jpgBlob) => {
+            if (jpgBlob) dlBlob(jpgBlob, 'BuildPro_Gantt.jpg')
+            showToast('JPG downloaded!', 'success')
+            setExportingFormat(null)
+          }, 'image/jpeg', 0.95)
+        }
+        img.onerror = () => { showToast('JPG export failed', 'error'); setExportingFormat(null) }
+        img.src = url
+        return // async — setExportingFormat handled in callbacks
       } else if (format === 'xlsx') {
         const html = buildGanttHTML(true)
         dlBlob(new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' }), 'BuildPro_Gantt.xls')
@@ -331,8 +389,8 @@ ${excelStyle}
 
           {/* Export buttons — instant client-side generation */}
           <div className="ml-auto flex flex-wrap gap-1">
-            {(['csv', 'xlsx', 'doc', 'pdf'] as const).map(format => {
-              const labels: Record<string, string> = { csv: 'CSV', xlsx: 'Excel', doc: 'Word', pdf: 'PDF' }
+            {(['jpg', 'xlsx', 'doc', 'pdf'] as const).map(format => {
+              const labels: Record<string, string> = { jpg: 'JPG', xlsx: 'Excel', doc: 'Word', pdf: 'PDF' }
               return (
                 <ActionButton key={format} variant="blue" size="sm"
                   disabled={!!exportingFormat}
