@@ -58,3 +58,5 @@ htmlcov/
 coverage.xml
 *.cover
 .pytest_cache/
+buildpro.html
+buildpro-html*.html
