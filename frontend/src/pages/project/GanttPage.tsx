@@ -1,7 +1,6 @@
 import { useState, useRef, useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { ActionButton, PageHeader, SectionCard, LoadingState } from '../../components/ui'
-import { useProjectPermissions } from '../../hooks/useProjectPermissions'
 import { useGenerateExport } from '../../hooks/useReports'
 import { useGanttData } from '../../hooks/useSchedule'
 import { useUIStore } from '../../stores/uiStore'
@@ -80,8 +79,8 @@ interface GanttRow {
 
 export function GanttPage() {
   const { projectId } = useParams()
+  const navigate = useNavigate()
   const { data, isLoading } = useGanttData(projectId)
-  const { canExportReports } = useProjectPermissions(projectId)
   const generateExport = useGenerateExport(projectId!)
   const { showToast } = useUIStore()
   const [scale, setScale] = useState<ScaleType>('days')
@@ -145,7 +144,6 @@ export function GanttPage() {
     const phaseMap = new Map<string, number>()
     let phaseIdx = 0
     const result: GanttRow[] = []
-    let taskNum = 0
 
     tasks.forEach((t) => {
       if (!phaseMap.has(t.phase)) {
@@ -155,8 +153,8 @@ export function GanttPage() {
       const phaseCol = PHASE_COLORS[pIdx % PHASE_COLORS.length]
       const level = t.parent_code ? 1 : 0
 
-      if (!t.parent_code) taskNum++
-      const num = t.parent_code ? '' : String(taskNum)
+      // Use task code as row number (matches prototype: A, B, Aa, Ab...)
+      const num = t.code
 
       result.push({ task: t, level, num, phaseCol, isParent: t.is_parent, isMilestone: false })
 
@@ -226,26 +224,22 @@ export function GanttPage() {
             title="Zoom Out"
           >-</button>
           <span className="text-[10px] text-bp-muted ml-2">{duration} days</span>
-          {canExportReports && (
-            <div className="ml-auto flex flex-wrap gap-1.5">
-              {([
-                ['csv', 'CSV', 'green'],
-                ['xlsx', 'Excel', 'blue'],
-                ['pdf', 'PDF', 'red'],
-                ['docx', 'Word', 'accent'],
-              ] as const).map(([format, label, variant]) => (
+          <div className="ml-auto flex flex-wrap gap-1.5">
+            {(['csv', 'xlsx', 'docx', 'pdf'] as const).map(format => {
+              const labels: Record<string, string> = { csv: 'CSV', xlsx: 'Excel', docx: 'Word', pdf: 'PDF' }
+              return (
                 <ActionButton
                   key={format}
-                  variant={variant}
+                  variant="blue"
                   size="sm"
                   onClick={() => void handleExport(format)}
                   disabled={generateExport.isPending}
                 >
-                  {exportingFormat === format ? 'Generating...' : label}
+                  {exportingFormat === format ? 'Generating...' : labels[format]}
                 </ActionButton>
-              ))}
-            </div>
-          )}
+              )
+            })}
+          </div>
         </div>
       </PageHeader>
 
@@ -282,7 +276,8 @@ export function GanttPage() {
                 return (
                   <div
                     key={ri}
-                    className="grid items-center border-b border-bp-border px-1"
+                    className="grid items-center border-b border-bp-border px-1 cursor-pointer hover:bg-white/[0.02]"
+                    onClick={() => !r.isMilestone && navigate('../schedule')}
                     style={{
                       gridTemplateColumns: '42px 1fr 80px 80px 50px 70px',
                       height: ROW_H,
