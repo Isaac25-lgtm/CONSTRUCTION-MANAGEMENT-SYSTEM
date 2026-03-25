@@ -28,10 +28,12 @@ def build_critical_path_codes(tasks) -> list[str]:
     """
     Return critical activity codes in display order.
 
-    Matches prototype exactly: critical = (slack === 0).
-    All zero-slack activities included (parents, children, milestones).
+    Only leaf tasks (is_parent=False) with zero slack form the real
+    critical path. Parent/summary tasks can show slack=0 due to the
+    parent-to-parent FS chain but their children may have high slack —
+    so parents are excluded from the critical path display.
     """
-    critical_tasks = [t for t in tasks if t.total_float == 0]
+    critical_tasks = [t for t in tasks if t.total_float == 0 and not t.is_parent]
     critical_tasks.sort(
         key=lambda t: (t.early_start, t.early_finish, t.sort_order, t.code)
     )
@@ -41,10 +43,12 @@ def build_critical_path_codes(tasks) -> list[str]:
 def get_critical_path_codes(project_id) -> list[str]:
     """Return persisted critical activity codes for a project in display order.
 
-    Matches prototype: all tasks with slack === 0, regardless of duration.
+    Only leaf tasks with zero slack — parent summary tasks excluded.
     """
     tasks = list(
-        ProjectTask.objects.filter(project_id=project_id, total_float=0)
+        ProjectTask.objects.filter(
+            project_id=project_id, total_float=0, is_parent=False
+        )
         .order_by("early_start", "early_finish", "sort_order", "code")
     )
     return [task.code for task in tasks]
@@ -216,7 +220,7 @@ def run_cpm(project_id) -> CPMResult:
     # --- Phase 5: Float and critical path ---
     for task in tasks:
         task.total_float = task.late_start - task.early_start
-        task.is_critical = (task.total_float == 0)
+        task.is_critical = (task.total_float == 0 and not task.is_parent)
     critical_path = build_critical_path_codes(tasks)
 
     # --- Phase 6: Persist ---
