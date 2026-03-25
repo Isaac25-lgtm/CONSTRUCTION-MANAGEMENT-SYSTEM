@@ -4,6 +4,8 @@ from unittest.mock import patch
 from django.test import TestCase
 from apps.accounts.models import User, Organisation, SystemRole
 from apps.projects.models import Project, ProjectMembership
+from apps.scheduling.models import ProjectTask
+from apps.cost.models import Expense
 from apps.field_ops.models import PunchItem, QualityCheck, SafetyIncident
 from apps.reports.models import ReportExport
 
@@ -105,6 +107,37 @@ class ExportGenerationTests(ReportBaseTestCase):
         )
         self.assertEqual(r.status_code, 200)
         self.assertIn("wordprocessingml", r["Content-Type"])
+
+    def test_financial_export_uses_task_centric_cost_data_when_enabled(self):
+        ProjectTask.objects.create(
+            project=self.project,
+            code="A",
+            name="Foundation",
+            duration_days=5,
+            budget=250000,
+            early_start=0,
+            early_finish=5,
+            status="in_progress",
+        )
+        task = ProjectTask.objects.get(project=self.project, code="A")
+        Expense.objects.create(
+            project=self.project,
+            linked_task=task,
+            description="Concrete",
+            amount=50000,
+            expense_date="2026-03-03",
+        )
+
+        self.client.force_login(self.admin)
+        r = self.client.post(
+            f"/api/v1/reports/{self.project.id}/generate/",
+            {"report_key": "financial", "format": "csv"},
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 200)
+        body = r.content.decode("utf-8-sig")
+        self.assertIn("Foundation", body)
+        self.assertIn("50000.0", body)
 
     def test_invalid_report_key_rejected(self):
         self.client.force_login(self.admin)

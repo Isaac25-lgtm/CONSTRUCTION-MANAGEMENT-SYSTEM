@@ -51,6 +51,26 @@ def assemble_schedule(project: Project) -> dict:
 
 def assemble_financial(project: Project) -> dict:
     from apps.cost.models import BudgetLine, Expense
+    from apps.cost.services import build_task_cost_table, use_task_cost_source
+
+    task_table = build_task_cost_table(project)
+    if use_task_cost_source(project, task_table):
+        headers = ["Code", "Activity", "Pred", "Start", "End", "Budget", "Actual", "Variance", "Status"]
+        rows = []
+        for row in task_table["rows"]:
+            rows.append([
+                row["code"],
+                row["name"],
+                ",".join(row["predecessor_codes"]) or "-",
+                _fmt(row["start_date"]),
+                _fmt(row["end_date"]),
+                _fmt(row["budget"]),
+                _fmt(row["actual"]),
+                _fmt(row["variance"]),
+                row["status_display"],
+            ])
+        return {"title": f"Financial Summary - {project.name}", "headers": headers, "rows": rows}
+
     lines = BudgetLine.objects.filter(project=project).order_by("sort_order")
     headers = ["Code", "Name", "Category", "Budget", "Actual", "Variance"]
     rows = []
@@ -193,15 +213,16 @@ def assemble_documents(project: Project) -> dict:
 def assemble_progress(project: Project) -> dict:
     """High-level project progress summary combining schedule + cost."""
     from apps.scheduling.models import ProjectTask
-    from apps.cost.models import BudgetLine, Expense
-    from django.db.models import Avg, Sum
+    from django.db.models import Avg
+    from apps.cost.services import get_cost_summary
 
     tasks = ProjectTask.objects.filter(project=project, is_parent=False)
     task_count = tasks.count()
     completed = tasks.filter(status="completed").count()
     avg_progress = tasks.aggregate(avg=Avg("progress"))["avg"] or 0
-    budget = BudgetLine.objects.filter(project=project).aggregate(t=Sum("budget_amount"))["t"] or 0
-    actual = Expense.objects.filter(project=project).aggregate(t=Sum("amount"))["t"] or 0
+    cost = get_cost_summary(project)
+    budget = cost["total_budget"]
+    actual = cost["total_actual"]
 
     headers = ["Metric", "Value"]
     rows = [

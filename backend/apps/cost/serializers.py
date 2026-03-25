@@ -5,6 +5,27 @@ from apps.core.serializers import ProjectScopedValidationMixin
 from .models import BudgetLine, Expense
 
 
+def _normalize_expense_links(attrs, instance=None):
+    """Keep linked_task and budget_line aligned when older and newer cost flows mix."""
+    budget_line = attrs.get("budget_line")
+    linked_task = attrs.get("linked_task")
+
+    if instance is not None:
+        if "budget_line" not in attrs:
+            budget_line = instance.budget_line
+        if "linked_task" not in attrs:
+            linked_task = instance.linked_task
+
+    if budget_line and budget_line.linked_task:
+        if linked_task and linked_task != budget_line.linked_task:
+            raise serializers.ValidationError({
+                "linked_task": "Linked task must match the selected budget line's task.",
+            })
+        attrs["linked_task"] = budget_line.linked_task
+
+    return attrs
+
+
 class BudgetLineSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     actual_amount = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
     variance = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
@@ -69,7 +90,7 @@ class ExpenseSerializer(ProjectScopedValidationMixin, serializers.ModelSerialize
         attrs = super().validate(attrs)
         self._validate_same_project(attrs, "budget_line", label="budget line")
         self._validate_same_project(attrs, "linked_task", label="linked task")
-        return attrs
+        return _normalize_expense_links(attrs, self.instance)
 
 
 class ExpenseCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
@@ -84,4 +105,4 @@ class ExpenseCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSer
         attrs = super().validate(attrs)
         self._validate_same_project(attrs, "budget_line", label="budget line")
         self._validate_same_project(attrs, "linked_task", label="linked task")
-        return attrs
+        return _normalize_expense_links(attrs)

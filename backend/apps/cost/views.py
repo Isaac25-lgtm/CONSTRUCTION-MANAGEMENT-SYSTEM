@@ -1,7 +1,5 @@
 """Cost views -- budget lines, expenses, cost summary, EVM, project overview."""
-from decimal import Decimal
-
-from django.db.models import Count, Sum
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -14,7 +12,7 @@ from .serializers import (
     BudgetLineSerializer, BudgetLineCreateSerializer,
     ExpenseSerializer, ExpenseCreateSerializer,
 )
-from .services import get_cost_summary, get_evm_metrics, get_project_overview
+from .services import build_task_cost_table, get_cost_summary, get_evm_metrics, get_project_overview
 
 
 def _get_project_or_404(request, project_id):
@@ -201,68 +199,9 @@ def task_cost_table(request, project_id):
     if not project:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
-    tasks = ProjectTask.objects.filter(project=project).order_by("sort_order", "code")
-
-    # Pre-compute expense aggregation per task in one query
-    expense_agg = dict(
-        Expense.objects.filter(project=project, linked_task__isnull=False)
-        .values("linked_task")
-        .annotate(total=Sum("amount"))
-        .values_list("linked_task", "total")
-    )
-    expense_counts = dict(
-        Expense.objects.filter(project=project, linked_task__isnull=False)
-        .values("linked_task")
-        .annotate(cnt=Count("id"))
-        .values_list("linked_task", "cnt")
-    )
-
-    # Project start for calendar date computation
-    from datetime import timedelta
-    proj_start = project.start_date
-
-    rows = []
-    for t in tasks:
-        actual = float(expense_agg.get(t.id, 0) or 0)
-        budget = float(t.budget)
-        pred_codes = list(
-            t.predecessor_links.select_related("predecessor")
-            .values_list("predecessor__code", flat=True)
-        )
-        start_date = str(proj_start + timedelta(days=t.early_start)) if proj_start else None
-        end_date = str(proj_start + timedelta(days=t.early_finish)) if proj_start else None
-
-        rows.append({
-            "id": str(t.id),
-            "code": t.code,
-            "name": t.name,
-            "is_parent": t.is_parent,
-            "is_critical": t.is_critical,
-            "predecessor_codes": pred_codes,
-            "early_start": t.early_start,
-            "early_finish": t.early_finish,
-            "start_date": t.planned_start or start_date,
-            "end_date": t.planned_end or end_date,
-            "budget": budget,
-            "actual": actual,
-            "variance": budget - actual,
-            "expense_count": expense_counts.get(t.id, 0),
-            "status": t.status,
-            "status_display": t.get_status_display(),
-            "progress": t.progress,
-        })
-
-    # Totals
-    total_budget = sum(r["budget"] for r in rows)
-    total_actual = sum(r["actual"] for r in rows)
-
-    return Response({
-        "rows": rows,
-        "totals": {
-            "budget": total_budget,
-            "actual": total_actual,
-            "variance": total_budget - total_actual,
-        },
+    return Response(build_task_cost_table(project) or {
+        "rows": [],
+        "totals": {"budget": 0, "actual": 0, "variance": 0},
         "project_budget": float(project.budget),
     })
 
@@ -281,7 +220,10 @@ def task_expenses(request, project_id, task_id):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "GET":
-        expenses = Expense.objects.filter(project=project, linked_task=task)
+        expenses = Expense.objects.filter(project=project).filter(
+            Q(linked_task=task) |
+            Q(linked_task__isnull=True, budget_line__linked_task=task)
+        ).distinct()
         return Response(ExpenseSerializer(expenses, many=True).data)
 
     if not _can_edit_budget(request, project):
@@ -308,10 +250,23 @@ def clear_budgets(request, project_id):
     if not _can_edit_budget(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    ProjectTask.objects.filter(project=project).update(budget=0)
-    deleted_count = Expense.objects.filter(project=project).count()
-    Expense.objects.filter(project=project).delete()
+    tasks = ProjectTask.objects.filter(project=project)
+    task_ids = list(tasks.values_list("id", flat=True))
+    task_codes = list(tasks.values_list("code", flat=True))
+
+    tasks.update(budget=0)
+    BudgetLine.objects.filter(project=project).filter(
+        Q(linked_task_id__in=task_ids) |
+        Q(linked_task__isnull=True, code__in=task_codes)
+    ).update(budget_amount=0)
+
+    expenses = Expense.objects.filter(project=project).filter(
+        Q(linked_task_id__in=task_ids) |
+        Q(linked_task__isnull=True, budget_line__linked_task_id__in=task_ids)
+    )
+    deleted_count = expenses.count()
+    expenses.delete()
     return Response({
-        "tasks_reset": ProjectTask.objects.filter(project=project).count(),
+        "tasks_reset": len(task_ids),
         "expenses_deleted": deleted_count,
     })

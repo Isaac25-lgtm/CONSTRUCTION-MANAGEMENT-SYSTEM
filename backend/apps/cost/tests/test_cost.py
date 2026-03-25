@@ -68,6 +68,28 @@ class CostModelTests(TestCase):
         self.assertTrue(summary["is_over_budget"])
         self.assertLess(summary["variance"], 0)
 
+    def test_cost_summary_prefers_task_centric_costs_when_tasks_drive_budget(self):
+        task = ProjectTask.objects.create(
+            project=self.project,
+            code="A",
+            name="Foundation",
+            duration_days=10,
+            budget=Decimal("700000"),
+        )
+        Expense.objects.create(
+            project=self.project,
+            linked_task=task,
+            description="Concrete pour",
+            amount=Decimal("250000"),
+            expense_date="2026-03-01",
+        )
+
+        summary = get_cost_summary(self.project)
+        self.assertEqual(summary["total_budget"], 700000)
+        self.assertEqual(summary["total_actual"], 250000)
+        self.assertEqual(summary["variance"], 450000)
+        self.assertEqual(summary["budget_lines_count"], 1)
+
 
 class EVMTests(TestCase):
     def setUp(self):
@@ -113,6 +135,29 @@ class EVMTests(TestCase):
         evm = get_evm_metrics(self.project)
         self.assertEqual(evm["acwp"], 0)
         self.assertEqual(evm["cpi"], 0)  # No spend -> CPI undefined, returns 0
+
+    def test_evm_uses_task_budget_when_budget_lines_are_not_present(self):
+        BudgetLine.objects.all().delete()
+        task = ProjectTask.objects.create(
+            project=self.project,
+            code="C",
+            name="Task C",
+            duration_days=5,
+            progress=80,
+            status="in_progress",
+            budget=Decimal("5000000"),
+        )
+        Expense.objects.create(
+            project=self.project,
+            linked_task=task,
+            description="Direct spend",
+            amount=Decimal("1000000"),
+            expense_date="2026-03-02",
+        )
+
+        evm = get_evm_metrics(self.project)
+        self.assertEqual(evm["bac"], 5000000)
+        self.assertEqual(evm["acwp"], 1000000)
 
 
 class CostAPITests(TestCase):
@@ -254,3 +299,74 @@ class CostAPITests(TestCase):
         evm = get_evm_metrics(self.project)
         # Should use leaf progress (80%), not avg of parent(0)+leaf(80)=40%
         self.assertEqual(evm["overall_progress"], 80.0)
+
+    def test_task_cost_table_includes_budget_line_expenses_linked_via_task(self):
+        self.client.force_login(self.user)
+        task = ProjectTask.objects.create(
+            project=self.project,
+            code="A",
+            name="Foundation",
+            duration_days=5,
+            budget=Decimal("200000"),
+        )
+        line = BudgetLine.objects.create(
+            project=self.project,
+            linked_task=task,
+            code="A",
+            name="Foundation Budget",
+            budget_amount=Decimal("200000"),
+            category="substructure",
+        )
+        Expense.objects.create(
+            project=self.project,
+            budget_line=line,
+            description="Steel",
+            amount=Decimal("50000"),
+            expense_date="2026-03-01",
+        )
+
+        response = self.client.get(f"/api/v1/cost/{self.project.id}/task-cost-table/")
+        self.assertEqual(response.status_code, 200)
+        row = response.json()["rows"][0]
+        self.assertEqual(row["actual"], 50000.0)
+        self.assertEqual(row["expense_count"], 1)
+
+    def test_clear_budgets_resets_task_budgets_and_preserves_unlinked_expenses(self):
+        self.client.force_login(self.user)
+        task = ProjectTask.objects.create(
+            project=self.project,
+            code="A",
+            name="Foundation",
+            duration_days=5,
+            budget=Decimal("300000"),
+        )
+        line = BudgetLine.objects.create(
+            project=self.project,
+            linked_task=task,
+            code="A",
+            name="Foundation Budget",
+            budget_amount=Decimal("300000"),
+            category="substructure",
+        )
+        linked_expense = Expense.objects.create(
+            project=self.project,
+            budget_line=line,
+            description="Linked",
+            amount=Decimal("40000"),
+            expense_date="2026-03-01",
+        )
+        unlinked_expense = Expense.objects.create(
+            project=self.project,
+            description="Unlinked legacy",
+            amount=Decimal("12000"),
+            expense_date="2026-03-02",
+        )
+
+        response = self.client.post(f"/api/v1/cost/{self.project.id}/clear-budgets/")
+        self.assertEqual(response.status_code, 200)
+        task.refresh_from_db()
+        line.refresh_from_db()
+        self.assertEqual(task.budget, 0)
+        self.assertEqual(line.budget_amount, 0)
+        self.assertFalse(Expense.objects.filter(pk=linked_expense.pk).exists())
+        self.assertTrue(Expense.objects.filter(pk=unlinked_expense.pk).exists())
