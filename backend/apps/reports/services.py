@@ -12,6 +12,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.core.files.base import ContentFile
+from django.db import models
 
 from apps.projects.models import Project
 
@@ -405,7 +406,3 @@ EXPORT_GENERATORS = {
     "pdf": generate_pdf,
     "docx": generate_docx,
 }
-
-
-# Need this for the financial assembler
-from django.db import models
