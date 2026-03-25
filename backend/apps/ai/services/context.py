@@ -21,7 +21,9 @@ def assemble_project_context(project, *, user_perms=None,
     sections.append(f"PROJECT: {project.name} ({project.code})")
     sections.append(f"Type: {project.get_project_type_display()} | Contract: {project.get_contract_type_display()}")
     sections.append(f"Status: {project.get_status_display()}")
-    sections.append(f"Client: {project.client_name or 'N/A'} | Location: {project.location or 'N/A'}")
+    sections.append(
+        f"Client: {project.client_name or 'N/A'} | Manager: {project.project_manager_name or 'N/A'} | Location: {project.location or 'N/A'}"
+    )
     if project.start_date:
         sections.append(f"Start: {project.start_date} | End: {project.end_date or 'TBD'}")
     sections.append("")
@@ -75,10 +77,11 @@ def _add_cost_context(project, sections):
     try:
         overview = get_project_overview(project)
         evm = get_evm_metrics(project)
+        cost = overview.get("cost", {})
         sections.append("COST SUMMARY:")
-        sections.append(f"  Budget: {overview.get('total_budget', 0):,.0f}")
-        sections.append(f"  Actual cost: {overview.get('total_actual', 0):,.0f}")
-        sections.append(f"  Variance: {overview.get('variance', 0):,.0f}")
+        sections.append(f"  Budget: {cost.get('total_budget', 0):,.0f}")
+        sections.append(f"  Actual cost: {cost.get('total_actual', 0):,.0f}")
+        sections.append(f"  Variance: {cost.get('variance', 0):,.0f}")
         sections.append(f"  CPI: {evm.get('cpi', 0):.2f} | SPI: {evm.get('spi', 0):.2f}")
         sections.append(f"  EAC: {evm.get('eac', 0):,.0f}")
         sections.append("")

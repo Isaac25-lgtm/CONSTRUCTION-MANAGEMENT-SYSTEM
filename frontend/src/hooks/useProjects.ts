@@ -10,6 +10,7 @@ export interface ProjectSummary {
   name: string
   description: string
   location: string
+  project_manager_name: string
   project_type: string
   project_type_display: string
   contract_type: string
@@ -71,6 +72,7 @@ export interface ProjectCreateData {
   name: string
   description?: string
   location: string
+  project_manager_name: string
   project_type: string
   contract_type: string
   start_date: string

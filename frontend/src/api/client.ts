@@ -46,3 +46,37 @@ export async function bootstrapCsrf(): Promise<void> {
     // Backend may not be running yet -- safe to ignore during dev
   }
 }
+
+function firstErrorMessage(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim()
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = firstErrorMessage(item)
+      if (nested) return nested
+    }
+    return null
+  }
+  if (value && typeof value === 'object') {
+    for (const [key, nestedValue] of Object.entries(value)) {
+      const nested = firstErrorMessage(nestedValue)
+      if (nested) {
+        return key === 'detail' ? nested : `${key}: ${nested}`
+      }
+    }
+  }
+  return null
+}
+
+export function getApiErrorMessage(error: unknown, fallback = 'Request failed.'): string {
+  if (axios.isAxiosError(error)) {
+    const message = firstErrorMessage(error.response?.data)
+    if (message) return message
+    if (error.message) return error.message
+  }
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  return fallback
+}

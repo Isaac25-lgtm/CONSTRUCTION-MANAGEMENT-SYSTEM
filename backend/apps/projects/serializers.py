@@ -1,4 +1,6 @@
 """Projects serializers -- project CRUD, setup config, and membership."""
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from apps.core.serializers import ProjectScopedValidationMixin
@@ -31,6 +33,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "location",
+            "project_manager_name",
             "project_type",
             "project_type_display",
             "contract_type",
@@ -53,6 +56,19 @@ class ProjectListSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "code", "created_at", "member_count", "setup_complete",
                             "project_type_display", "contract_type_display", "status_display",
                             "can_edit", "can_archive"]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        start_date = attrs.get("start_date")
+        end_date = attrs.get("end_date")
+        if self.instance is not None:
+            start_date = start_date if start_date is not None else self.instance.start_date
+            end_date = end_date if end_date is not None else self.instance.end_date
+        if start_date and end_date and end_date < start_date:
+            raise serializers.ValidationError(
+                {"end_date": "End date must be on or after the start date."}
+            )
+        return attrs
 
     def get_member_count(self, project):
         return getattr(project, "member_count_value", project.memberships.count())
@@ -160,12 +176,19 @@ class ProjectDetailSerializer(ProjectListSerializer):
 class ProjectCreateSerializer(serializers.ModelSerializer):
     """Serializer for project creation -- includes all setup fields."""
 
+    location = serializers.CharField(trim_whitespace=True)
+    project_manager_name = serializers.CharField(trim_whitespace=True)
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+    budget = serializers.DecimalField(max_digits=15, decimal_places=2)
+
     class Meta:
         model = Project
         fields = [
             "name",
             "description",
             "location",
+            "project_manager_name",
             "project_type",
             "contract_type",
             "start_date",
@@ -178,6 +201,28 @@ class ProjectCreateSerializer(serializers.ModelSerializer):
             "consultant",
             "contractor",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        required_text = {
+            "name": "Project name is required.",
+            "location": "Location is required.",
+            "project_manager_name": "Project manager is required.",
+        }
+        for field, message in required_text.items():
+            value = (attrs.get(field) or "").strip()
+            if not value:
+                raise serializers.ValidationError({field: message})
+
+        if attrs["budget"] <= Decimal("0"):
+            raise serializers.ValidationError(
+                {"budget": "Estimated cost must be greater than zero."}
+            )
+        if attrs["end_date"] < attrs["start_date"]:
+            raise serializers.ValidationError(
+                {"end_date": "End date must be on or after the start date."}
+            )
+        return attrs
 
 
 class MembershipSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):

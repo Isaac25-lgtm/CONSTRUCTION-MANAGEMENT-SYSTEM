@@ -72,6 +72,7 @@ class Project(BaseModel):
 
     # Location & dates
     location = models.CharField(max_length=255, blank=True, default="")
+    project_manager_name = models.CharField(max_length=255, blank=True, default="")
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
 

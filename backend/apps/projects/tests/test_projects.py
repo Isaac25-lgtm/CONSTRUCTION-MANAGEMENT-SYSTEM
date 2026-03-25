@@ -146,6 +146,7 @@ class ProjectCRUDTests(TestCase):
             reverse("project-list"),
             {
                 "name": "New Building",
+                "project_manager_name": "Eng. Sarah Nakamya",
                 "project_type": "commercial",
                 "contract_type": "lump_sum",
                 "location": "Kampala",
@@ -159,6 +160,7 @@ class ProjectCRUDTests(TestCase):
         data = response.json()
         self.assertTrue(data["code"].startswith("BP-COM-"))
         self.assertTrue(data["setup_complete"])
+        self.assertEqual(data["project_manager_name"], "Eng. Sarah Nakamya")
 
     def test_create_project_runs_setup_engine(self):
         self.client.force_login(self.user)
@@ -166,9 +168,13 @@ class ProjectCRUDTests(TestCase):
             reverse("project-list"),
             {
                 "name": "Hospital",
+                "project_manager_name": "Eng. Grace Auma",
                 "project_type": "hospital",
                 "contract_type": "lump_sum",
                 "location": "Gulu",
+                "budget": 2500000000,
+                "start_date": "2026-04-01",
+                "end_date": "2027-10-01",
             },
             content_type="application/json",
         )
@@ -177,13 +183,23 @@ class ProjectCRUDTests(TestCase):
         self.assertTrue(
             ProjectSetupConfig.objects.filter(project=proj).exists()
         )
+        self.assertEqual(proj.project_manager_name, "Eng. Grace Auma")
 
     def test_archive_project(self):
         self.client.force_login(self.user)
         # Create first
         resp = self.client.post(
             reverse("project-list"),
-            {"name": "ToArchive", "project_type": "road", "contract_type": "lump_sum"},
+            {
+                "name": "ToArchive",
+                "location": "Mukono",
+                "project_manager_name": "Eng. Peter Kato",
+                "project_type": "road",
+                "contract_type": "lump_sum",
+                "budget": 10000000,
+                "start_date": "2026-01-01",
+                "end_date": "2026-12-01",
+            },
             content_type="application/json",
         )
         pid = resp.json()["id"]
@@ -194,3 +210,40 @@ class ProjectCRUDTests(TestCase):
         self.assertEqual(resp2.status_code, 200)
         proj = Project.objects.get(pk=pid)
         self.assertEqual(proj.status, "cancelled")
+
+    def test_create_project_requires_project_manager_name(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("project-list"),
+            {
+                "name": "Missing PM",
+                "project_type": "commercial",
+                "contract_type": "lump_sum",
+                "location": "Kampala",
+                "budget": 1000000,
+                "start_date": "2026-06-01",
+                "end_date": "2027-06-01",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("project_manager_name", response.json())
+
+    def test_create_project_rejects_end_before_start(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("project-list"),
+            {
+                "name": "Bad Dates",
+                "project_manager_name": "Eng. Sarah Nakamya",
+                "project_type": "commercial",
+                "contract_type": "lump_sum",
+                "location": "Kampala",
+                "budget": 1000000,
+                "start_date": "2027-06-01",
+                "end_date": "2026-06-01",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("end_date", response.json())

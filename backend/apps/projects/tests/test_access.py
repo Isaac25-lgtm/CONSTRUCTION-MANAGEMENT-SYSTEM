@@ -117,7 +117,16 @@ class ProjectAccessTests(TestCase):
         self.client.force_login(self.manager)
         response = self.client.post(
             reverse("project-list"),
-            {"name": "New Project", "project_type": "commercial", "contract_type": "lump_sum"},
+            {
+                "name": "New Project",
+                "location": "Kampala",
+                "project_manager_name": "Eng. Sarah Nakamya",
+                "project_type": "commercial",
+                "contract_type": "lump_sum",
+                "budget": 1000000,
+                "start_date": "2026-06-01",
+                "end_date": "2027-06-01",
+            },
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 201)
@@ -132,7 +141,16 @@ class ProjectAccessTests(TestCase):
         self.client.force_login(self.engineer)
         response = self.client.post(
             reverse("project-list"),
-            {"name": "Forbidden", "project_type": "road", "contract_type": "lump_sum"},
+            {
+                "name": "Forbidden",
+                "location": "Mukono",
+                "project_manager_name": "Eng. Peter Kato",
+                "project_type": "road",
+                "contract_type": "lump_sum",
+                "budget": 1000000,
+                "start_date": "2026-06-01",
+                "end_date": "2026-12-01",
+            },
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 403)

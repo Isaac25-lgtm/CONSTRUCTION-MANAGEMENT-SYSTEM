@@ -30,7 +30,7 @@ class ProjectSetupConfig(TimestampedModel):
     )
     phase_templates = models.JSONField(
         default=list,
-        help_text="List of phase/task group skeletons with durP/budP weights.",
+        help_text="List of phase/task group skeletons for the scheduling engine.",
     )
     milestone_templates = models.JSONField(
         default=list,

@@ -205,6 +205,14 @@ class AIErrorHandlingTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["status"], "pending")
 
+    @patch("apps.ai.services.provider.GeminiProvider.generate", side_effect=ValueError("GEMINI_API_KEY not set"))
+    def test_missing_gemini_key_returns_503(self, _mock_generate):
+        self.client.force_login(self.admin)
+        with patch.dict(os.environ, {"AI_PROVIDER": "gemini"}, clear=False):
+            r = self.client.post(f"/api/v1/ai/{self.project.id}/narrative/")
+        self.assertEqual(r.status_code, 503)
+        self.assertEqual(r.json()["detail"], "AI service not configured.")
+
 
 class ReadinessTests(TestCase):
     def test_health_endpoint(self):

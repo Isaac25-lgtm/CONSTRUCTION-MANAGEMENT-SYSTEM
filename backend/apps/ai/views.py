@@ -54,11 +54,11 @@ def _get_user_module_perms(user, project):
 def _safe_error_response(exc, fallback_msg="AI service temporarily unavailable."):
     """Return a sanitized error response -- never expose raw exceptions."""
     logger.error("AI endpoint error: %s", exc, exc_info=True)
-    error_type = type(exc).__name__
-    if isinstance(exc, ValueError):
-        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-    if "API_KEY" in str(exc) or "api_key" in str(exc):
+    message = str(exc)
+    if "API_KEY" in message or "api_key" in message:
         return Response({"detail": "AI service not configured."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    if isinstance(exc, ValueError):
+        return Response({"detail": message}, status=status.HTTP_400_BAD_REQUEST)
     return Response({"detail": fallback_msg}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 

@@ -50,6 +50,7 @@ export function OverviewPage() {
             </div>
             <div className="text-xs text-bp-muted">
               {summary.location}
+              {project?.project_manager_name && <> &bull; Manager: <span className="text-bp-text">{project.project_manager_name}</span></>}
               {summary.client_name && <> &bull; Client: <span className="text-bp-text">{summary.client_name}</span></>}
               {summary.consultant && <> &bull; Consultant: <span className="text-bp-text">{summary.consultant}</span></>}
             </div>
@@ -84,6 +85,10 @@ export function OverviewPage() {
             )}
           </div>
           <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg bg-bp-surface px-3 py-3">
+              <div className="text-[10px] uppercase tracking-wide text-bp-muted">Project Manager</div>
+              <div className="mt-1 text-sm font-semibold text-bp-text">{project?.project_manager_name || 'Not set'}</div>
+            </div>
             <div className="rounded-lg bg-bp-surface px-3 py-3">
               <div className="text-[10px] uppercase tracking-wide text-bp-muted">Contract</div>
               <div className="mt-1 text-sm font-semibold text-bp-text">{project?.contract_type_display || 'Not set'}</div>

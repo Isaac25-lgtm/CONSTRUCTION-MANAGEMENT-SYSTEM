@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { getApiErrorMessage } from '../../api/client'
 import { ActionButton, StatusBadge } from '../ui'
 import { useCopilotQuery, useProjectIntelligence } from '../../hooks/useAI'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
@@ -74,8 +75,8 @@ export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProp
           text: result.text,
         },
       ])
-    } catch {
-      showToast('Project copilot could not answer just now', 'error')
+    } catch (error) {
+      showToast(getApiErrorMessage(error, 'Project copilot could not answer just now'), 'error')
     }
   }
 

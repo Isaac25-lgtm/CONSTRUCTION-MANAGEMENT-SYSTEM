@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { getApiErrorMessage } from '../../api/client'
 import { Modal, ActionButton } from '../../components/ui'
 import { useUpdateProject, type ProjectSummary } from '../../hooks/useProjects'
 import { useUIStore } from '../../stores/uiStore'
@@ -24,6 +25,7 @@ function EditProjectForm({ project, onClose }: { project: ProjectSummary; onClos
     name: project.name,
     description: project.description || '',
     location: project.location,
+    project_manager_name: project.project_manager_name || '',
     project_type: project.project_type,
     contract_type: project.contract_type,
     status: project.status,
@@ -37,7 +39,7 @@ function EditProjectForm({ project, onClose }: { project: ProjectSummary; onClos
   const updateProject = useUpdateProject(project.id)
   const { showToast } = useUIStore()
 
-  const set = (field: string, value: string) =>
+  const set = (field: keyof typeof form, value: string) =>
     setForm((f) => ({ ...f, [field]: value }))
 
   async function handleSubmit(e: FormEvent) {
@@ -49,8 +51,8 @@ function EditProjectForm({ project, onClose }: { project: ProjectSummary; onClos
       })
       showToast('Project updated', 'success')
       onClose()
-    } catch {
-      showToast('Failed to update project', 'error')
+    } catch (error) {
+      showToast(getApiErrorMessage(error, 'Failed to update project'), 'error')
     }
   }
 
@@ -68,12 +70,22 @@ function EditProjectForm({ project, onClose }: { project: ProjectSummary; onClos
               <input value={form.location} onChange={(e) => set('location', e.target.value)} />
             </div>
             <div>
+              <label className="mb-1 block text-xs font-semibold text-bp-muted">Project Manager</label>
+              <input value={form.project_manager_name} onChange={(e) => set('project_manager_name', e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <label className="mb-1 block text-xs font-semibold text-bp-muted">Status</label>
               <select value={form.status} onChange={(e) => set('status', e.target.value)}>
                 {PROJECT_STATUSES.map((s) => (
                   <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-bp-muted">Client</label>
+              <input value={form.client_name} onChange={(e) => set('client_name', e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -108,11 +120,7 @@ function EditProjectForm({ project, onClose }: { project: ProjectSummary; onClos
               <input type="date" value={form.end_date} onChange={(e) => set('end_date', e.target.value)} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-bp-muted">Client</label>
-              <input value={form.client_name} onChange={(e) => set('client_name', e.target.value)} />
-            </div>
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-bp-muted">Consultant</label>
               <input value={form.consultant} onChange={(e) => set('consultant', e.target.value)} />

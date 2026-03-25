@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from 'react'
+import { getApiErrorMessage } from '../../api/client'
 import { Modal, ActionButton } from '../../components/ui'
 import { useCreateProject } from '../../hooks/useProjects'
 import { useUIStore } from '../../stores/uiStore'
 import { PROJECT_TYPES, CONTRACT_TYPES } from '../../types'
 
 /**
- * Create Project modal matching prototype's New Project form.
+ * Create Project modal mirroring the prototype new-project form.
  *
- * Fields: name, description, location, project type, contract type,
- * estimated cost, start/end dates, client details, consultant, contractor.
+ * Fields: name, description, location, project manager, project type,
+ * contract type, estimated cost, start/end dates, and client details.
  */
 
 interface CreateProjectModalProps {
@@ -21,6 +22,7 @@ const initialForm = {
   name: '',
   description: '',
   location: '',
+  project_manager_name: '',
   project_type: 'residential',
   contract_type: 'lump_sum',
   budget: '',
@@ -30,44 +32,66 @@ const initialForm = {
   client_phone: '',
   client_email: '',
   client_org: '',
-  consultant: '',
-  contractor: '',
 }
 
+type CreateProjectFormState = typeof initialForm
+
 export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectModalProps) {
-  const [form, setForm] = useState(initialForm)
+  const [form, setForm] = useState<CreateProjectFormState>(initialForm)
   const createProject = useCreateProject()
   const { showToast } = useUIStore()
 
-  const set = (field: string, value: string) =>
-    setForm((f) => ({ ...f, [field]: value }))
+  const set = (field: keyof CreateProjectFormState, value: string) =>
+    setForm((current) => ({ ...current, [field]: value }))
+
+  const handleClose = () => {
+    setForm(initialForm)
+    onClose()
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!form.name.trim() || !form.location.trim() || !form.start_date || !form.end_date) {
+    if (
+      !form.name.trim() ||
+      !form.location.trim() ||
+      !form.project_manager_name.trim() ||
+      !form.start_date ||
+      !form.end_date ||
+      !form.budget.trim()
+    ) {
       showToast('Fill all required fields', 'warning')
+      return
+    }
+
+    const budgetValue = parseFloat(form.budget)
+    if (!Number.isFinite(budgetValue) || budgetValue <= 0) {
+      showToast('Estimated cost must be greater than zero', 'warning')
+      return
+    }
+
+    if (new Date(form.end_date) < new Date(form.start_date)) {
+      showToast('End date must be on or after the start date', 'warning')
       return
     }
 
     try {
       const result = await createProject.mutateAsync({
         ...form,
-        budget: parseFloat(form.budget) || 0,
+        budget: budgetValue,
       })
       showToast(`Project ${result.code} created!`, 'success')
       setForm(initialForm)
       onClose()
       onCreated?.(result.id)
-    } catch {
-      showToast('Failed to create project', 'error')
+    } catch (error) {
+      showToast(getApiErrorMessage(error, 'Failed to create project'), 'error')
     }
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="🏗️ New Project" width={540}>
+    <Modal open={open} onClose={handleClose} title="🏗️ New Project" width={520}>
       <form onSubmit={handleSubmit}>
         <div className="grid gap-3">
-          {/* Name */}
           <div>
             <label className="mb-1 block text-xs font-semibold text-bp-muted">Project Name *</label>
             <input
@@ -78,17 +102,15 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="mb-1 block text-xs font-semibold text-bp-muted">Description</label>
             <input
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
-              placeholder="Brief scope description"
+              placeholder="Brief description"
             />
           </div>
 
-          {/* Location + Consultant */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-bp-muted">Location *</label>
@@ -100,16 +122,16 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-bp-muted">Consultant</label>
+              <label className="mb-1 block text-xs font-semibold text-bp-muted">Project Manager *</label>
               <input
-                value={form.consultant}
-                onChange={(e) => set('consultant', e.target.value)}
-                placeholder="e.g. Arch. Birungi & Associates"
+                value={form.project_manager_name}
+                onChange={(e) => set('project_manager_name', e.target.value)}
+                placeholder="e.g. Eng. Sarah Nakamya"
+                required
               />
             </div>
           </div>
 
-          {/* Project Type */}
           <div>
             <label className="mb-1 block text-xs font-semibold text-bp-muted">Project Type</label>
             <select value={form.project_type} onChange={(e) => set('project_type', e.target.value)}>
@@ -119,7 +141,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
             </select>
           </div>
 
-          {/* Contract Type + Budget */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-bp-muted">Contract Type</label>
@@ -136,23 +157,32 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
                 value={form.budget}
                 onChange={(e) => set('budget', e.target.value)}
                 placeholder="e.g. 450000000"
+                required
               />
             </div>
           </div>
 
-          {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-bp-muted">Start Date *</label>
-              <input type="date" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} required />
+              <input
+                type="date"
+                value={form.start_date}
+                onChange={(e) => set('start_date', e.target.value)}
+                required
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-bp-muted">End Date *</label>
-              <input type="date" value={form.end_date} onChange={(e) => set('end_date', e.target.value)} required />
+              <input
+                type="date"
+                value={form.end_date}
+                onChange={(e) => set('end_date', e.target.value)}
+                required
+              />
             </div>
           </div>
 
-          {/* Client Details divider */}
           <div className="mt-1 border-t border-bp-border pt-3">
             <div className="mb-2 text-xs font-bold text-bp-accent">👤 Client Details</div>
           </div>

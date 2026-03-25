@@ -9,7 +9,7 @@ import { PROJECT_STATUSES } from '../../types'
  * ProjectWorkspace -- layout wrapper for project-scoped views.
  *
  * Loads real project data from the API. Shows project identity header
- * with code, name, type, contract, client, consultant, status, and
+ * with code, name, type, contract, client, manager, consultant, status, and
  * quick stats above the active module Outlet.
  */
 
@@ -56,9 +56,10 @@ export function ProjectWorkspace() {
         <h2 className="mb-0.5 text-lg font-bold text-bp-text">{project.name}</h2>
         <div className="text-[13px] text-bp-muted">
           {project.location}
+          {project.project_manager_name && ` \u2022 ${project.project_manager_name}`}
           {project.contract_type_display && ` \u2022 ${project.contract_type_display}`}
         </div>
-        {(project.client_name || project.consultant) && (
+        {(project.client_name || project.consultant || project.contractor) && (
           <div className="mt-1.5 flex flex-wrap gap-x-6 gap-y-1 text-xs text-bp-muted">
             {project.client_name && (
               <span>Client: <span className="text-bp-text">{project.client_name}</span>

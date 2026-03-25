@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
+import { getApiErrorMessage } from '../../api/client'
 import {
   ActionButton,
   EmptyState,
@@ -296,8 +297,8 @@ export function AIAssistantPage() {
         setPendingJobId(job.id)
         setPendingJobLabel(label)
         showToast('Background AI job submitted', 'info')
-      } catch {
-        showToast(`${label} failed. Check that the worker is running.`, 'error')
+      } catch (error) {
+        showToast(getApiErrorMessage(error, `${label} failed. Check that the worker is running.`), 'error')
       }
       return
     }
@@ -310,8 +311,8 @@ export function AIAssistantPage() {
         setCopilotText(result.text)
         setQuestion('')
       }
-    } catch {
-      showToast(`${label} generation failed`, 'error')
+    } catch (error) {
+      showToast(getApiErrorMessage(error, `${label} generation failed`), 'error')
     }
   }
 

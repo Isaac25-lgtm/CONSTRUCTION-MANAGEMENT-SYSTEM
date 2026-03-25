@@ -307,6 +307,7 @@ def get_project_overview(project):
             "status": project.status,
             "status_display": project.get_status_display(),
             "location": project.location,
+            "project_manager_name": project.project_manager_name,
             "start_date": str(project.start_date) if project.start_date else None,
             "end_date": str(project.end_date) if project.end_date else None,
             "budget": float(project.budget),
