@@ -261,53 +261,64 @@ ${excelStyle}
     setExportingFormat(format)
     try {
       if (format === 'jpg') {
-        // Draw Gantt directly on canvas — no SVG, no html2canvas
+        // Draw Gantt on canvas in LANDSCAPE orientation (A4-like: 1120x794)
         const tasks = data!.tasks as GanttTask[]
         const maxEF = Math.max(...tasks.map(t => t.end), 1)
-        const tblW = 380, timelineW = 520, pad = 16, rowH = 26, hdrH = 32
-        const canvasW = tblW + timelineW + pad * 2
-        const canvasH = hdrH + tasks.length * rowH + pad * 2 + 30
+        // Landscape A4 proportions at good resolution
+        const W = 1120, pad = 20, titleH = 50, hdrH = 28, rowH = 22, legendH = 30
+        const totalRows = tasks.length
+        const H = titleH + hdrH + totalRows * rowH + legendH + pad * 2
+        // Column positions (landscape gives us room)
+        const colID = pad
+        const colName = pad + 45
+        const colStart = pad + 300
+        const colEnd = pad + 390
+        const colProg = pad + 475
+        const colTimeline = pad + 510
+        const timelineW = W - colTimeline - pad
         const barScale = timelineW / maxEF
         const dpr = 2
 
         const canvas = document.createElement('canvas')
-        canvas.width = canvasW * dpr
-        canvas.height = canvasH * dpr
+        canvas.width = W * dpr
+        canvas.height = H * dpr
         const c = canvas.getContext('2d')!
         c.scale(dpr, dpr)
 
-        // Background
+        // White background
         c.fillStyle = '#ffffff'
-        c.fillRect(0, 0, canvasW, canvasH)
+        c.fillRect(0, 0, W, H)
 
-        // Title
+        // Title bar with accent border
+        c.fillStyle = '#f59e0b'
+        c.fillRect(pad, pad, 4, 30)
         c.fillStyle = '#0f172a'
-        c.font = 'bold 14px Calibri, Arial, sans-serif'
-        c.fillText('BuildPro — Gantt Chart', pad, pad + 14)
+        c.font = 'bold 16px Calibri, Arial, sans-serif'
+        c.fillText('BuildPro — Gantt Chart', pad + 12, pad + 18)
         c.fillStyle = '#64748b'
-        c.font = '9px Calibri, Arial, sans-serif'
-        c.fillText(`Generated: ${new Date().toLocaleDateString()} | Duration: ${duration} days | Tasks: ${tasks.length}`, pad, pad + 26)
+        c.font = '10px Calibri, Arial, sans-serif'
+        c.fillText(`Generated: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}  |  Scale: ${scale}  |  Duration: ${duration} days  |  Tasks: ${tasks.length}`, pad + 12, pad + 34)
 
-        const tableTop = pad + 34
+        const tableTop = pad + titleH
 
         // Header row
         c.fillStyle = '#0f172a'
-        c.fillRect(pad, tableTop, canvasW - pad * 2, hdrH)
+        c.fillRect(pad, tableTop, W - pad * 2, hdrH)
         c.fillStyle = '#f59e0b'
         c.font = 'bold 10px Calibri, Arial, sans-serif'
-        c.fillText('ID', pad + 6, tableTop + 20)
-        c.fillText('Activity', pad + 50, tableTop + 20)
-        c.fillText('Start', pad + tblW * 0.62, tableTop + 20)
-        c.fillText('End', pad + tblW * 0.78, tableTop + 20)
-        c.fillText('%', pad + tblW * 0.93, tableTop + 20)
-        c.fillText('Timeline', pad + tblW + 8, tableTop + 20)
+        c.fillText('ID', colID + 6, tableTop + 18)
+        c.fillText('Activity', colName, tableTop + 18)
+        c.fillText('Start', colStart, tableTop + 18)
+        c.fillText('End', colEnd, tableTop + 18)
+        c.fillText('%', colProg, tableTop + 18)
+        c.fillText('Timeline', colTimeline + 4, tableTop + 18)
 
-        // Divider line between table and timeline
-        c.strokeStyle = '#e2e8f0'
-        c.lineWidth = 1
+        // Vertical divider at timeline
+        c.strokeStyle = '#cbd5e1'
+        c.lineWidth = 0.5
         c.beginPath()
-        c.moveTo(pad + tblW, tableTop)
-        c.lineTo(pad + tblW, tableTop + hdrH + tasks.length * rowH)
+        c.moveTo(colTimeline - 4, tableTop)
+        c.lineTo(colTimeline - 4, tableTop + hdrH + totalRows * rowH)
         c.stroke()
 
         // Task rows
@@ -318,79 +329,97 @@ ${excelStyle}
 
           // Row background
           c.fillStyle = t.is_critical ? '#fef2f2' : (i % 2 === 0 ? '#f8fafc' : '#ffffff')
-          c.fillRect(pad, y, canvasW - pad * 2, rowH)
+          c.fillRect(pad, y, W - pad * 2, rowH)
 
-          // Row border
+          // Row bottom border
           c.strokeStyle = '#f1f5f9'
-          c.beginPath(); c.moveTo(pad, y + rowH); c.lineTo(canvasW - pad, y + rowH); c.stroke()
+          c.lineWidth = 0.5
+          c.beginPath(); c.moveTo(pad, y + rowH); c.lineTo(W - pad, y + rowH); c.stroke()
 
-          // ID
-          c.fillStyle = t.is_critical ? '#ef4444' : '#d97706'
-          c.font = 'bold 9px Consolas, monospace'
-          c.fillText(t.code, pad + 6, y + 17)
+          // ID (monospace, colored)
+          c.fillStyle = t.is_critical ? '#ef4444' : '#b45309'
+          c.font = 'bold 9px Consolas, Courier New, monospace'
+          c.fillText(t.code, colID + 6, y + 15)
 
-          // Activity name
+          // Activity name (bold for parents, indented for children)
           c.fillStyle = '#1e293b'
-          c.font = isChild ? '9px Calibri, sans-serif' : 'bold 10px Calibri, sans-serif'
-          const nameX = pad + 50 + (isChild ? 14 : 0)
-          const name = t.name.length > 30 ? t.name.slice(0, 28) + '…' : t.name
-          c.fillText(name, nameX, y + 17)
+          c.font = isChild ? '9px Calibri, Arial, sans-serif' : 'bold 10px Calibri, Arial, sans-serif'
+          const nx = colName + (isChild ? 14 : 0)
+          const maxNameW = colStart - nx - 8
+          let displayName = t.name
+          c.font = isChild ? '9px Calibri, Arial, sans-serif' : 'bold 10px Calibri, Arial, sans-serif'
+          while (c.measureText(displayName).width > maxNameW && displayName.length > 3) {
+            displayName = displayName.slice(0, -2) + '…'
+          }
+          c.fillText(displayName, nx, y + 15)
 
-          // Start/End dates
-          c.fillStyle = '#64748b'
-          c.font = '8px Consolas, monospace'
-          c.fillText(t.start_date || '', pad + tblW * 0.62, y + 17)
-          c.fillText(t.end_date || '', pad + tblW * 0.78, y + 17)
+          // Start date
+          c.fillStyle = '#475569'
+          c.font = '8px Consolas, Courier New, monospace'
+          c.fillText(t.start_date || '', colStart, y + 15)
+
+          // End date
+          c.fillText(t.end_date || '', colEnd, y + 15)
 
           // Progress %
           c.fillStyle = t.progress >= 100 ? '#16a34a' : t.progress > 0 ? '#d97706' : '#9ca3af'
-          c.font = 'bold 9px Calibri, sans-serif'
-          c.fillText(`${t.progress}%`, pad + tblW * 0.93, y + 17)
+          c.font = 'bold 9px Calibri, Arial, sans-serif'
+          c.fillText(`${t.progress}%`, colProg, y + 15)
 
           // Timeline bar
-          const bx = pad + tblW + Math.round(t.start * barScale)
+          const bx = colTimeline + Math.round(t.start * barScale)
           const bw = Math.max(Math.round(t.duration * barScale), 3)
           const pw = Math.round(bw * t.progress / 100)
-          const by = y + 5, bh = rowH - 10
+          const by = y + 4, bh = rowH - 8
 
-          // Background bar
-          c.globalAlpha = 0.15
-          c.fillStyle = color
+          c.globalAlpha = 0.15; c.fillStyle = color
           c.beginPath(); c.roundRect(bx, by, bw, bh, 3); c.fill()
 
-          // Progress fill
-          c.globalAlpha = 0.85
-          c.fillStyle = color
-          if (pw > 0) { c.beginPath(); c.roundRect(bx, by, pw, bh, 3); c.fill() }
+          if (pw > 0) {
+            c.globalAlpha = 0.85; c.fillStyle = color
+            c.beginPath(); c.roundRect(bx, by, pw, bh, 3); c.fill()
+          }
 
-          // Border
-          c.globalAlpha = 1
-          c.strokeStyle = color
-          c.lineWidth = 1
+          c.globalAlpha = 1; c.strokeStyle = color; c.lineWidth = 1
           c.beginPath(); c.roundRect(bx, by, bw, bh, 3); c.stroke()
 
-          // Progress text inside bar
-          if (bw > 30) {
+          if (bw > 35) {
             c.fillStyle = '#ffffff'
-            c.font = 'bold 7px Calibri, sans-serif'
+            c.font = 'bold 7px Calibri, Arial, sans-serif'
             c.textAlign = 'center'
             c.fillText(`${t.progress}%`, bx + bw / 2, by + bh / 2 + 3)
             c.textAlign = 'start'
           }
+
+          // Assignee after bar
+          if (t.assigned && bx + bw + 4 < W - pad) {
+            c.fillStyle = '#94a3b8'
+            c.font = '7px Calibri, Arial, sans-serif'
+            c.fillText(t.assigned, bx + bw + 4, y + 15)
+          }
         })
 
-        // Legend
-        const ly = tableTop + hdrH + tasks.length * rowH + 12
-        const legends = [['#3b82f6', 'Normal'], ['#ef4444', 'Critical'], ['#22c55e', 'Complete'], ['#f97316', 'Delayed']]
-        let lx = pad
+        // Legend row
+        const ly = tableTop + hdrH + totalRows * rowH + 10
+        c.fillStyle = '#f8fafc'
+        c.fillRect(pad, ly, W - pad * 2, legendH)
+        const legends: [string, string][] = [['#3b82f6', 'Normal'], ['#ef4444', 'Critical'], ['#22c55e', 'Complete'], ['#f97316', 'Delayed'], ['#f59e0b', 'Milestone']]
+        let lx = pad + 10
         legends.forEach(([col, label]) => {
           c.fillStyle = col
-          c.fillRect(lx, ly, 10, 10)
-          c.fillStyle = '#64748b'
-          c.font = '9px Calibri, sans-serif'
-          c.fillText(label, lx + 14, ly + 9)
-          lx += 70
+          c.beginPath(); c.roundRect(lx, ly + 9, 12, 12, 2); c.fill()
+          c.fillStyle = '#475569'
+          c.font = '9px Calibri, Arial, sans-serif'
+          c.fillText(label, lx + 16, ly + 19)
+          lx += 80
         })
+
+        // Footer
+        c.fillStyle = '#94a3b8'
+        c.font = '8px Calibri, Arial, sans-serif'
+        c.textAlign = 'right'
+        c.fillText('Generated by BuildPro — Construction Project Management System', W - pad, ly + 19)
+        c.textAlign = 'start'
 
         canvas.toBlob((jpgBlob) => {
           if (jpgBlob) { dlBlob(jpgBlob, 'BuildPro_Gantt.jpg'); showToast('JPG downloaded!', 'success') }
