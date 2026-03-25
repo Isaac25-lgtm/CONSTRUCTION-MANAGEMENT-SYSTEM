@@ -26,6 +26,7 @@ export interface ExportHistoryItem {
   row_count: number
   file_name: string
   created_by_name: string
+  download_available?: boolean
   created_at: string
 }
 
@@ -70,7 +71,7 @@ export function useGenerateExport(projectId: string) {
       triggerDownload(new Blob([response.data]), filename)
       return { success: true }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reports', projectId, 'history'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['reports', projectId, 'history'] }),
   })
 }
 

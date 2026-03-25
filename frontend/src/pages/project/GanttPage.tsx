@@ -1,7 +1,10 @@
 import { useState, useRef, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
-import { PageHeader, SectionCard, LoadingState } from '../../components/ui'
+import { ActionButton, PageHeader, SectionCard, LoadingState } from '../../components/ui'
+import { useProjectPermissions } from '../../hooks/useProjectPermissions'
+import { useGenerateExport } from '../../hooks/useReports'
 import { useGanttData } from '../../hooks/useSchedule'
+import { useUIStore } from '../../stores/uiStore'
 
 /**
  * Gantt Chart -- production-quality custom rendering matching prototype.
@@ -78,7 +81,11 @@ interface GanttRow {
 export function GanttPage() {
   const { projectId } = useParams()
   const { data, isLoading } = useGanttData(projectId)
+  const { canExportReports } = useProjectPermissions(projectId)
+  const generateExport = useGenerateExport(projectId!)
+  const { showToast } = useUIStore()
   const [scale, setScale] = useState<ScaleType>('days')
+  const [exportingFormat, setExportingFormat] = useState<string | null>(null)
   const chartRef = useRef<HTMLDivElement>(null)
 
   const duration = data?.project_duration || 1
@@ -183,10 +190,21 @@ export function GanttPage() {
 
   const scaleIdx = SCALES.indexOf(scale)
 
+  const handleExport = async (format: 'csv' | 'xlsx' | 'pdf' | 'docx') => {
+    setExportingFormat(format)
+    try {
+      await generateExport.mutateAsync({ report_key: 'schedule', format })
+      showToast(`Gantt export ready as ${format.toUpperCase()}`, 'success')
+    } catch {
+      showToast('Failed to export Gantt data', 'error')
+    }
+    setExportingFormat(null)
+  }
+
   return (
     <div>
       <PageHeader title="Gantt Chart" icon="&#128197;">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Zoom controls */}
           <button
             className="px-2 py-0.5 text-xs bg-bp-surface border border-bp-border rounded text-bp-text hover:bg-bp-border"
@@ -208,6 +226,26 @@ export function GanttPage() {
             title="Zoom Out"
           >-</button>
           <span className="text-[10px] text-bp-muted ml-2">{duration} days</span>
+          {canExportReports && (
+            <div className="ml-auto flex flex-wrap gap-1.5">
+              {([
+                ['csv', 'CSV', 'green'],
+                ['xlsx', 'Excel', 'blue'],
+                ['pdf', 'PDF', 'red'],
+                ['docx', 'Word', 'accent'],
+              ] as const).map(([format, label, variant]) => (
+                <ActionButton
+                  key={format}
+                  variant={variant}
+                  size="sm"
+                  onClick={() => void handleExport(format)}
+                  disabled={generateExport.isPending}
+                >
+                  {exportingFormat === format ? 'Generating...' : label}
+                </ActionButton>
+              ))}
+            </div>
+          )}
         </div>
       </PageHeader>
 

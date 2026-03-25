@@ -3,6 +3,8 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("org-chat/", views.org_chat_message_list, name="org-chat-message-list"),
+
     # Meetings
     path("<uuid:project_id>/meetings/", views.meeting_list, name="meeting-list"),
     path("<uuid:project_id>/meetings/<uuid:meeting_id>/", views.meeting_detail, name="meeting-detail"),

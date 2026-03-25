@@ -1,4 +1,4 @@
-"""Communications models -- Meeting, MeetingAction, ChatMessage."""
+"""Communications models -- meetings, project chat, and org-wide chat."""
 from django.conf import settings
 from django.db import models
 from apps.core.models import TimestampedModel, AuditMixin
@@ -49,6 +49,18 @@ class ChatMessage(TimestampedModel):
 
     class Meta:
         db_table = "comms_chat_message"
+        ordering = ["created_at"]
+
+    def __str__(self): return f"{self.sender} at {self.created_at}"
+
+
+class OrgChatMessage(TimestampedModel):
+    organisation = models.ForeignKey("accounts.Organisation", on_delete=models.CASCADE, related_name="org_chat_messages")
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="org_chat_messages")
+    message = models.TextField()
+
+    class Meta:
+        db_table = "comms_org_chat_message"
         ordering = ["created_at"]
 
     def __str__(self): return f"{self.sender} at {self.created_at}"

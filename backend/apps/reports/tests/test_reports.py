@@ -1,7 +1,11 @@
 """Tests for reports: available reports, export generation, authorization, export history."""
+from unittest.mock import patch
+
 from django.test import TestCase
 from apps.accounts.models import User, Organisation, SystemRole
 from apps.projects.models import Project, ProjectMembership
+from apps.field_ops.models import PunchItem, QualityCheck, SafetyIncident
+from apps.reports.models import ReportExport
 
 
 class ReportBaseTestCase(TestCase):
@@ -121,6 +125,67 @@ class ExportGenerationTests(ReportBaseTestCase):
         )
         self.assertEqual(r.status_code, 403)
 
+    def test_field_ops_exports_work_with_real_records(self):
+        """Safety, quality, and punch exports should work for models without a code field."""
+        PunchItem.objects.create(
+            project=self.project,
+            title="Close out entry door alignment",
+            location="Block A",
+            priority="high",
+            status="in_progress",
+            assigned_to=self.admin,
+        )
+        SafetyIncident.objects.create(
+            project=self.project,
+            incident_date="2026-03-14",
+            title="Near miss during scaffold adjustment",
+            description="Worker regained balance and work was paused.",
+            incident_type="near_miss",
+            severity="moderate",
+            location="North elevation",
+            reported_by=self.admin,
+            status="resolved",
+        )
+        QualityCheck.objects.create(
+            project=self.project,
+            check_date="2026-03-15",
+            title="Concrete cube inspection",
+            category="concrete",
+            result="pass",
+            location="Foundation zone",
+            inspector=self.admin,
+        )
+
+        self.client.force_login(self.admin)
+        for report_key in ("safety", "quality", "punch"):
+            with self.subTest(report_key=report_key):
+                r = self.client.post(
+                    f"/api/v1/reports/{self.project.id}/generate/",
+                    {"report_key": report_key, "format": "csv"},
+                    content_type="application/json",
+                )
+                self.assertEqual(r.status_code, 200)
+                self.assertEqual(r["Content-Type"], "text/csv")
+
+    def test_failed_export_is_recorded_with_failed_status(self):
+        """Backend failures should leave a failed history record, not a fake completed export."""
+        self.client.force_login(self.admin)
+
+        def boom(_project):
+            raise RuntimeError("export blew up")
+
+        with patch.dict("apps.reports.views.REPORT_ASSEMBLERS", {"progress": boom}, clear=False):
+            r = self.client.post(
+                f"/api/v1/reports/{self.project.id}/generate/",
+                {"report_key": "progress", "format": "csv"},
+                content_type="application/json",
+            )
+
+        self.assertEqual(r.status_code, 500)
+        export = ReportExport.objects.get(project=self.project, report_key="progress", format="csv")
+        self.assertEqual(export.status, "failed")
+        self.assertFalse(bool(export.file))
+
 
 class ExportHistoryTests(ReportBaseTestCase):
     def test_export_history_empty(self):
@@ -142,6 +207,7 @@ class ExportHistoryTests(ReportBaseTestCase):
         self.assertEqual(r.json()[0]["report_key"], "progress")
         self.assertEqual(r.json()[0]["format"], "csv")
         self.assertEqual(r.json()[0]["status"], "completed")
+        self.assertTrue(r.json()[0]["download_available"])
 
     def test_redownload_export(self):
         """Generated exports can be re-downloaded from history."""
@@ -179,6 +245,45 @@ class ExportHistoryTests(ReportBaseTestCase):
         self.client.force_login(no_report_user)
         r = self.client.get(f"/api/v1/reports/{self.project.id}/history/{export_id}/download/")
         self.assertEqual(r.status_code, 403)
+
+    def test_redownload_returns_404_when_backing_file_is_missing(self):
+        export = ReportExport.objects.create(
+            organisation=self.org,
+            project=self.project,
+            scope="project",
+            report_key="progress",
+            format="csv",
+            status="completed",
+            row_count=1,
+            file_name="missing.csv",
+            file="reports/test/project/missing.csv",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.client.force_login(self.admin)
+        r = self.client.get(f"/api/v1/reports/{self.project.id}/history/{export.id}/download/")
+        self.assertEqual(r.status_code, 404)
+        export.refresh_from_db()
+        self.assertEqual(export.status, "failed")
+
+    def test_history_marks_missing_file_as_unavailable(self):
+        ReportExport.objects.create(
+            organisation=self.org,
+            project=self.project,
+            scope="project",
+            report_key="progress",
+            format="csv",
+            status="completed",
+            row_count=1,
+            file_name="missing.csv",
+            file="reports/test/project/missing.csv",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.client.force_login(self.admin)
+        history = self.client.get(f"/api/v1/reports/{self.project.id}/history/").json()
+        self.assertEqual(history[0]["status"], "completed")
+        self.assertFalse(history[0]["download_available"])
 
     def test_viewer_can_see_history(self):
         """Viewer with reports.view can see export history."""

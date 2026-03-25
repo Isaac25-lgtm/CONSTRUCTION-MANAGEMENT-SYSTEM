@@ -5,11 +5,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.projects.models import Project
-from .models import Meeting, MeetingAction, ChatMessage
+from .models import Meeting, MeetingAction, ChatMessage, OrgChatMessage
 from .serializers import (
     MeetingSerializer, MeetingCreateSerializer,
     MeetingActionSerializer, MeetingActionCreateSerializer,
     ChatMessageSerializer, ChatMessageCreateSerializer,
+    OrgChatMessageSerializer, OrgChatMessageCreateSerializer,
 )
 
 
@@ -180,3 +181,20 @@ def chat_message_list(request, project_id):
     serializer.is_valid(raise_exception=True)
     msg = serializer.save(project=project, sender=request.user)
     return Response(ChatMessageSerializer(msg).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def org_chat_message_list(request):
+    organisation = request.user.organisation
+    if organisation is None:
+        return Response({"detail": "Organisation not configured for this account."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == "GET":
+        messages = OrgChatMessage.objects.filter(organisation=organisation).select_related("sender", "sender__system_role")
+        return Response(OrgChatMessageSerializer(messages, many=True).data)
+
+    serializer = OrgChatMessageCreateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    msg = serializer.save(organisation=organisation, sender=request.user)
+    return Response(OrgChatMessageSerializer(msg).data, status=status.HTTP_201_CREATED)

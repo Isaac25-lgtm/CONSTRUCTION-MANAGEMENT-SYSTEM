@@ -31,6 +31,11 @@ def _fmt(v):
     return str(v)
 
 
+def _short_ref(obj) -> str:
+    """Return a compact stable reference for models without a human code field."""
+    return str(obj.id).split("-")[0].upper()
+
+
 def assemble_schedule(project: Project) -> dict:
     from apps.scheduling.models import ProjectTask
     tasks = ProjectTask.objects.filter(project=project, is_parent=False).order_by("sort_order")
@@ -97,11 +102,11 @@ def assemble_changes(project: Project) -> dict:
 def assemble_punch(project: Project) -> dict:
     from apps.field_ops.models import PunchItem
     items = PunchItem.objects.filter(project=project).order_by("-created_at")
-    headers = ["Code", "Title", "Category", "Priority", "Status", "Assigned To", "Due Date"]
+    headers = ["Ref", "Title", "Location", "Priority", "Status", "Assigned To", "Due Date"]
     rows = []
     for p in items:
         rows.append([
-            p.code, p.title, p.category or "", p.get_priority_display(),
+            _short_ref(p), p.title, p.location or "", p.get_priority_display(),
             p.get_status_display(), p.assigned_to.get_full_name() if p.assigned_to else "", _fmt(p.due_date),
         ])
     return {"title": f"Punch List - {project.name}", "headers": headers, "rows": rows}
@@ -135,11 +140,11 @@ def assemble_labour(project: Project) -> dict:
 def assemble_safety(project: Project) -> dict:
     from apps.field_ops.models import SafetyIncident
     incidents = SafetyIncident.objects.filter(project=project).order_by("-incident_date")
-    headers = ["Code", "Title", "Date", "Type", "Severity", "Status", "Location"]
+    headers = ["Ref", "Title", "Date", "Type", "Severity", "Status", "Location"]
     rows = []
     for s in incidents:
         rows.append([
-            s.code, s.title, _fmt(s.incident_date), s.get_incident_type_display(),
+            _short_ref(s), s.title, _fmt(s.incident_date), s.get_incident_type_display(),
             s.get_severity_display(), s.get_status_display(), s.location or "",
         ])
     return {"title": f"Safety Report - {project.name}", "headers": headers, "rows": rows}
@@ -148,11 +153,11 @@ def assemble_safety(project: Project) -> dict:
 def assemble_quality(project: Project) -> dict:
     from apps.field_ops.models import QualityCheck
     checks = QualityCheck.objects.filter(project=project).order_by("-check_date")
-    headers = ["Code", "Title", "Date", "Category", "Result", "Location"]
+    headers = ["Ref", "Title", "Date", "Category", "Result", "Location"]
     rows = []
     for q in checks:
         rows.append([
-            q.code, q.title, _fmt(q.check_date), q.get_category_display(),
+            _short_ref(q), q.title, _fmt(q.check_date), q.get_category_display(),
             q.get_result_display(), q.location or "",
         ])
     return {"title": f"Quality Report - {project.name}", "headers": headers, "rows": rows}

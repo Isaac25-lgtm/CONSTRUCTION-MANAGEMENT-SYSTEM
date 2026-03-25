@@ -1,4 +1,6 @@
 """Reports views -- report generation, export download, export history."""
+import logging
+
 from django.core.files.base import ContentFile
 from django.http import HttpResponse
 from rest_framework import status
@@ -11,6 +13,8 @@ from apps.projects.models import Project
 from .models import ReportExport
 from .serializers import ReportExportSerializer
 from .services import REPORT_ASSEMBLERS, EXPORT_GENERATORS
+
+logger = logging.getLogger(__name__)
 
 
 def _get_project_or_404(request, project_id):
@@ -31,6 +35,18 @@ def _can_view_reports(request, project):
 
 def _can_export(request, project):
     return request.user.has_project_perm(project, "reports.export")
+
+
+def _mark_export_failed(export: ReportExport, user):
+    """Persist a failed export state and clear any dangling file reference."""
+    update_fields = ["status", "updated_by", "updated_at"]
+    if export.file:
+        export.file.delete(save=False)
+        export.file = ""
+        update_fields.append("file")
+    export.status = "failed"
+    export.updated_by = user
+    export.save(update_fields=update_fields)
 
 
 # ---------------------------------------------------------------------------
@@ -81,15 +97,6 @@ def generate_export(request, project_id):
     if export_format not in EXPORT_GENERATORS:
         return Response({"detail": f"Unsupported format: {export_format}"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Assemble data
-    assembler = REPORT_ASSEMBLERS[report_key]
-    data = assembler(project)
-
-    # Generate file
-    generator = EXPORT_GENERATORS[export_format]
-    content_bytes, content_type = generator(data)
-
-    # Save export record
     ext = {"csv": ".csv", "xlsx": ".xlsx", "pdf": ".pdf", "docx": ".docx"}[export_format]
     file_name = f"{project.code}_{report_key}{ext}"
 
@@ -99,13 +106,38 @@ def generate_export(request, project_id):
         scope="project",
         report_key=report_key,
         format=export_format,
-        status="completed",
-        row_count=len(data["rows"]),
+        status="pending",
+        row_count=0,
         file_name=file_name,
         created_by=request.user,
         updated_by=request.user,
     )
-    export_record.file.save(file_name, ContentFile(content_bytes), save=True)
+
+    try:
+        assembler = REPORT_ASSEMBLERS[report_key]
+        data = assembler(project)
+
+        generator = EXPORT_GENERATORS[export_format]
+        content_bytes, content_type = generator(data)
+
+        export_record.row_count = len(data["rows"])
+        export_record.file.save(file_name, ContentFile(content_bytes), save=False)
+        export_record.status = "completed"
+        export_record.updated_by = request.user
+        export_record.save(update_fields=["file", "status", "row_count", "updated_by", "updated_at"])
+    except Exception:
+        logger.exception(
+            "Report export failed for project %s (%s) [%s/%s]",
+            project.id,
+            project.code,
+            report_key,
+            export_format,
+        )
+        _mark_export_failed(export_record, request.user)
+        return Response(
+            {"detail": "Failed to generate export."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
     # Return the file as download
     response = HttpResponse(content_bytes, content_type=content_type)
@@ -152,12 +184,24 @@ def export_download(request, project_id, export_id):
     except ReportExport.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
-    if not export.file:
+    if not export.file or not export.file.name:
+        _mark_export_failed(export, request.user)
         return Response({"detail": "Export file not available."}, status=status.HTTP_404_NOT_FOUND)
+
+    if not export.file.storage.exists(export.file.name):
+        _mark_export_failed(export, request.user)
+        return Response({"detail": "Export file no longer exists."}, status=status.HTTP_404_NOT_FOUND)
 
     ext_map = {"csv": "text/csv", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                "pdf": "application/pdf", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
 
-    response = HttpResponse(export.file.read(), content_type=ext_map.get(export.format, "application/octet-stream"))
+    try:
+        file_bytes = export.file.read()
+    except OSError:
+        logger.exception("Failed to read export file %s for report export %s", export.file.name, export.id)
+        _mark_export_failed(export, request.user)
+        return Response({"detail": "Export file could not be opened."}, status=status.HTTP_404_NOT_FOUND)
+
+    response = HttpResponse(file_bytes, content_type=ext_map.get(export.format, "application/octet-stream"))
     response["Content-Disposition"] = f'attachment; filename="{export.file_name}"'
     return response

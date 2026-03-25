@@ -1,8 +1,8 @@
-"""Tests for communications: Meeting, MeetingAction, ChatMessage."""
+"""Tests for communications: meetings, project chat, and org-wide chat."""
 from django.test import TestCase
 from apps.accounts.models import User, Organisation, SystemRole
 from apps.projects.models import Project
-from apps.comms.models import Meeting
+from apps.comms.models import Meeting, OrgChatMessage
 
 
 class CommsBaseTestCase(TestCase):
@@ -74,9 +74,42 @@ class ChatMessageTests(CommsBaseTestCase):
         self.assertEqual(len(r.json()), 2)
 
 
+class OrgChatMessageTests(CommsBaseTestCase):
+    def test_post_org_chat_message(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(
+            "/api/v1/comms/org-chat/",
+            {"message": "Morning team, site induction starts at 08:00."},
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(r.json()["message"], "Morning team, site induction starts at 08:00.")
+        self.assertEqual(r.json()["sender_name"], "admin")
+
+    def test_list_org_chat_messages_scoped_to_user_org(self):
+        other_org = Organisation.objects.create(name="Other Org")
+        other_role = SystemRole.objects.create(name="Other Admin", permissions=["admin.full_access"])
+        other_user = User.objects.create_user(
+            username="other-admin",
+            password="pass123",
+            organisation=other_org,
+            system_role=other_role,
+            is_staff=True,
+        )
+        OrgChatMessage.objects.create(organisation=self.org, sender=self.admin, message="Visible message")
+        OrgChatMessage.objects.create(organisation=other_org, sender=other_user, message="Hidden message")
+
+        self.client.force_login(self.admin)
+        r = self.client.get("/api/v1/comms/org-chat/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.json()), 1)
+        self.assertEqual(r.json()[0]["message"], "Visible message")
+
+
 class UnauthenticatedTests(CommsBaseTestCase):
     def test_denied(self):
         for url in [
+            "/api/v1/comms/org-chat/",
             f"/api/v1/comms/{self.project.id}/meetings/",
             f"/api/v1/comms/{self.project.id}/chat/",
         ]:

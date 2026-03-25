@@ -90,7 +90,7 @@ export function ChatPage() {
                   {/* Avatar */}
                   <div
                     className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                    style={{ backgroundColor: isOwn ? '#3b82f6' : '#6366f1' }}
+                    style={{ backgroundColor: isOwn ? '#005c4b' : '#6366f1' }}
                   >
                     {initials}
                   </div>
@@ -98,8 +98,8 @@ export function ChatPage() {
                   <div
                     className="max-w-[70%] rounded-lg px-3 py-2"
                     style={{
-                      backgroundColor: isOwn ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${isOwn ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                      backgroundColor: isOwn ? 'rgba(0,92,75,0.22)' : 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${isOwn ? 'rgba(0,92,75,0.45)' : 'rgba(255,255,255,0.08)'}`,
                     }}
                   >
                     <div className="mb-0.5 flex items-center gap-2">
@@ -136,7 +136,7 @@ export function ChatPage() {
           />
           <button
             className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-white transition-colors disabled:opacity-40"
-            style={{ backgroundColor: '#3b82f6' }}
+            style={{ backgroundColor: '#005c4b' }}
             onClick={handleSend}
             disabled={!text.trim() || send.isPending}
             title="Send"

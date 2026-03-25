@@ -66,7 +66,7 @@ export function ProjectReportsPage() {
       return <StatusBadge text={h.status_display} color={color} />
     }},
     { key: 'download', header: '', width: '90px', render: (h: ExportHistoryItem) => (
-      h.status === 'completed' ? (
+      h.status === 'completed' && h.download_available ? (
         <ActionButton variant="ghost" size="sm" onClick={() => {
           redownload.mutateAsync(h).catch(() => showToast('Download failed', 'error'))
         }}>Re-download</ActionButton>

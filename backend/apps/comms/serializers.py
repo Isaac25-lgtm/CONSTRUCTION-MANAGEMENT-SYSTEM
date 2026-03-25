@@ -2,7 +2,7 @@
 from rest_framework import serializers
 
 from apps.core.serializers import ProjectScopedValidationMixin
-from .models import Meeting, MeetingAction, ChatMessage
+from .models import Meeting, MeetingAction, ChatMessage, OrgChatMessage
 
 
 # ---------------------------------------------------------------------------
@@ -94,20 +94,50 @@ class MeetingCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSer
 # ---------------------------------------------------------------------------
 
 class ChatMessageSerializer(serializers.ModelSerializer):
-    sender_name = serializers.CharField(source="sender.get_full_name", read_only=True, default=None)
+    sender_name = serializers.SerializerMethodField()
+    sender_role_name = serializers.CharField(source="sender.system_role.name", read_only=True, default=None)
+    sender_job_title = serializers.CharField(source="sender.job_title", read_only=True, default="")
 
     class Meta:
         model = ChatMessage
         fields = [
-            "id", "project", "sender", "sender_name",
+            "id", "project", "sender", "sender_name", "sender_role_name", "sender_job_title",
             "message", "created_at",
         ]
         read_only_fields = [
-            "id", "sender", "sender_name", "created_at",
+            "id", "sender", "sender_name", "sender_role_name", "sender_job_title", "created_at",
         ]
+
+    def get_sender_name(self, obj):
+        return obj.sender.get_full_name() or obj.sender.username
 
 
 class ChatMessageCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatMessage
+        fields = ["message"]
+
+
+class OrgChatMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.SerializerMethodField()
+    sender_role_name = serializers.CharField(source="sender.system_role.name", read_only=True, default=None)
+    sender_job_title = serializers.CharField(source="sender.job_title", read_only=True, default="")
+
+    class Meta:
+        model = OrgChatMessage
+        fields = [
+            "id", "organisation", "sender", "sender_name", "sender_role_name", "sender_job_title",
+            "message", "created_at",
+        ]
+        read_only_fields = [
+            "id", "organisation", "sender", "sender_name", "sender_role_name", "sender_job_title", "created_at",
+        ]
+
+    def get_sender_name(self, obj):
+        return obj.sender.get_full_name() or obj.sender.username
+
+
+class OrgChatMessageCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrgChatMessage
         fields = ["message"]

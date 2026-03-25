@@ -47,6 +47,19 @@ export interface ChatMessageData {
   project: string
   sender: string
   sender_name: string | null
+  sender_role_name: string | null
+  sender_job_title: string
+  message: string
+  created_at: string
+}
+
+export interface OrgChatMessageData {
+  id: string
+  organisation: string
+  sender: string
+  sender_name: string | null
+  sender_role_name: string | null
+  sender_job_title: string
   message: string
   created_at: string
 }
@@ -105,6 +118,17 @@ export function useChatMessages(projectId: string | undefined) {
   })
 }
 
+export function useOrgChatMessages() {
+  return useQuery({
+    queryKey: ['comms', 'org-chat'],
+    queryFn: async () => {
+      const { data } = await api.get<OrgChatMessageData[]>('/comms/org-chat/')
+      return data
+    },
+    refetchInterval: 10000,
+  })
+}
+
 export function useCreateMeetingAction(projectId: string, meetingId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -137,5 +161,17 @@ export function useSendMessage(projectId: string) {
     },
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ['comms', projectId, 'chat'] }),
+  })
+}
+
+export function useSendOrgChatMessage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (d: { message: string }) => {
+      const { data } = await api.post('/comms/org-chat/', d)
+      return data
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['comms', 'org-chat'] }),
   })
 }
