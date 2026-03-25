@@ -93,6 +93,39 @@ class CostModelTests(TestCase):
         self.assertEqual(summary["variance"], 450000)
         self.assertEqual(summary["budget_lines_count"], 1)
 
+    def test_project_overview_critical_path_includes_non_leaf_zero_slack_activities(self):
+        parent = ProjectTask.objects.create(
+            project=self.project,
+            code="P",
+            name="Critical Phase",
+            duration_days=6,
+            is_parent=True,
+            early_start=0,
+            early_finish=6,
+            late_start=0,
+            late_finish=6,
+            total_float=0,
+            is_critical=True,
+            sort_order=0,
+        )
+        ProjectTask.objects.create(
+            project=self.project,
+            code="Pa",
+            name="Critical Child",
+            duration_days=6,
+            parent=parent,
+            early_start=6,
+            early_finish=12,
+            late_start=6,
+            late_finish=12,
+            total_float=0,
+            is_critical=True,
+            sort_order=1,
+        )
+
+        overview = get_project_overview(self.project)
+        self.assertEqual(overview["schedule"]["critical_path"], ["P", "Pa"])
+
 
 class EVMTests(TestCase):
     def setUp(self):

@@ -15,7 +15,7 @@ from .serializers import (
     TaskSerializer, TaskCreateSerializer,
     DependencySerializer, MilestoneSerializer, BaselineSerializer,
 )
-from .engine import run_cpm, create_baseline, would_create_cycle
+from .engine import run_cpm, create_baseline, would_create_cycle, get_critical_path_codes
 
 
 def _get_project_or_404(request, project_id):
@@ -447,9 +447,7 @@ def schedule_summary(request, project_id):
     critical = leaf_tasks.filter(is_critical=True).count()
     duration = max((t.early_finish for t in all_tasks), default=0)
     progress = round(sum(t.progress for t in leaf_tasks) / max(total, 1))
-    crit_path = list(
-        leaf_tasks.filter(is_critical=True).order_by("early_start").values_list("code", flat=True)
-    )
+    crit_path = get_critical_path_codes(project.id)
 
     return Response({
         "total_tasks": total,

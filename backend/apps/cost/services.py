@@ -23,6 +23,7 @@ from datetime import timedelta
 from django.db.models import Sum
 
 from .models import BudgetLine, Expense
+from apps.scheduling.engine import get_critical_path_codes
 
 
 def build_task_cost_table(project):
@@ -282,10 +283,7 @@ def get_project_overview(project):
     critical = leaf_tasks.filter(is_critical=True).count()
     duration = max((t.early_finish for t in all_tasks), default=0)
     progress = round(sum(t.progress for t in leaf_tasks) / max(total_tasks, 1))
-    critical_path = list(
-        leaf_tasks.filter(is_critical=True).order_by("early_start")
-        .values_list("code", flat=True)
-    )
+    critical_path = get_critical_path_codes(project.id)
 
     # Milestones
     milestones = Milestone.objects.filter(project=project)

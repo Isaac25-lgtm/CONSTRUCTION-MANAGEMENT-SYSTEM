@@ -23,6 +23,30 @@ class CPMResult(NamedTuple):
     tasks_updated: int
 
 
+def build_critical_path_codes(tasks) -> list[str]:
+    """
+    Return critical activity codes in display order.
+
+    The prototype summary lists every zero-slack activity, not just leaves.
+    Ordering by ES/EF keeps the displayed path aligned with the CPM timeline,
+    while sort_order/code provide stable ordering for ties.
+    """
+    critical_tasks = [t for t in tasks if t.is_critical and t.duration_days > 0]
+    critical_tasks.sort(
+        key=lambda t: (t.early_start, t.early_finish, t.sort_order, t.code)
+    )
+    return [t.code for t in critical_tasks]
+
+
+def get_critical_path_codes(project_id) -> list[str]:
+    """Return persisted critical activity codes for a project in display order."""
+    tasks = list(
+        ProjectTask.objects.filter(project_id=project_id, is_critical=True, duration_days__gt=0)
+        .order_by("early_start", "early_finish", "sort_order", "code")
+    )
+    return [task.code for task in tasks]
+
+
 def would_create_cycle(project_id, predecessor_id, successor_id):
     """
     Check if adding an edge predecessor->successor would create a cycle.
@@ -187,12 +211,10 @@ def run_cpm(project_id) -> CPMResult:
         task.late_start = task.late_finish - task.duration_days
 
     # --- Phase 5: Float and critical path ---
-    critical_path = []
     for task in tasks:
         task.total_float = task.late_start - task.early_start
         task.is_critical = (task.total_float == 0 and task.duration_days > 0)
-        if task.is_critical:
-            critical_path.append(task.code)
+    critical_path = build_critical_path_codes(tasks)
 
     # --- Phase 6: Persist ---
     bulk_fields = [

@@ -514,6 +514,10 @@ class AutoSeedOnCreateTests(TestCase):
                 "project_type": "residential",
                 "contract_type": "lump_sum",
                 "location": "Kampala",
+                "project_manager_name": "Jane Manager",
+                "start_date": "2026-01-01",
+                "end_date": "2026-12-31",
+                "budget": "1000000.00",
             },
             content_type="application/json",
         )
@@ -663,6 +667,56 @@ class ScheduleAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["total_tasks"], 1)
+
+    def test_schedule_summary_lists_all_zero_slack_activities_in_critical_path(self):
+        critical_parent = ProjectTask.objects.create(
+            project=self.project,
+            code="P",
+            name="Critical Phase",
+            duration_days=5,
+            is_parent=True,
+            early_start=0,
+            early_finish=5,
+            late_start=0,
+            late_finish=5,
+            total_float=0,
+            is_critical=True,
+            sort_order=0,
+        )
+        critical_child = ProjectTask.objects.create(
+            project=self.project,
+            code="Pa",
+            name="Critical Activity",
+            duration_days=5,
+            parent=critical_parent,
+            early_start=5,
+            early_finish=10,
+            late_start=5,
+            late_finish=10,
+            total_float=0,
+            is_critical=True,
+            sort_order=1,
+        )
+        ProjectTask.objects.create(
+            project=self.project,
+            code="Pb",
+            name="Non-critical Activity",
+            duration_days=3,
+            parent=critical_parent,
+            early_start=5,
+            early_finish=8,
+            late_start=7,
+            late_finish=10,
+            total_float=2,
+            is_critical=False,
+            sort_order=2,
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(f"/api/v1/scheduling/{self.project.id}/summary/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["critical_path"], ["P", "Pa"])
 
     def test_gantt_data(self):
         self.client.force_login(self.user)
