@@ -98,9 +98,35 @@ export function SchedulePage() {
     setManualOverride(true)
   }
 
-  /* ---------- CPM field manual edit (ES/EF/LS/LF) ---------- */
+  /* ---------- CPM field manual edit with cascading ---------- */
+  // ES changed → EF = ES + Dur, Slack = LS - ES, Start date shifts
+  // EF changed → Dur = EF - ES, Slack = LF - EF, End date shifts
+  // LS changed → LF = LS + Dur, Slack = LS - ES
+  // LF changed → LS = LF - Dur, Slack = LS - ES  (LS derived first)
   function onCpmFieldChange(task: Task, field: string, val: number) {
-    onUpdate(task, field, val)
+    const es = field === 'early_start' ? val : task.early_start
+    const ef = field === 'early_finish' ? val : (field === 'early_start' ? val + task.duration_days : task.early_finish)
+    const dur = field === 'early_finish' ? val - task.early_start : (field === 'early_start' ? task.duration_days : task.duration_days)
+    const ls = field === 'late_start' ? val : (field === 'late_finish' ? val - task.duration_days : task.late_start)
+    const lf = field === 'late_finish' ? val : (field === 'late_start' ? val + task.duration_days : task.late_finish)
+
+    const data: Record<string, unknown> = {
+      early_start: es,
+      early_finish: field === 'early_start' ? es + dur : ef,
+      late_start: ls,
+      late_finish: field === 'late_start' ? ls + dur : lf,
+    }
+
+    // Cascade duration when EF is directly edited
+    if (field === 'early_finish') {
+      data.duration_days = val - task.early_start
+    }
+
+    // Cascade planned dates to stay in sync
+    data.planned_start = toISO(addDays(pStart, es))
+    data.planned_end = toISO(addDays(pStart, data.early_finish as number))
+
+    updateTask.mutate({ taskId: task.id, data: data as Record<string, number | string> })
     setManualOverride(true)
   }
 
@@ -336,7 +362,7 @@ export function SchedulePage() {
                     )}
                   </td>
 
-                  {/* Duration — changing dur also updates EF */}
+                  {/* Duration — cascades to EF, LF, End date */}
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <input
@@ -345,9 +371,16 @@ export function SchedulePage() {
                         onBlur={e => {
                           const v = parseInt(e.target.value) || 0
                           if (v !== t.duration_days) {
+                            const newEF = t.early_start + v
+                            const newLF = t.late_start + v
                             updateTask.mutate({
                               taskId: t.id,
-                              data: { duration_days: v, early_finish: t.early_start + v },
+                              data: {
+                                duration_days: v,
+                                early_finish: newEF,
+                                late_finish: newLF,
+                                planned_end: toISO(addDays(pStart, newEF)),
+                              },
                             })
                             setManualOverride(true)
                           }
