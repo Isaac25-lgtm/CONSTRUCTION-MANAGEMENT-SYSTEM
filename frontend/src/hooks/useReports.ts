@@ -30,6 +30,33 @@ export interface ExportHistoryItem {
   created_at: string
 }
 
+// ---------------------------------------------------------------------------
+// Inline report data (JSON, for the report viewer table)
+// ---------------------------------------------------------------------------
+
+export interface ReportData {
+  title: string
+  headers: string[]
+  rows: (string | number)[][]
+  summary?: string
+}
+
+export function useReportData(projectId: string | undefined, reportKey: string) {
+  return useQuery({
+    queryKey: ['reports', projectId, 'data', reportKey],
+    queryFn: async () => {
+      const { data } = await api.get<ReportData>(`/reports/${projectId}/data/?key=${reportKey}`)
+      return data
+    },
+    enabled: !!projectId && !!reportKey,
+    staleTime: 30000,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Available reports & export
+// ---------------------------------------------------------------------------
+
 export function useAvailableReports(projectId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ['reports', projectId, 'available'],

@@ -1,5 +1,7 @@
 """Reports views -- report generation, export download, export history."""
 import logging
+from decimal import Decimal
+from datetime import date
 
 from django.core.files.base import ContentFile
 from django.http import HttpResponse
@@ -72,6 +74,49 @@ def available_reports(request, project_id):
             "formats": ["csv", "xlsx", "pdf", "docx"],
         })
     return Response(reports)
+
+
+# ---------------------------------------------------------------------------
+# Inline report data (JSON, no file download)
+# ---------------------------------------------------------------------------
+
+def _serialise_value(v):
+    """Make a value JSON-safe."""
+    if isinstance(v, Decimal):
+        return float(v)
+    if isinstance(v, date):
+        return v.isoformat()
+    return v
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def report_data(request, project_id):
+    """Return inline report data for the frontend report viewer."""
+    project = _get_project_or_404(request, project_id)
+    if not project:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+    if not _can_view_reports(request, project):
+        return Response(status=status.HTTP_403_FORBIDDEN)
+
+    report_key = request.query_params.get("key", "schedule")
+    if report_key not in REPORT_ASSEMBLERS:
+        return Response({"detail": f"Unknown report: {report_key}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        data = REPORT_ASSEMBLERS[report_key](project)
+    except Exception:
+        logger.exception("Report data assembly failed for %s/%s", project_id, report_key)
+        return Response({"detail": "Failed to assemble report data."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # Ensure all row values are JSON-serialisable
+    rows = [[_serialise_value(v) for v in row] for row in data["rows"]]
+    return Response({
+        "title": data["title"],
+        "headers": data["headers"],
+        "rows": rows,
+        "summary": data.get("summary", ""),
+    })
 
 
 # ---------------------------------------------------------------------------
