@@ -225,6 +225,7 @@ class BootstrapOrgAdminTests(TestCase):
             [
                 (("migrate",), {"interactive": False}),
                 (("seed_env_admin",), {}),
+                (("prune_to_env_admin",), {}),
             ],
         )
 
@@ -237,7 +238,30 @@ class BootstrapOrgAdminTests(TestCase):
             [
                 (("migrate",), {"interactive": False}),
                 (("seed_env_admin",), {}),
-                (("seed_demo_projects",), {}),
+                (("prune_to_env_admin",), {}),
+                (("seed_demo_projects",), {"replace": True}),
+            ],
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "SEED_DEMO_PROJECTS": "true",
+            "TEST_ADMIN_EMAIL": "render-admin@example.com",
+            "TEST_ADMIN_USERNAME": "render-admin",
+        },
+        clear=False,
+    )
+    @patch("apps.accounts.management.commands.prepare_render_deploy.call_command")
+    def test_prepare_render_deploy_seeds_demo_projects_for_env_admin(self, mocked_call_command):
+        call_command("prepare_render_deploy")
+        self.assertEqual(
+            mocked_call_command.call_args_list,
+            [
+                (("migrate",), {"interactive": False}),
+                (("seed_env_admin",), {}),
+                (("prune_to_env_admin",), {}),
+                (("seed_demo_projects",), {"replace": True, "username": "render-admin"}),
             ],
         )
 
@@ -434,6 +458,43 @@ class SetupAPITests(TestCase):
         finally:
             SetupBootstrapRateThrottle.THROTTLE_RATES = original_rates
             cache.clear()
+
+
+class PruneEnvAdminTests(TestCase):
+    @patch.dict(
+        os.environ,
+        {
+            "TEST_ADMIN_EMAIL": "render-admin@example.com",
+            "TEST_ADMIN_USERNAME": "render-admin",
+        },
+        clear=False,
+    )
+    def test_prune_to_env_admin_deletes_all_other_users(self):
+        org = Organisation.objects.create(name="Render Org")
+        role = SystemRole.objects.create(name="Admin", permissions=["admin.full_access"])
+        keep_user = User.objects.create_user(
+            username="render-admin",
+            password="pass12345678",
+            email="render-admin@example.com",
+            organisation=org,
+            system_role=role,
+            is_staff=True,
+            is_superuser=True,
+        )
+        User.objects.create_user(
+            username="demo-user",
+            password="pass12345678",
+            organisation=org,
+        )
+        User.objects.create_user(
+            username="another-user",
+            password="pass12345678",
+        )
+
+        call_command("prune_to_env_admin")
+
+        self.assertTrue(User.objects.filter(pk=keep_user.pk).exists())
+        self.assertEqual(list(User.objects.values_list("username", flat=True)), ["render-admin"])
 
 
 class OrganisationTests(TestCase):

@@ -16,6 +16,14 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         call_command("migrate", interactive=False)
         call_command("seed_env_admin")
+        call_command("prune_to_env_admin")
         if os.getenv("SEED_DEMO_PROJECTS", "").strip().lower() in {"1", "true", "yes", "on"}:
-            call_command("seed_demo_projects")
+            env_username = (
+                os.getenv("TEST_ADMIN_USERNAME", "").strip()
+                or os.getenv("TEST_ADMIN_EMAIL", "").strip()
+            )
+            seed_kwargs = {"replace": True}
+            if env_username:
+                seed_kwargs["username"] = env_username
+            call_command("seed_demo_projects", **seed_kwargs)
         self.stdout.write(self.style.SUCCESS("Render deploy preparation complete!"))

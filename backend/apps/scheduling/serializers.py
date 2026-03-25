@@ -26,8 +26,7 @@ class TaskSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
         read_only_fields = [
-            "id", "early_start", "early_finish", "late_start", "late_finish",
-            "total_float", "is_critical", "predecessor_codes", "status_display",
+            "id", "total_float", "is_critical", "predecessor_codes", "status_display",
             "created_at", "updated_at",
         ]
 
