@@ -1,29 +1,37 @@
-import { Outlet, useParams } from 'react-router-dom'
+import { Outlet, useParams, useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { SectionCard, MetricCard, LoadingState, StatusBadge } from '../ui'
 import { FloatingProjectCopilot } from '../ai/FloatingProjectCopilot'
-import { useProject } from '../../hooks/useProjects'
+import { useProject, type ProjectSummary, type ProjectDetail } from '../../hooks/useProjects'
 import { formatUGX } from '../../lib/formatters'
 import { PROJECT_STATUSES } from '../../types'
 
 /**
  * ProjectWorkspace -- layout wrapper for project-scoped views.
  *
- * Loads real project data from the API. Shows project identity header
- * with code, name, type, contract, client, manager, consultant, status, and
- * quick stats above the active module Outlet.
+ * Renders the workspace shell immediately using cached list data or
+ * navigation state while the full project detail loads in the background.
+ * This eliminates the blank-screen lag when clicking a project.
  */
 
 const statusColors = Object.fromEntries(PROJECT_STATUSES.map((s) => [s.value, s.color]))
 
 export function ProjectWorkspace() {
   const { projectId } = useParams()
+  const location = useLocation()
+  const queryClient = useQueryClient()
   const { data: project, isLoading, isError } = useProject(projectId)
 
-  if (isLoading) {
-    return <LoadingState rows={3} />
-  }
+  // Attempt to get basic project info from navigation state or the projects list cache
+  const navState = (location.state as { projectSummary?: ProjectSummary } | null)
+  const projectSummary = navState?.projectSummary
+  const cachedList = queryClient.getQueryData<ProjectSummary[]>(['projects'])
+  const listEntry = cachedList?.find((p) => p.id === projectId)
 
-  if (isError || !project) {
+  // Use full project detail when available, otherwise fall back to summary info
+  const preview: Partial<ProjectDetail> | undefined = project || listEntry || projectSummary
+
+  if (!isLoading && (isError || !project)) {
     return (
       <SectionCard accentLeft="#ef4444">
         <div className="py-6 text-center">
@@ -37,40 +45,47 @@ export function ProjectWorkspace() {
     )
   }
 
-  const budget = parseFloat(project.budget) || 0
+  // While loading with no preview data at all, show minimal loading
+  if (isLoading && !preview) {
+    return <LoadingState rows={3} />
+  }
+
+  const budget = parseFloat(preview?.budget || '0') || 0
 
   return (
     <div>
-      {/* Project identity header */}
+      {/* Project identity header -- renders immediately from cached/preview data */}
       <div className="mb-4">
         <div className="mb-1 flex items-center gap-3">
-          <span className="font-mono text-xs text-bp-muted">{project.code}</span>
-          <StatusBadge
-            text={project.status_display}
-            color={statusColors[project.status] || '#94a3b8'}
-          />
-          {project.setup_config?.has_design_phase && (
+          <span className="font-mono text-xs text-bp-muted">{preview?.code}</span>
+          {preview?.status_display && (
+            <StatusBadge
+              text={preview.status_display}
+              color={statusColors[preview.status || ''] || '#94a3b8'}
+            />
+          )}
+          {project?.setup_config?.has_design_phase && (
             <StatusBadge text="Design & Build" color="#a855f7" />
           )}
         </div>
-        <h2 className="mb-0.5 text-lg font-bold text-bp-text">{project.name}</h2>
+        <h2 className="mb-0.5 text-lg font-bold text-bp-text">{preview?.name}</h2>
         <div className="text-[13px] text-bp-muted">
-          {project.location}
-          {project.project_manager_name && ` \u2022 ${project.project_manager_name}`}
-          {project.contract_type_display && ` \u2022 ${project.contract_type_display}`}
+          {preview?.location}
+          {preview?.project_manager_name && ` \u2022 ${preview.project_manager_name}`}
+          {preview?.contract_type_display && ` \u2022 ${preview.contract_type_display}`}
         </div>
-        {(project.client_name || project.consultant || project.contractor) && (
+        {(preview?.client_name || preview?.consultant || preview?.contractor) && (
           <div className="mt-1.5 flex flex-wrap gap-x-6 gap-y-1 text-xs text-bp-muted">
-            {project.client_name && (
-              <span>Client: <span className="text-bp-text">{project.client_name}</span>
-                {project.client_org && ` (${project.client_org})`}
+            {preview.client_name && (
+              <span>Client: <span className="text-bp-text">{preview.client_name}</span>
+                {project?.client_org && ` (${project.client_org})`}
               </span>
             )}
-            {project.consultant && (
-              <span>Consultant: <span className="text-bp-text">{project.consultant}</span></span>
+            {preview.consultant && (
+              <span>Consultant: <span className="text-bp-text">{preview.consultant}</span></span>
             )}
-            {project.contractor && (
-              <span>Contractor: <span className="text-bp-text">{project.contractor}</span></span>
+            {preview.contractor && (
+              <span>Contractor: <span className="text-bp-text">{preview.contractor}</span></span>
             )}
           </div>
         )}
@@ -79,23 +94,23 @@ export function ProjectWorkspace() {
       {/* Quick stats */}
       <div className="mb-5 grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2">
         <MetricCard icon="💰" value={formatUGX(budget).replace('UGX ', '')} label="Budget" color="#f59e0b" />
-        <MetricCard icon="👥" value={project.member_count} label="Team" color="#3b82f6" />
+        <MetricCard icon="👥" value={preview?.member_count ?? '--'} label="Team" color="#3b82f6" />
         <MetricCard
           icon="📅"
-          value={project.start_date || '--'}
+          value={preview?.start_date || '--'}
           label="Start Date"
           color="#94a3b8"
         />
         <MetricCard
           icon="🏁"
-          value={project.end_date || '--'}
+          value={preview?.end_date || '--'}
           label="End Date"
           color="#94a3b8"
         />
       </div>
 
-      {/* Setup config summary -- phases ready for scheduling */}
-      {project.setup_config && (
+      {/* Setup config summary -- only shown once full project detail arrives */}
+      {project?.setup_config && (
         <SectionCard className="mb-5" padding="compact">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
@@ -119,8 +134,8 @@ export function ProjectWorkspace() {
         </SectionCard>
       )}
 
-      {/* Active module view */}
-      <Outlet />
+      {/* Active module view -- show inline loader only while project detail still loading */}
+      {isLoading ? <LoadingState rows={4} /> : <Outlet />}
 
       {projectId && <FloatingProjectCopilot projectId={projectId} />}
     </div>

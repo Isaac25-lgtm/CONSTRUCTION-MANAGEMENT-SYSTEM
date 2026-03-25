@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   SectionCard, SearchInput, FilterBar, LoadingState, EmptyState,
   StatusBadge, ActionButton,
@@ -8,6 +9,7 @@ import { formatUGX } from '../../lib/formatters'
 import { useProjects, useArchiveProject, type ProjectSummary } from '../../hooks/useProjects'
 import { useAuth } from '../../hooks/useAuth'
 import { useUIStore } from '../../stores/uiStore'
+import { api } from '../../api/client'
 import { CreateProjectModal } from './CreateProjectModal'
 import { EditProjectModal } from './EditProjectModal'
 import { PROJECT_STATUSES, PROJECT_TYPES, CONTRACT_TYPES } from '../../types'
@@ -18,6 +20,7 @@ const statusColors: Record<string, string> = Object.fromEntries(
 
 export function ProjectsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -29,6 +32,20 @@ export function ProjectsPage() {
   const { data: projects, isLoading, isError } = useProjects()
   const archiveProject = useArchiveProject()
   const { showToast } = useUIStore()
+
+  /** Prefetch project detail + overview into cache on hover so click feels instant */
+  const prefetchProject = useCallback((projectId: string) => {
+    queryClient.prefetchQuery({
+      queryKey: ['projects', projectId],
+      queryFn: () => api.get(`/projects/${projectId}/`).then((r) => r.data),
+      staleTime: 30_000,
+    })
+    queryClient.prefetchQuery({
+      queryKey: ['cost', projectId, 'overview'],
+      queryFn: () => api.get(`/cost/${projectId}/overview/`).then((r) => r.data),
+      staleTime: 30_000,
+    })
+  }, [queryClient])
 
   useEffect(() => {
     if (searchParams.get('create') === '1') {
@@ -137,7 +154,7 @@ export function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
           {filtered.map((p) => (
-            <SectionCard key={p.id}>
+            <SectionCard key={p.id} onMouseEnter={() => prefetchProject(p.id)}>
               <div>
                 {/* Header: code + status */}
                 <div className="mb-1 flex items-center justify-between">
@@ -148,7 +165,7 @@ export function ProjectsPage() {
                 {/* Name -- clickable to enter workspace */}
                 <h3
                   className="mb-1 cursor-pointer text-[15px] font-semibold text-bp-text hover:text-bp-accent"
-                  onClick={() => navigate(`/app/projects/${p.id}/overview`)}
+                  onClick={() => navigate(`/app/projects/${p.id}/overview`, { state: { projectSummary: p } })}
                 >
                   {p.name}
                 </h3>
@@ -167,7 +184,7 @@ export function ProjectsPage() {
                     <ActionButton
                       variant="blue"
                       size="sm"
-                      onClick={() => navigate(`/app/projects/${p.id}/overview`)}
+                      onClick={() => navigate(`/app/projects/${p.id}/overview`, { state: { projectSummary: p } })}
                     >
                       Open
                     </ActionButton>
