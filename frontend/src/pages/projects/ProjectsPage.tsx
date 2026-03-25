@@ -1,10 +1,10 @@
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   SectionCard, SearchInput, FilterBar, LoadingState, EmptyState,
   StatusBadge, ActionButton,
 } from '../../components/ui'
 import { formatUGX } from '../../lib/formatters'
-import { useState } from 'react'
 import { useProjects, useArchiveProject, type ProjectSummary } from '../../hooks/useProjects'
 import { useAuth } from '../../hooks/useAuth'
 import { useUIStore } from '../../stores/uiStore'
@@ -18,6 +18,7 @@ const statusColors: Record<string, string> = Object.fromEntries(
 
 export function ProjectsPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
@@ -28,6 +29,12 @@ export function ProjectsPage() {
   const { data: projects, isLoading, isError } = useProjects()
   const archiveProject = useArchiveProject()
   const { showToast } = useUIStore()
+
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setShowCreate(true)
+    }
+  }, [searchParams])
 
   const list = projects || []
   const filtered = list.filter((p) => {
@@ -54,6 +61,22 @@ export function ProjectsPage() {
     } catch {
       showToast('Failed to archive project', 'error')
     }
+  }
+
+  function openCreateModal() {
+    setShowCreate(true)
+    if (searchParams.get('create') === '1') return
+    const next = new URLSearchParams(searchParams)
+    next.set('create', '1')
+    setSearchParams(next, { replace: true })
+  }
+
+  function closeCreateModal() {
+    setShowCreate(false)
+    if (searchParams.get('create') !== '1') return
+    const next = new URLSearchParams(searchParams)
+    next.delete('create')
+    setSearchParams(next, { replace: true })
   }
 
   return (
@@ -95,7 +118,7 @@ export function ProjectsPage() {
         </select>
         <span className="text-xs text-bp-muted">{filtered.length} project{filtered.length !== 1 ? 's' : ''}</span>
         {hasSystemPerm('projects.create') && (
-          <ActionButton variant="accent" onClick={() => setShowCreate(true)}>
+          <ActionButton variant="accent" onClick={openCreateModal}>
             + New Project
           </ActionButton>
         )}
@@ -177,8 +200,11 @@ export function ProjectsPage() {
 
       <CreateProjectModal
         open={showCreate}
-        onClose={() => setShowCreate(false)}
-        onCreated={(id) => navigate(`/app/projects/${id}/overview`)}
+        onClose={closeCreateModal}
+        onCreated={(id) => {
+          closeCreateModal()
+          navigate(`/app/projects/${id}/overview`)
+        }}
       />
 
       {editProject && (
