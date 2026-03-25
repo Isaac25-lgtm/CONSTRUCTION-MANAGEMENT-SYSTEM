@@ -91,3 +91,59 @@ export function useEVM(projectId: string | undefined) {
 export function useProjectOverview(projectId: string | undefined) {
   return useQuery({ queryKey: ['cost', projectId, 'overview'], queryFn: async () => { const { data } = await api.get<ProjectOverview>(`/cost/${projectId}/overview/`); return data }, enabled: !!projectId })
 }
+
+// --- Task-centric cost table (prototype parity) ---
+
+export interface TaskCostRow {
+  id: string; code: string; name: string; is_parent: boolean; is_critical: boolean
+  predecessor_codes: string[]; early_start: number; early_finish: number
+  start_date: string | null; end_date: string | null
+  budget: number; actual: number; variance: number; expense_count: number
+  status: string; status_display: string; progress: number
+}
+
+export interface TaskCostTable {
+  rows: TaskCostRow[]
+  totals: { budget: number; actual: number; variance: number }
+  project_budget: number
+}
+
+export function useTaskCostTable(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['cost', projectId, 'task-cost-table'],
+    queryFn: async () => { const { data } = await api.get<TaskCostTable>(`/cost/${projectId}/task-cost-table/`); return data },
+    enabled: !!projectId,
+  })
+}
+
+export function useTaskExpenses(projectId: string | undefined, taskId: string | undefined) {
+  return useQuery({
+    queryKey: ['cost', projectId, 'task-expenses', taskId],
+    queryFn: async () => { const { data } = await api.get<ExpenseData[]>(`/cost/${projectId}/tasks/${taskId}/expenses/`); return data },
+    enabled: !!projectId && !!taskId,
+  })
+}
+
+export function useCreateTaskExpense(projectId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ taskId, data: d }: { taskId: string; data: { description: string; amount: number; expense_date: string; vendor?: string } }) => {
+      const { data } = await api.post(`/cost/${projectId}/tasks/${taskId}/expenses/`, d)
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cost', projectId] })
+    },
+  })
+}
+
+export function useClearBudgets(projectId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => { const { data } = await api.post(`/cost/${projectId}/clear-budgets/`); return data },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cost', projectId] })
+      qc.invalidateQueries({ queryKey: ['schedule', projectId] })
+    },
+  })
+}

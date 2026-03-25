@@ -15,4 +15,9 @@ urlpatterns = [
     path("<uuid:project_id>/summary/", views.cost_summary, name="cost-summary"),
     path("<uuid:project_id>/evm/", views.evm_summary, name="evm-summary"),
     path("<uuid:project_id>/overview/", views.project_overview, name="project-overview"),
+
+    # Task-centric cost table (prototype parity)
+    path("<uuid:project_id>/task-cost-table/", views.task_cost_table, name="task-cost-table"),
+    path("<uuid:project_id>/tasks/<uuid:task_id>/expenses/", views.task_expenses, name="task-expenses"),
+    path("<uuid:project_id>/clear-budgets/", views.clear_budgets, name="clear-budgets"),
 ]
