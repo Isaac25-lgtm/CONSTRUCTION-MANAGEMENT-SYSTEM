@@ -43,7 +43,10 @@ def rfi_list(request, project_id):
     if not _can_edit_rfis(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = RFICreateSerializer(data=request.data)
+    serializer = RFICreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     rfi = serializer.save(project=project, created_by=request.user)
     return Response(RFISerializer(rfi).data, status=status.HTTP_201_CREATED)
@@ -75,7 +78,12 @@ def rfi_detail(request, project_id, rfi_id):
         rfi.soft_delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = RFISerializer(rfi, data=request.data, partial=True)
+    serializer = RFISerializer(
+        rfi,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)

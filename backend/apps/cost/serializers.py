@@ -1,9 +1,11 @@
 """Cost serializers."""
 from rest_framework import serializers
+
+from apps.core.serializers import ProjectScopedValidationMixin
 from .models import BudgetLine, Expense
 
 
-class BudgetLineSerializer(serializers.ModelSerializer):
+class BudgetLineSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     actual_amount = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
     variance = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
     category_display = serializers.CharField(source="get_category_display", read_only=True)
@@ -23,8 +25,13 @@ class BudgetLineSerializer(serializers.ModelSerializer):
             "status_display", "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_project(attrs, "linked_task", label="linked task")
+        return attrs
 
-class BudgetLineCreateSerializer(serializers.ModelSerializer):
+
+class BudgetLineCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = BudgetLine
         fields = [
@@ -32,8 +39,13 @@ class BudgetLineCreateSerializer(serializers.ModelSerializer):
             "budget_amount", "linked_task", "status", "sort_order",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_project(attrs, "linked_task", label="linked task")
+        return attrs
 
-class ExpenseSerializer(serializers.ModelSerializer):
+
+class ExpenseSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     category_display = serializers.CharField(source="get_category_display", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     budget_line_name = serializers.CharField(source="budget_line.name", read_only=True, default=None)
@@ -51,11 +63,23 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_project(attrs, "budget_line", label="budget line")
+        self._validate_same_project(attrs, "linked_task", label="linked task")
+        return attrs
 
-class ExpenseCreateSerializer(serializers.ModelSerializer):
+
+class ExpenseCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = Expense
         fields = [
             "budget_line", "linked_task", "description", "amount",
             "expense_date", "vendor", "reference", "category", "status", "notes",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_project(attrs, "budget_line", label="budget line")
+        self._validate_same_project(attrs, "linked_task", label="linked task")
+        return attrs

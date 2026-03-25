@@ -93,7 +93,10 @@ def assignment_list(request, project_id):
     if not _can_edit_project(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = ProjectResourceAssignmentCreateSerializer(data=request.data)
+    serializer = ProjectResourceAssignmentCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     # Check for duplicate assignment
     resource_id = serializer.validated_data.get("resource_id") or request.data.get("resource")
@@ -131,7 +134,10 @@ def assignment_detail(request, project_id, assignment_id):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     serializer = ProjectResourceAssignmentSerializer(
-        assignment, data=request.data, partial=True,
+        assignment,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
     )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)

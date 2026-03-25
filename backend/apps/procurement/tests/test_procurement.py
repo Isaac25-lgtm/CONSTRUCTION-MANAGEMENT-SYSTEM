@@ -65,6 +65,58 @@ class QuotationTests(ProcurementBaseTestCase):
         self.assertEqual(r.json()["rfq"], str(rfq.id))
         self.assertEqual(r.json()["supplier_name"], "Acme Supplies")
 
+    def test_reject_cross_project_rfq(self):
+        other_project = Project.objects.create(
+            name="Other Project",
+            project_type="residential",
+            contract_type="lump_sum",
+            organisation=self.org,
+        )
+        other_rfq = RFQ.objects.create(
+            project=other_project,
+            code="RFQ-OTHER",
+            title="Other Concrete",
+        )
+        self.client.force_login(self.admin)
+        r = self.client.post(
+            f"/api/v1/procurement/{self.project.id}/quotations/",
+            {
+                "rfq": str(other_rfq.id),
+                "supplier": str(self.supplier.id),
+                "code": "QTN-X",
+                "quote_date": "2026-03-14",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("rfq", r.json())
+
+    def test_reject_cross_org_supplier(self):
+        other_org = Organisation.objects.create(name="Other Org")
+        other_supplier = Supplier.objects.create(
+            organisation=other_org,
+            code="SUP-999",
+            name="Foreign Supplies",
+        )
+        rfq = RFQ.objects.create(
+            project=self.project,
+            code="RFQ-002",
+            title="Steel",
+        )
+        self.client.force_login(self.admin)
+        r = self.client.post(
+            f"/api/v1/procurement/{self.project.id}/quotations/",
+            {
+                "rfq": str(rfq.id),
+                "supplier": str(other_supplier.id),
+                "code": "QTN-ORG",
+                "quote_date": "2026-03-14",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("supplier", r.json())
+
     def test_quotation_total_amount_property(self):
         quotation = Quotation.objects.create(
             project=self.project, supplier=self.supplier,

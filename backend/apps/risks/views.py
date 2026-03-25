@@ -43,7 +43,10 @@ def risk_list(request, project_id):
     if not _can_edit_risks(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = RiskCreateSerializer(data=request.data)
+    serializer = RiskCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     risk = serializer.save(project=project, created_by=request.user)
     return Response(RiskSerializer(risk).data, status=status.HTTP_201_CREATED)
@@ -75,7 +78,12 @@ def risk_detail(request, project_id, risk_id):
         risk.soft_delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = RiskSerializer(risk, data=request.data, partial=True)
+    serializer = RiskSerializer(
+        risk,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)

@@ -51,7 +51,10 @@ def meeting_list(request, project_id):
     if not _can_edit_comms(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = MeetingCreateSerializer(data=request.data)
+    serializer = MeetingCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     meeting = serializer.save(project=project, created_by=request.user)
     return Response(MeetingSerializer(meeting).data, status=status.HTTP_201_CREATED)
@@ -75,7 +78,12 @@ def meeting_detail(request, project_id, meeting_id):
     if not _can_edit_comms(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = MeetingSerializer(meeting, data=request.data, partial=True)
+    serializer = MeetingSerializer(
+        meeting,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)
@@ -104,7 +112,10 @@ def meeting_action_list(request, project_id, meeting_id):
     if not _can_edit_comms(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = MeetingActionCreateSerializer(data=request.data)
+    serializer = MeetingActionCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     action = serializer.save(meeting=meeting)
     # Notify the assigned user about the meeting action
@@ -136,7 +147,12 @@ def meeting_action_update(request, project_id, meeting_id, action_id):
     if not _can_edit_comms(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = MeetingActionSerializer(action, data=request.data, partial=True)
+    serializer = MeetingActionSerializer(
+        action,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(serializer.data)

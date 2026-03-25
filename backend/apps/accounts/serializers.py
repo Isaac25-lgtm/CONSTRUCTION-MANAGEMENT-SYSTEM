@@ -1,4 +1,6 @@
 """Accounts serializers -- auth, user profile, user management."""
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from .models import User, Organisation, SystemRole
@@ -96,6 +98,23 @@ class UserCreateSerializer(serializers.ModelSerializer):
             "password",
             "system_role_id",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        password = attrs.get("password")
+        if password:
+            user = User(
+                username=attrs.get("username", ""),
+                email=attrs.get("email", ""),
+                first_name=attrs.get("first_name", ""),
+                last_name=attrs.get("last_name", ""),
+                organisation=self.context["request"].user.organisation,
+            )
+            try:
+                validate_password(password, user=user)
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError({"password": list(exc.messages)}) from exc
+        return attrs
 
     def create(self, validated_data):
         role_id = validated_data.pop("system_role_id", None)

@@ -28,7 +28,7 @@ services:
         - frontend/**
         - Dockerfile.render
     # preDeployCommand runs from image filesystem, not repo root
-    preDeployCommand: "python /app/backend/manage.py migrate --noinput"
+    preDeployCommand: "python /app/backend/manage.py migrate --noinput && python /app/backend/manage.py seed_env_admin"
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: buildpro.settings.production
@@ -43,6 +43,20 @@ services:
       - key: ALLOWED_HOSTS
         sync: false
       - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: BOOTSTRAP_SETUP_SECRET
+        sync: false
+      - key: TEST_ADMIN_EMAIL
+        sync: false
+      - key: TEST_ADMIN_PASSWORD
+        sync: false
+      - key: TEST_ADMIN_USERNAME
+        sync: false
+      - key: TEST_ADMIN_ORG_NAME
+        sync: false
+      - key: TEST_ADMIN_FIRST_NAME
+        sync: false
+      - key: TEST_ADMIN_LAST_NAME
         sync: false
       - key: CELERY_BROKER_URL
         fromService:

@@ -51,7 +51,10 @@ def task_list(request, project_id):
     if not _can_edit_schedule(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = TaskCreateSerializer(data=request.data)
+    serializer = TaskCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(project=project, created_by=request.user)
     return Response(
@@ -83,7 +86,12 @@ def task_detail(request, project_id, task_id):
         task.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = TaskSerializer(task, data=request.data, partial=True)
+    serializer = TaskSerializer(
+        task,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
 
@@ -251,7 +259,10 @@ def milestone_list(request, project_id):
     if not _can_edit_schedule(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = MilestoneSerializer(data={**request.data, "project": str(project.id)})
+    serializer = MilestoneSerializer(
+        data={**request.data, "project": str(project.id)},
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(project=project, created_by=request.user)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -274,7 +285,12 @@ def milestone_detail(request, project_id, milestone_id):
         ms.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = MilestoneSerializer(ms, data=request.data, partial=True)
+    serializer = MilestoneSerializer(
+        ms,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(serializer.data)

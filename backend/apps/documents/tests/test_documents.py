@@ -5,6 +5,12 @@ from apps.accounts.models import User, Organisation, SystemRole
 from apps.projects.models import Project, ProjectMembership
 from apps.documents.models import Document
 
+PDF_BYTES = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
+JPEG_BYTES = (
+    b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00"
+    b"\xff\xd9"
+)
+
 
 class DocumentBaseTestCase(TestCase):
     def setUp(self):
@@ -32,7 +38,7 @@ class DocumentBaseTestCase(TestCase):
 class DocumentCRUDTests(DocumentBaseTestCase):
     def test_create_document_with_file(self):
         self.client.force_login(self.admin)
-        test_file = SimpleUploadedFile("test.pdf", b"PDF content", content_type="application/pdf")
+        test_file = SimpleUploadedFile("test.pdf", PDF_BYTES, content_type="application/pdf")
         r = self.client.post(
             f"/api/v1/documents/{self.project.id}/documents/",
             {"title": "Test Drawing", "category": "drawings", "file": test_file},
@@ -46,7 +52,7 @@ class DocumentCRUDTests(DocumentBaseTestCase):
     def test_create_document_with_name_fallback(self):
         """Backward compat: 'name' field still works as alias for title."""
         self.client.force_login(self.admin)
-        test_file = SimpleUploadedFile("test.pdf", b"content", content_type="application/pdf")
+        test_file = SimpleUploadedFile("test.pdf", PDF_BYTES, content_type="application/pdf")
         r = self.client.post(
             f"/api/v1/documents/{self.project.id}/documents/",
             {"name": "Legacy Name", "category": "other", "file": test_file},
@@ -102,7 +108,7 @@ class DocumentCRUDTests(DocumentBaseTestCase):
 class DocumentVersionTests(DocumentBaseTestCase):
     def test_upload_new_version_with_supersedes(self):
         self.client.force_login(self.admin)
-        file1 = SimpleUploadedFile("v1.pdf", b"Version 1", content_type="application/pdf")
+        file1 = SimpleUploadedFile("v1.pdf", PDF_BYTES, content_type="application/pdf")
         r = self.client.post(
             f"/api/v1/documents/{self.project.id}/documents/",
             {"title": "Versioned Doc", "category": "drawings", "file": file1},
@@ -111,7 +117,7 @@ class DocumentVersionTests(DocumentBaseTestCase):
         self.assertEqual(r.json()["current_version_number"], 1)
 
         # Upload v2
-        file2 = SimpleUploadedFile("v2.pdf", b"Version 2 content", content_type="application/pdf")
+        file2 = SimpleUploadedFile("v2.pdf", PDF_BYTES, content_type="application/pdf")
         r2 = self.client.post(
             f"/api/v1/documents/{self.project.id}/documents/{doc_id}/versions/",
             {"file": file2, "notes": "Updated calculations"},
@@ -139,7 +145,7 @@ class FileValidationTests(DocumentBaseTestCase):
 
     def test_reject_non_image_for_photos(self):
         self.client.force_login(self.admin)
-        pdf_file = SimpleUploadedFile("doc.pdf", b"PDF content", content_type="application/pdf")
+        pdf_file = SimpleUploadedFile("doc.pdf", PDF_BYTES, content_type="application/pdf")
         r = self.client.post(
             f"/api/v1/documents/{self.project.id}/documents/",
             {"title": "Not a photo", "category": "photos", "file": pdf_file},
@@ -148,7 +154,7 @@ class FileValidationTests(DocumentBaseTestCase):
 
     def test_accept_image_for_photos(self):
         self.client.force_login(self.admin)
-        img = SimpleUploadedFile("photo.jpg", b"image data", content_type="image/jpeg")
+        img = SimpleUploadedFile("photo.jpg", JPEG_BYTES, content_type="image/jpeg")
         r = self.client.post(
             f"/api/v1/documents/{self.project.id}/documents/",
             {"title": "Site Photo", "category": "photos", "file": img},
@@ -157,12 +163,38 @@ class FileValidationTests(DocumentBaseTestCase):
 
     def test_accept_pdf_for_documents(self):
         self.client.force_login(self.admin)
-        pdf = SimpleUploadedFile("drawing.pdf", b"PDF content", content_type="application/pdf")
+        pdf = SimpleUploadedFile("drawing.pdf", PDF_BYTES, content_type="application/pdf")
         r = self.client.post(
             f"/api/v1/documents/{self.project.id}/documents/",
             {"title": "Normal PDF", "category": "drawings", "file": pdf},
         )
         self.assertEqual(r.status_code, 201)
+
+    def test_reject_spoofed_pdf_content(self):
+        self.client.force_login(self.admin)
+        fake_pdf = SimpleUploadedFile(
+            "drawing.pdf",
+            b"MZ\x90\x00not-a-pdf",
+            content_type="application/pdf",
+        )
+        r = self.client.post(
+            f"/api/v1/documents/{self.project.id}/documents/",
+            {"title": "Spoofed PDF", "category": "drawings", "file": fake_pdf},
+        )
+        self.assertEqual(r.status_code, 400)
+
+    def test_reject_spoofed_photo_content(self):
+        self.client.force_login(self.admin)
+        fake_photo = SimpleUploadedFile(
+            "photo.jpg",
+            PDF_BYTES,
+            content_type="image/jpeg",
+        )
+        r = self.client.post(
+            f"/api/v1/documents/{self.project.id}/documents/",
+            {"title": "Spoofed Photo", "category": "photos", "file": fake_photo},
+        )
+        self.assertEqual(r.status_code, 400)
 
     def test_unauthenticated_denied(self):
         r = self.client.get(f"/api/v1/documents/{self.project.id}/documents/")

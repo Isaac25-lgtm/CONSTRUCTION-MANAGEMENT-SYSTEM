@@ -4,7 +4,7 @@ import os
 from django.contrib.auth import authenticate, login, logout
 from django.middleware.csrf import get_token
 from rest_framework import status, viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -12,6 +12,7 @@ from apps.core.permissions import IsAdmin, HasSystemPermission
 
 from .bootstrap import bootstrap_org_admin, is_system_initialized
 from .models import User, SystemRole
+from .throttles import LoginRateThrottle, SetupBootstrapRateThrottle
 from .serializers import (
     UserMeSerializer,
     UserListSerializer,
@@ -44,6 +45,7 @@ def csrf_view(request):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([LoginRateThrottle])
 def login_view(request):
     """Authenticate user and create session."""
     username = request.data.get("username", "")
@@ -197,6 +199,7 @@ def setup_status_view(request):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([SetupBootstrapRateThrottle])
 def setup_bootstrap_view(request):
     """First-run bootstrap: create organisation + admin user.
 

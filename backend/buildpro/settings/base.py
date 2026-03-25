@@ -159,6 +159,10 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
+    "DEFAULT_THROTTLE_RATES": {
+        "auth_login": "10/minute",
+        "auth_setup_bootstrap": "5/hour",
+    },
     "DATETIME_FORMAT": "%Y-%m-%dT%H:%M:%SZ",
 }
 

@@ -3,6 +3,7 @@ from django.test import TestCase
 from apps.accounts.models import User, Organisation, SystemRole
 from apps.projects.models import Project
 from apps.resources.models import Resource, ProjectResourceAssignment
+from apps.scheduling.models import ProjectTask
 
 
 class LabourBaseTestCase(TestCase):
@@ -60,6 +61,55 @@ class TimesheetTests(LabourBaseTestCase):
             content_type="application/json")
         self.assertEqual(r2.status_code, 200)
         self.assertEqual(r2.json()["status"], "submitted")
+
+    def test_reject_timesheet_with_task_from_other_project(self):
+        other_project = Project.objects.create(
+            name="Other Project",
+            project_type="residential",
+            contract_type="lump_sum",
+            organisation=self.org,
+        )
+        foreign_task = ProjectTask.objects.create(
+            project=other_project,
+            code="TASK-X",
+            name="Foreign Task",
+        )
+        self.client.force_login(self.admin)
+        r = self.client.post(
+            f"/api/v1/labour/{self.project.id}/timesheets/",
+            {
+                "resource": str(self.resource.id),
+                "task": str(foreign_task.id),
+                "work_date": "2026-03-14",
+                "hours": 8,
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("task", r.json())
+
+    def test_reject_timesheet_with_approver_from_other_org(self):
+        other_org = Organisation.objects.create(name="Other Org")
+        other_role = SystemRole.objects.create(name="Other Admin", permissions=["admin.full_access"])
+        foreign_approver = User.objects.create_user(
+            username="foreign",
+            password="pass123",
+            organisation=other_org,
+            system_role=other_role,
+        )
+        self.client.force_login(self.admin)
+        r = self.client.post(
+            f"/api/v1/labour/{self.project.id}/timesheets/",
+            {
+                "resource": str(self.resource.id),
+                "work_date": "2026-03-14",
+                "hours": 8,
+                "approved_by": str(foreign_approver.id),
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("approved_by", r.json())
 
 
 class UnauthenticatedTests(LabourBaseTestCase):

@@ -145,7 +145,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"detail": "Permission denied: project.manage_members required."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        serializer = MembershipSerializer(data={**request.data, "project": project.id})
+        serializer = MembershipSerializer(
+            data={**request.data, "project": project.id},
+            context={"request": request, "project": project},
+        )
         serializer.is_valid(raise_exception=True)
         membership = serializer.save()
         # Notify the user about their project assignment

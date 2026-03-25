@@ -1,6 +1,7 @@
 """Projects serializers -- project CRUD, setup config, and membership."""
 from rest_framework import serializers
 
+from apps.core.serializers import ProjectScopedValidationMixin
 from .models import Project, ProjectMembership
 from .setup import ProjectSetupConfig
 from apps.accounts.models import DEFAULT_PROJECT_ROLE_PERMISSIONS
@@ -168,7 +169,7 @@ class ProjectCreateSerializer(serializers.ModelSerializer):
         ]
 
 
-class MembershipSerializer(serializers.ModelSerializer):
+class MembershipSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     """Serializer for project membership."""
 
     user_name = serializers.CharField(source="user.get_full_name", read_only=True)
@@ -200,6 +201,11 @@ class MembershipSerializer(serializers.ModelSerializer):
         if value not in valid_roles:
             raise serializers.ValidationError(f"Invalid role: {value}")
         return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "user", label="project member")
+        return attrs
 
     def create(self, validated_data):
         if not validated_data.get("permissions"):

@@ -45,7 +45,10 @@ def change_order_list(request, project_id):
     if not _can_edit_changes(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = ChangeOrderCreateSerializer(data=request.data)
+    serializer = ChangeOrderCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     co = serializer.save(project=project, created_by=request.user)
     return Response(ChangeOrderSerializer(co).data, status=status.HTTP_201_CREATED)
@@ -79,7 +82,12 @@ def change_order_detail(request, project_id, change_order_id):
         co.soft_delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = ChangeOrderSerializer(co, data=request.data, partial=True)
+    serializer = ChangeOrderSerializer(
+        co,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)

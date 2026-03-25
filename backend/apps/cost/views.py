@@ -47,7 +47,10 @@ def budget_line_list(request, project_id):
     if not _can_edit_budget(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = BudgetLineCreateSerializer(data=request.data)
+    serializer = BudgetLineCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     bl = serializer.save(project=project, created_by=request.user)
     return Response(BudgetLineSerializer(bl).data, status=status.HTTP_201_CREATED)
@@ -75,7 +78,12 @@ def budget_line_detail(request, project_id, line_id):
         bl.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = BudgetLineSerializer(bl, data=request.data, partial=True)
+    serializer = BudgetLineSerializer(
+        bl,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)
@@ -99,7 +107,10 @@ def expense_list(request, project_id):
     if not _can_edit_budget(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = ExpenseCreateSerializer(data=request.data)
+    serializer = ExpenseCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     exp = serializer.save(project=project, created_by=request.user)
     return Response(ExpenseSerializer(exp).data, status=status.HTTP_201_CREATED)
@@ -127,7 +138,12 @@ def expense_detail(request, project_id, expense_id):
         exp.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = ExpenseSerializer(exp, data=request.data, partial=True)
+    serializer = ExpenseSerializer(
+        exp,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)

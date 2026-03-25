@@ -92,6 +92,28 @@ class AssignmentTests(ResourcesBaseTestCase):
             content_type="application/json")
         self.assertIn(r.status_code, [400, 409])
 
+    def test_reject_assignment_for_other_org_resource(self):
+        other_org = Organisation.objects.create(name="Other Org")
+        other_resource = Resource.objects.create(
+            organisation=other_org,
+            code="RES-999",
+            name="Foreign Crane",
+            resource_type="equipment",
+            daily_rate=999,
+        )
+        self.client.force_login(self.admin)
+        r = self.client.post(
+            f"/api/v1/resources/{self.project.id}/resource-assignments/",
+            {
+                "resource": str(other_resource.id),
+                "assignment_role": "primary",
+                "assigned_from": "2026-03-14",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("resource", r.json())
+
 
 class UnauthenticatedTests(ResourcesBaseTestCase):
     def test_denied(self):

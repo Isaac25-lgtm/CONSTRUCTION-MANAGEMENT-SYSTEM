@@ -1,11 +1,15 @@
 """Tests for auth endpoints: login, logout, me, bootstrap, first-run setup."""
 import os
+from io import StringIO
 from unittest.mock import patch
 
+from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
 from apps.accounts.models import User, Organisation, SystemRole
+from apps.accounts.throttles import LoginRateThrottle, SetupBootstrapRateThrottle
 
 
 class AuthEndpointTests(TestCase):
@@ -69,6 +73,29 @@ class AuthEndpointTests(TestCase):
         # Django authenticate() returns None for inactive users
         self.assertIn(response.status_code, [401, 403])
 
+    def test_login_rate_limited_after_repeated_failures(self):
+        original_rates = LoginRateThrottle.THROTTLE_RATES.copy()
+        LoginRateThrottle.THROTTLE_RATES = {**original_rates, "auth_login": "2/minute"}
+        cache.clear()
+        try:
+            for _ in range(2):
+                response = self.client.post(
+                    reverse("auth-login"),
+                    {"username": "testuser", "password": "wrong"},
+                    content_type="application/json",
+                )
+                self.assertEqual(response.status_code, 401)
+
+            response = self.client.post(
+                reverse("auth-login"),
+                {"username": "testuser", "password": "wrong"},
+                content_type="application/json",
+            )
+            self.assertEqual(response.status_code, 429)
+        finally:
+            LoginRateThrottle.THROTTLE_RATES = original_rates
+            cache.clear()
+
     def test_me_authenticated(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse("auth-me"))
@@ -102,7 +129,6 @@ class BootstrapOrgAdminTests(TestCase):
     """Test the bootstrap_org_admin management command and service."""
 
     def test_creates_org_and_admin(self):
-        from django.core.management import call_command
         call_command(
             "bootstrap_org_admin",
             org_name="Test Corp",
@@ -119,7 +145,6 @@ class BootstrapOrgAdminTests(TestCase):
         self.assertTrue(user.check_password("securepass123"))
 
     def test_idempotent_rerun(self):
-        from django.core.management import call_command
         call_command(
             "bootstrap_org_admin",
             org_name="Idempotent Corp",
@@ -140,7 +165,6 @@ class BootstrapOrgAdminTests(TestCase):
         self.assertTrue(user.check_password("secondpass123"))
 
     def test_attaches_existing_user_to_org(self):
-        from django.core.management import call_command
         user = User.objects.create_superuser(username="orphan", password="pass12345678", email="o@test.com")
         self.assertIsNone(user.organisation_id)
         call_command(
@@ -159,6 +183,35 @@ class BootstrapOrgAdminTests(TestCase):
         self.client.force_login(User.objects.get(username="noorg"))
         r = self.client.get("/api/v1/projects/")
         self.assertEqual(r.status_code, 403)
+
+    @patch.dict(
+        os.environ,
+        {
+            "TEST_ADMIN_EMAIL": "render-admin@example.com",
+            "TEST_ADMIN_PASSWORD": "1234",
+            "TEST_ADMIN_USERNAME": "render-admin",
+            "TEST_ADMIN_ORG_NAME": "Render Test Org",
+            "TEST_ADMIN_FIRST_NAME": "Render",
+            "TEST_ADMIN_LAST_NAME": "Admin",
+        },
+        clear=False,
+    )
+    def test_seed_env_admin_creates_admin_from_env(self):
+        out = StringIO()
+        call_command("seed_env_admin", stdout=out)
+
+        org = Organisation.objects.get(name="Render Test Org")
+        user = User.objects.get(username="render-admin")
+        self.assertEqual(user.organisation_id, org.id)
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.is_superuser)
+        self.assertTrue(user.check_password("1234"))
+        self.assertEqual(user.system_role.name, "Admin")
+
+    def test_seed_env_admin_skips_when_not_configured(self):
+        out = StringIO()
+        call_command("seed_env_admin", stdout=out)
+        self.assertIn("Skipping env admin seed", out.getvalue())
 
 
 class SetupAPITests(TestCase):
@@ -273,6 +326,61 @@ class SetupAPITests(TestCase):
         )
         self.assertEqual(r.status_code, 400)
 
+    @patch.dict(os.environ, {"BOOTSTRAP_SETUP_SECRET": "test-secret-123"})
+    def test_bootstrap_rejects_weak_password(self):
+        r = self.client.post(
+            "/api/v1/auth/setup/bootstrap/",
+            {
+                "bootstrap_secret": "test-secret-123",
+                "org_name": "Weak Corp",
+                "username": "weakadmin",
+                "email": "weak@test.com",
+                "password": "12345678",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("password", r.json()["detail"].lower())
+
+    @patch.dict(os.environ, {"BOOTSTRAP_SETUP_SECRET": "test-secret-123"})
+    def test_bootstrap_rate_limited_after_repeated_attempts(self):
+        original_rates = SetupBootstrapRateThrottle.THROTTLE_RATES.copy()
+        SetupBootstrapRateThrottle.THROTTLE_RATES = {
+            **original_rates,
+            "auth_setup_bootstrap": "2/minute",
+        }
+        cache.clear()
+        try:
+            for _ in range(2):
+                r = self.client.post(
+                    "/api/v1/auth/setup/bootstrap/",
+                    {
+                        "bootstrap_secret": "wrong-secret",
+                        "org_name": "Corp",
+                        "username": "admin",
+                        "email": "a@t.com",
+                        "password": "securepass123",
+                    },
+                    content_type="application/json",
+                )
+                self.assertEqual(r.status_code, 403)
+
+            r = self.client.post(
+                "/api/v1/auth/setup/bootstrap/",
+                {
+                    "bootstrap_secret": "wrong-secret",
+                    "org_name": "Corp",
+                    "username": "admin",
+                    "email": "a@t.com",
+                    "password": "securepass123",
+                },
+                content_type="application/json",
+            )
+            self.assertEqual(r.status_code, 429)
+        finally:
+            SetupBootstrapRateThrottle.THROTTLE_RATES = original_rates
+            cache.clear()
+
 
 class OrganisationTests(TestCase):
     def setUp(self):
@@ -323,6 +431,22 @@ class OrganisationTests(TestCase):
         )
         self.assertEqual(r.status_code, 201)
         self.assertEqual(r.json()["username"], "newuser")
+
+    def test_admin_user_creation_rejects_weak_password(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(
+            "/api/v1/auth/users/",
+            {
+                "username": "weakuser",
+                "email": "weak@example.com",
+                "first_name": "Weak",
+                "last_name": "User",
+                "password": "12345678",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("password", r.json())
 
     def test_standard_user_cannot_create_user(self):
         self.client.force_login(self.standard)

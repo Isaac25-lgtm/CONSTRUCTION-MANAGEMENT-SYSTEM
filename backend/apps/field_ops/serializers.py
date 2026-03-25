@@ -1,5 +1,7 @@
 """Field Operations serializers."""
 from rest_framework import serializers
+
+from apps.core.serializers import ProjectScopedValidationMixin
 from .models import PunchItem, DailyLog, SafetyIncident, QualityCheck
 
 
@@ -7,7 +9,7 @@ from .models import PunchItem, DailyLog, SafetyIncident, QualityCheck
 # Punch Items
 # ---------------------------------------------------------------------------
 
-class PunchItemSerializer(serializers.ModelSerializer):
+class PunchItemSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     priority_display = serializers.CharField(source="get_priority_display", read_only=True)
     assigned_to_name = serializers.CharField(source="assigned_to.get_full_name", read_only=True, default=None)
@@ -27,8 +29,14 @@ class PunchItemSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "assigned_to", label="assignee")
+        self._validate_same_project(attrs, "related_task", label="related task")
+        return attrs
 
-class PunchItemCreateSerializer(serializers.ModelSerializer):
+
+class PunchItemCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = PunchItem
         fields = [
@@ -36,12 +44,18 @@ class PunchItemCreateSerializer(serializers.ModelSerializer):
             "assigned_to", "due_date", "closed_at", "related_task",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "assigned_to", label="assignee")
+        self._validate_same_project(attrs, "related_task", label="related task")
+        return attrs
+
 
 # ---------------------------------------------------------------------------
 # Daily Logs
 # ---------------------------------------------------------------------------
 
-class DailyLogSerializer(serializers.ModelSerializer):
+class DailyLogSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     author_name = serializers.CharField(source="author.get_full_name", read_only=True, default=None)
 
     class Meta:
@@ -57,8 +71,13 @@ class DailyLogSerializer(serializers.ModelSerializer):
             "id", "author_name", "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "author", label="author")
+        return attrs
 
-class DailyLogCreateSerializer(serializers.ModelSerializer):
+
+class DailyLogCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = DailyLog
         fields = [
@@ -66,12 +85,17 @@ class DailyLogCreateSerializer(serializers.ModelSerializer):
             "delays", "materials_notes", "visitors", "incidents", "author",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "author", label="author")
+        return attrs
+
 
 # ---------------------------------------------------------------------------
 # Safety Incidents
 # ---------------------------------------------------------------------------
 
-class SafetyIncidentSerializer(serializers.ModelSerializer):
+class SafetyIncidentSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     incident_type_display = serializers.CharField(source="get_incident_type_display", read_only=True)
     severity_display = serializers.CharField(source="get_severity_display", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
@@ -96,8 +120,14 @@ class SafetyIncidentSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "assigned_to", label="assignee")
+        self._validate_same_org_user(attrs, "reported_by", label="reporter")
+        return attrs
 
-class SafetyIncidentCreateSerializer(serializers.ModelSerializer):
+
+class SafetyIncidentCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = SafetyIncident
         fields = [
@@ -106,12 +136,18 @@ class SafetyIncidentCreateSerializer(serializers.ModelSerializer):
             "assigned_to", "status", "reported_by",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "assigned_to", label="assignee")
+        self._validate_same_org_user(attrs, "reported_by", label="reporter")
+        return attrs
+
 
 # ---------------------------------------------------------------------------
 # Quality Checks
 # ---------------------------------------------------------------------------
 
-class QualityCheckSerializer(serializers.ModelSerializer):
+class QualityCheckSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     result_display = serializers.CharField(source="get_result_display", read_only=True)
     category_display = serializers.CharField(source="get_category_display", read_only=True)
     inspector_name = serializers.CharField(source="inspector.get_full_name", read_only=True, default=None)
@@ -132,8 +168,14 @@ class QualityCheckSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "inspector", label="inspector")
+        self._validate_same_project(attrs, "related_task", label="related task")
+        return attrs
 
-class QualityCheckCreateSerializer(serializers.ModelSerializer):
+
+class QualityCheckCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = QualityCheck
         fields = [
@@ -141,3 +183,9 @@ class QualityCheckCreateSerializer(serializers.ModelSerializer):
             "location", "remarks", "corrective_action",
             "inspector", "related_task",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "inspector", label="inspector")
+        self._validate_same_project(attrs, "related_task", label="related task")
+        return attrs

@@ -1,9 +1,11 @@
 """Risk serializers."""
 from rest_framework import serializers
+
+from apps.core.serializers import ProjectScopedValidationMixin
 from .models import Risk
 
 
-class RiskSerializer(serializers.ModelSerializer):
+class RiskSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     category_display = serializers.CharField(source="get_category_display", read_only=True)
     likelihood_display = serializers.CharField(source="get_likelihood_display", read_only=True)
     impact_display = serializers.CharField(source="get_impact_display", read_only=True)
@@ -30,8 +32,13 @@ class RiskSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "owner", label="owner")
+        return attrs
 
-class RiskCreateSerializer(serializers.ModelSerializer):
+
+class RiskCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = Risk
         fields = [
@@ -39,3 +46,8 @@ class RiskCreateSerializer(serializers.ModelSerializer):
             "likelihood", "impact", "mitigation", "owner",
             "status", "review_date",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "owner", label="owner")
+        return attrs

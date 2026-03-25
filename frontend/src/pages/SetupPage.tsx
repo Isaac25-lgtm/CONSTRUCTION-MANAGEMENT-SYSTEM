@@ -138,9 +138,9 @@ export function SetupPage() {
         </div>
 
         <div className="mb-3">
-          <label className="mb-1 block text-xs font-semibold text-bp-muted">Admin Password * (min 8 characters)</label>
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">Admin Password * (must meet the server password policy)</label>
           <input
-            type="password" required minLength={8} value={form.password}
+            type="password" required value={form.password}
             onChange={e => update('password', e.target.value)}
           />
         </div>

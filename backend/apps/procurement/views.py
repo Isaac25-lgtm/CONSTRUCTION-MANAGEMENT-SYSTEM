@@ -136,7 +136,10 @@ def quotation_list(request, project_id):
     if not _can_edit_procurement(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = QuotationCreateSerializer(data=request.data)
+    serializer = QuotationCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     quotation = serializer.save(project=project, created_by=request.user)
     return Response(QuotationSerializer(quotation).data, status=status.HTTP_201_CREATED)
@@ -164,7 +167,12 @@ def quotation_detail(request, project_id, quotation_id):
         quotation.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = QuotationSerializer(quotation, data=request.data, partial=True)
+    serializer = QuotationSerializer(
+        quotation,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)
@@ -188,7 +196,10 @@ def purchase_order_list(request, project_id):
     if not _can_edit_procurement(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = PurchaseOrderCreateSerializer(data=request.data)
+    serializer = PurchaseOrderCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     po = serializer.save(project=project, created_by=request.user)
     return Response(PurchaseOrderSerializer(po).data, status=status.HTTP_201_CREATED)
@@ -212,7 +223,12 @@ def purchase_order_detail(request, project_id, po_id):
     if not _can_edit_procurement(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = PurchaseOrderSerializer(po, data=request.data, partial=True)
+    serializer = PurchaseOrderSerializer(
+        po,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)
@@ -236,7 +252,10 @@ def goods_receipt_list(request, project_id):
     if not _can_edit_procurement(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = GoodsReceiptCreateSerializer(data=request.data)
+    serializer = GoodsReceiptCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     grn = serializer.save(project=project, created_by=request.user)
     return Response(GoodsReceiptSerializer(grn).data, status=status.HTTP_201_CREATED)
@@ -260,7 +279,12 @@ def goods_receipt_detail(request, project_id, grn_id):
     if not _can_edit_procurement(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = GoodsReceiptSerializer(grn, data=request.data, partial=True)
+    serializer = GoodsReceiptSerializer(
+        grn,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)
@@ -284,7 +308,10 @@ def procurement_invoice_list(request, project_id):
     if not _can_edit_procurement(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = ProcurementInvoiceCreateSerializer(data=request.data)
+    serializer = ProcurementInvoiceCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     inv = serializer.save(project=project, created_by=request.user)
     return Response(ProcurementInvoiceSerializer(inv).data, status=status.HTTP_201_CREATED)
@@ -308,7 +335,10 @@ def procurement_payment_list(request, project_id):
     if not _can_edit_procurement(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = ProcurementPaymentCreateSerializer(data=request.data)
+    serializer = ProcurementPaymentCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     pay = serializer.save(project=project, created_by=request.user)
     return Response(ProcurementPaymentSerializer(pay).data, status=status.HTTP_201_CREATED)
@@ -376,7 +406,10 @@ def _item_list_create(request, project, parent_model, parent_id_field, parent_id
     if not _can_edit_procurement(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = item_serializer_cls(data=request.data)
+    serializer = item_serializer_cls(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(**{parent_fk_field: parent})
     return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -405,7 +438,12 @@ def _item_detail(request, project, parent_model, parent_id, item_model,
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = item_serializer_cls(item, data=request.data, partial=True)
+    serializer = item_serializer_cls(
+        item,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(serializer.data)

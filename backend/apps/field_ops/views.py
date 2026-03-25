@@ -48,7 +48,10 @@ def punch_item_list(request, project_id):
     if not _can_edit_field_ops(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = PunchItemCreateSerializer(data=request.data)
+    serializer = PunchItemCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     item = serializer.save(project=project, created_by=request.user)
     return Response(PunchItemSerializer(item).data, status=status.HTTP_201_CREATED)
@@ -76,7 +79,12 @@ def punch_item_detail(request, project_id, item_id):
         item.soft_delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = PunchItemSerializer(item, data=request.data, partial=True)
+    serializer = PunchItemSerializer(
+        item,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)
@@ -100,7 +108,10 @@ def daily_log_list(request, project_id):
     if not _can_edit_field_ops(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = DailyLogCreateSerializer(data=request.data)
+    serializer = DailyLogCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     log = serializer.save(project=project, created_by=request.user)
     return Response(DailyLogSerializer(log).data, status=status.HTTP_201_CREATED)
@@ -128,7 +139,12 @@ def daily_log_detail(request, project_id, log_id):
         log.soft_delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = DailyLogSerializer(log, data=request.data, partial=True)
+    serializer = DailyLogSerializer(
+        log,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)
@@ -154,7 +170,10 @@ def safety_incident_list(request, project_id):
     if not _can_edit_field_ops(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = SafetyIncidentCreateSerializer(data=request.data)
+    serializer = SafetyIncidentCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     incident = serializer.save(project=project, created_by=request.user)
     return Response(SafetyIncidentSerializer(incident).data, status=status.HTTP_201_CREATED)
@@ -184,7 +203,12 @@ def safety_incident_detail(request, project_id, incident_id):
         incident.soft_delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = SafetyIncidentSerializer(incident, data=request.data, partial=True)
+    serializer = SafetyIncidentSerializer(
+        incident,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)
@@ -208,7 +232,10 @@ def quality_check_list(request, project_id):
     if not _can_edit_field_ops(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = QualityCheckCreateSerializer(data=request.data)
+    serializer = QualityCheckCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     check = serializer.save(project=project, created_by=request.user)
     return Response(QualityCheckSerializer(check).data, status=status.HTTP_201_CREATED)
@@ -236,7 +263,12 @@ def quality_check_detail(request, project_id, check_id):
         check.soft_delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    serializer = QualityCheckSerializer(check, data=request.data, partial=True)
+    serializer = QualityCheckSerializer(
+        check,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)

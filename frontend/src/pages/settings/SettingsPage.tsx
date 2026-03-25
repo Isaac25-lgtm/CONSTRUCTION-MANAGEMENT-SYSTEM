@@ -134,6 +134,14 @@ function UsersTab() {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ username: '', email: '', first_name: '', last_name: '', password: '' })
 
+  const getCreateUserError = (err: unknown) => {
+    const data = (err as { response?: { data?: { password?: string[]; detail?: string } } })?.response?.data
+    if (Array.isArray(data?.password) && data.password.length > 0) {
+      return data.password.join(' ')
+    }
+    return data?.detail || 'Failed to create user'
+  }
+
   if (isLoading) return <LoadingState rows={4} />
   if (isError) return <EmptyState icon="&#9888;" title="Could not load users" description="Check that the backend is running." />
 
@@ -167,7 +175,7 @@ function UsersTab() {
               <input value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} />
             </div>
             <div className="col-span-2">
-              <label className="mb-1 block text-xs font-semibold text-bp-muted">Password * (min 8 characters)</label>
+              <label className="mb-1 block text-xs font-semibold text-bp-muted">Password * (must meet the server password policy)</label>
               <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Temporary password" />
             </div>
           </div>
@@ -175,8 +183,8 @@ function UsersTab() {
             <ActionButton
               variant="green"
               onClick={async () => {
-                if (!form.username || !form.email || !form.password || form.password.length < 8) {
-                  showToast('Username, email, and password (8+ chars) are required', 'warning')
+                if (!form.username || !form.email || !form.password) {
+                  showToast('Username, email, and password are required', 'warning')
                   return
                 }
                 try {
@@ -184,8 +192,8 @@ function UsersTab() {
                   showToast('User created', 'success')
                   setShowAdd(false)
                   setForm({ username: '', email: '', first_name: '', last_name: '', password: '' })
-                } catch {
-                  showToast('Failed to create user', 'error')
+                } catch (err) {
+                  showToast(getCreateUserError(err), 'error')
                 }
               }}
               disabled={createUser.isPending}

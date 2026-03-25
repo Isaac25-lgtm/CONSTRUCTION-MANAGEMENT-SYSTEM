@@ -45,7 +45,10 @@ def timesheet_entry_list(request, project_id):
     if not _can_edit_labour(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = TimesheetEntryCreateSerializer(data=request.data)
+    serializer = TimesheetEntryCreateSerializer(
+        data=request.data,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     # Validate resource is assigned to this project
     resource = serializer.validated_data.get("resource")
@@ -77,7 +80,12 @@ def timesheet_entry_detail(request, project_id, entry_id):
     if not _can_edit_labour(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
-    serializer = TimesheetEntrySerializer(entry, data=request.data, partial=True)
+    serializer = TimesheetEntrySerializer(
+        entry,
+        data=request.data,
+        partial=True,
+        context={"request": request, "project": project},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
     return Response(serializer.data)

@@ -1,5 +1,7 @@
 """Resources serializers."""
 from rest_framework import serializers
+
+from apps.core.serializers import ProjectScopedValidationMixin
 from .models import Resource, ProjectResourceAssignment
 
 
@@ -39,7 +41,7 @@ class ResourceCreateSerializer(serializers.ModelSerializer):
 # Project Resource Assignment
 # ---------------------------------------------------------------------------
 
-class ProjectResourceAssignmentSerializer(serializers.ModelSerializer):
+class ProjectResourceAssignmentSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     resource_name = serializers.CharField(source="resource.name", read_only=True, default=None)
     resource_code = serializers.CharField(source="resource.code", read_only=True, default=None)
@@ -57,11 +59,21 @@ class ProjectResourceAssignmentSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org(attrs, "resource", label="resource")
+        return attrs
 
-class ProjectResourceAssignmentCreateSerializer(serializers.ModelSerializer):
+
+class ProjectResourceAssignmentCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = ProjectResourceAssignment
         fields = [
             "resource", "assignment_role", "assigned_from", "assigned_to",
             "status", "notes",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org(attrs, "resource", label="resource")
+        return attrs

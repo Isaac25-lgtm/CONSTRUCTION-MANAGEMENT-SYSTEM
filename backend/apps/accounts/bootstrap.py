@@ -4,6 +4,9 @@ Production bootstrap service for BuildPro.
 Creates organisation + admin user + Admin role in one idempotent operation.
 Used by both the management command and the first-run setup API endpoint.
 """
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+
 from apps.accounts.models import Organisation, SystemRole, User
 
 
@@ -17,21 +20,31 @@ def is_system_initialized() -> bool:
 
 def bootstrap_org_admin(
     *, org_name: str, username: str, email: str, password: str,
-    first_name: str = "", last_name: str = "",
+    first_name: str = "", last_name: str = "", validate_user_password: bool = True,
 ) -> dict:
     """Create or update organisation + admin user. Idempotent.
 
     Returns dict with created entities for confirmation.
     Raises ValueError for invalid input.
     """
-    if len(password) < 8:
-        raise ValueError("Password must be at least 8 characters.")
     if not org_name.strip():
         raise ValueError("Organisation name is required.")
     if not username.strip():
         raise ValueError("Username is required.")
     if not email.strip():
         raise ValueError("Email is required.")
+
+    if validate_user_password:
+        candidate = User(
+            username=username.strip(),
+            email=email.strip(),
+            first_name=first_name.strip(),
+            last_name=last_name.strip(),
+        )
+        try:
+            validate_password(password, user=candidate)
+        except DjangoValidationError as exc:
+            raise ValueError(" ".join(exc.messages)) from exc
 
     # 1. Organisation
     org, org_created = Organisation.objects.get_or_create(

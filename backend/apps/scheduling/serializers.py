@@ -1,13 +1,14 @@
 """Scheduling serializers."""
 from rest_framework import serializers
 
+from apps.core.serializers import ProjectScopedValidationMixin
 from .models import (
     ProjectTask, TaskDependency, Milestone,
     ScheduleBaseline, BaselineTaskSnapshot,
 )
 
 
-class TaskSerializer(serializers.ModelSerializer):
+class TaskSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     predecessor_codes = serializers.SerializerMethodField()
     status_display = serializers.CharField(source="get_status_display", read_only=True)
 
@@ -37,8 +38,14 @@ class TaskSerializer(serializers.ModelSerializer):
             .values_list("predecessor__code", flat=True)
         )
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_project(attrs, "parent", label="parent task")
+        self._validate_same_org_user(attrs, "assigned_to", label="assignee")
+        return attrs
 
-class TaskCreateSerializer(serializers.ModelSerializer):
+
+class TaskCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = ProjectTask
         fields = [
@@ -47,6 +54,12 @@ class TaskCreateSerializer(serializers.ModelSerializer):
             "progress", "status", "resource", "budget",
             "sort_order", "is_parent",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_project(attrs, "parent", label="parent task")
+        self._validate_same_org_user(attrs, "assigned_to", label="assignee")
+        return attrs
 
 
 class DependencySerializer(serializers.ModelSerializer):
@@ -63,7 +76,7 @@ class DependencySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "predecessor_code", "successor_code", "created_at"]
 
 
-class MilestoneSerializer(serializers.ModelSerializer):
+class MilestoneSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     linked_task_code = serializers.CharField(
         source="linked_task.code", read_only=True, default=None
     )
@@ -79,6 +92,11 @@ class MilestoneSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "linked_task_code", "status_display", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_project(attrs, "linked_task", label="linked task")
+        return attrs
 
 
 class BaselineSerializer(serializers.ModelSerializer):

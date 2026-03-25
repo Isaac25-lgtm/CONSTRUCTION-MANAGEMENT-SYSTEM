@@ -1,5 +1,7 @@
 """Communications serializers."""
 from rest_framework import serializers
+
+from apps.core.serializers import ProjectScopedValidationMixin
 from .models import Meeting, MeetingAction, ChatMessage
 
 
@@ -7,7 +9,7 @@ from .models import Meeting, MeetingAction, ChatMessage
 # Meeting Action (nested)
 # ---------------------------------------------------------------------------
 
-class MeetingActionSerializer(serializers.ModelSerializer):
+class MeetingActionSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     assigned_to_name = serializers.CharField(source="assigned_to.get_full_name", read_only=True, default=None)
 
@@ -24,20 +26,30 @@ class MeetingActionSerializer(serializers.ModelSerializer):
             "id", "meeting", "status_display", "assigned_to_name", "created_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "assigned_to", label="assigned user")
+        return attrs
 
-class MeetingActionCreateSerializer(serializers.ModelSerializer):
+
+class MeetingActionCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = MeetingAction
         fields = [
             "description", "assigned_to", "due_date", "status", "notes",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "assigned_to", label="assigned user")
+        return attrs
+
 
 # ---------------------------------------------------------------------------
 # Meeting
 # ---------------------------------------------------------------------------
 
-class MeetingSerializer(serializers.ModelSerializer):
+class MeetingSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     meeting_type_display = serializers.CharField(source="get_meeting_type_display", read_only=True)
     chaired_by_name = serializers.CharField(source="chaired_by.get_full_name", read_only=True, default=None)
     actions = MeetingActionSerializer(many=True, read_only=True)
@@ -57,14 +69,24 @@ class MeetingSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "chaired_by", label="chairperson")
+        return attrs
 
-class MeetingCreateSerializer(serializers.ModelSerializer):
+
+class MeetingCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = Meeting
         fields = [
             "title", "meeting_type", "meeting_date", "location",
             "attendees", "summary", "chaired_by",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org_user(attrs, "chaired_by", label="chairperson")
+        return attrs
 
 
 # ---------------------------------------------------------------------------

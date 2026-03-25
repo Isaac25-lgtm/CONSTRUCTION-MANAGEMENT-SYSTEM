@@ -1,5 +1,7 @@
 """Procurement serializers."""
 from rest_framework import serializers
+
+from apps.core.serializers import ProjectScopedValidationMixin
 from .models import (
     Supplier, RFQ, RFQItem, Quotation, QuotationItem,
     PurchaseOrder, POItem, GoodsReceipt, GRNItem,
@@ -84,7 +86,7 @@ class RFQCreateSerializer(serializers.ModelSerializer):
 # Quotation
 # ---------------------------------------------------------------------------
 
-class QuotationItemSerializer(serializers.ModelSerializer):
+class QuotationItemSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     line_total = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
 
     class Meta:
@@ -94,8 +96,19 @@ class QuotationItemSerializer(serializers.ModelSerializer):
             "quantity", "unit_price", "line_total",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        rfq_item = attrs.get("rfq_item")
+        if rfq_item is not None:
+            project = self._current_project(attrs)
+            if project is not None and rfq_item.rfq.project_id != project.id:
+                raise serializers.ValidationError(
+                    {"rfq_item": "Selected RFQ item must belong to this project."}
+                )
+        return attrs
 
-class QuotationSerializer(serializers.ModelSerializer):
+
+class QuotationSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     supplier_name = serializers.CharField(source="supplier.name", read_only=True, default=None)
     rfq_code = serializers.CharField(source="rfq.code", read_only=True, default=None)
@@ -119,8 +132,14 @@ class QuotationSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_project(attrs, "rfq", label="RFQ")
+        self._validate_same_org(attrs, "supplier", label="supplier")
+        return attrs
 
-class QuotationCreateSerializer(serializers.ModelSerializer):
+
+class QuotationCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     code = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
@@ -129,6 +148,12 @@ class QuotationCreateSerializer(serializers.ModelSerializer):
             "rfq", "supplier", "code", "quote_date",
             "validity_date", "status", "notes",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_project(attrs, "rfq", label="RFQ")
+        self._validate_same_org(attrs, "supplier", label="supplier")
+        return attrs
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +175,7 @@ class POItemSerializer(serializers.ModelSerializer):
 # Purchase Order
 # ---------------------------------------------------------------------------
 
-class PurchaseOrderSerializer(serializers.ModelSerializer):
+class PurchaseOrderSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     supplier_name = serializers.CharField(source="supplier.name", read_only=True, default=None)
     approved_by_name = serializers.CharField(source="approved_by.get_full_name", read_only=True, default=None)
@@ -173,8 +198,14 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org(attrs, "supplier", label="supplier")
+        self._validate_same_org_user(attrs, "approved_by", label="approver")
+        return attrs
 
-class PurchaseOrderCreateSerializer(serializers.ModelSerializer):
+
+class PurchaseOrderCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     code = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
@@ -183,12 +214,18 @@ class PurchaseOrderCreateSerializer(serializers.ModelSerializer):
             "supplier", "code", "delivery_date", "status", "notes", "approved_by",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org(attrs, "supplier", label="supplier")
+        self._validate_same_org_user(attrs, "approved_by", label="approver")
+        return attrs
+
 
 # ---------------------------------------------------------------------------
 # Goods Receipt
 # ---------------------------------------------------------------------------
 
-class GRNItemSerializer(serializers.ModelSerializer):
+class GRNItemSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = GRNItem
         fields = [
@@ -196,8 +233,19 @@ class GRNItemSerializer(serializers.ModelSerializer):
             "ordered_quantity", "received_quantity", "remarks", "po_item",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        po_item = attrs.get("po_item")
+        if po_item is not None:
+            project = self._current_project(attrs)
+            if project is not None and po_item.purchase_order.project_id != project.id:
+                raise serializers.ValidationError(
+                    {"po_item": "Selected PO item must belong to this project."}
+                )
+        return attrs
 
-class GoodsReceiptSerializer(serializers.ModelSerializer):
+
+class GoodsReceiptSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     received_by_name = serializers.CharField(source="received_by.get_full_name", read_only=True, default=None)
     items = GRNItemSerializer(many=True, read_only=True)
@@ -216,8 +264,14 @@ class GoodsReceiptSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_project(attrs, "purchase_order", label="purchase order")
+        self._validate_same_org_user(attrs, "received_by", label="receiver")
+        return attrs
 
-class GoodsReceiptCreateSerializer(serializers.ModelSerializer):
+
+class GoodsReceiptCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     code = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
@@ -227,12 +281,18 @@ class GoodsReceiptCreateSerializer(serializers.ModelSerializer):
             "received_by", "status", "notes",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_project(attrs, "purchase_order", label="purchase order")
+        self._validate_same_org_user(attrs, "received_by", label="receiver")
+        return attrs
+
 
 # ---------------------------------------------------------------------------
 # Procurement Invoice
 # ---------------------------------------------------------------------------
 
-class ProcurementInvoiceSerializer(serializers.ModelSerializer):
+class ProcurementInvoiceSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     supplier_name = serializers.CharField(source="supplier.name", read_only=True, default=None)
 
@@ -250,8 +310,14 @@ class ProcurementInvoiceSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org(attrs, "supplier", label="supplier")
+        self._validate_same_project(attrs, "purchase_order", label="purchase order")
+        return attrs
 
-class ProcurementInvoiceCreateSerializer(serializers.ModelSerializer):
+
+class ProcurementInvoiceCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     code = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
@@ -261,12 +327,18 @@ class ProcurementInvoiceCreateSerializer(serializers.ModelSerializer):
             "invoice_date", "due_date", "amount", "status", "notes",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org(attrs, "supplier", label="supplier")
+        self._validate_same_project(attrs, "purchase_order", label="purchase order")
+        return attrs
+
 
 # ---------------------------------------------------------------------------
 # Procurement Payment
 # ---------------------------------------------------------------------------
 
-class ProcurementPaymentSerializer(serializers.ModelSerializer):
+class ProcurementPaymentSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     method_display = serializers.CharField(source="get_method_display", read_only=True)
     supplier_name = serializers.CharField(source="supplier.name", read_only=True, default=None)
@@ -285,11 +357,23 @@ class ProcurementPaymentSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org(attrs, "supplier", label="supplier")
+        self._validate_same_project(attrs, "invoice", label="invoice")
+        return attrs
 
-class ProcurementPaymentCreateSerializer(serializers.ModelSerializer):
+
+class ProcurementPaymentCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = ProcurementPayment
         fields = [
             "supplier", "invoice", "payment_date", "amount",
             "reference", "method", "status", "notes",
         ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        self._validate_same_org(attrs, "supplier", label="supplier")
+        self._validate_same_project(attrs, "invoice", label="invoice")
+        return attrs
