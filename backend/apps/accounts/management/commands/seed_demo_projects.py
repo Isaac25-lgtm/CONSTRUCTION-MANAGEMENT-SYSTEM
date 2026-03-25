@@ -1,8 +1,8 @@
 """Seed a realistic single-admin demo portfolio.
 
-Creates or updates five editable projects at different execution stages,
-plus enough cross-module data to make the workspace and AI features useful
-without creating extra user accounts.
+Creates or updates a broader set of editable projects at different execution
+stages, durations, and budget levels, plus enough cross-module data to make
+the workspace and AI features useful without creating extra user accounts.
 """
 from __future__ import annotations
 
@@ -122,14 +122,96 @@ PROJECT_BLUEPRINTS = [
         "stage": "completed",
         "cost_multiplier": Decimal("0.97"),
     },
+    {
+        "name": "Mbale Technical Institute Expansion",
+        "project_type": "school",
+        "contract_type": "management",
+        "location": "Mbale City",
+        "status": "planning",
+        "budget": Decimal("1650000000"),
+        "start_date": date(2026, 7, 1),
+        "end_date": date(2027, 5, 31),
+        "client_name": "Ministry of Education",
+        "client_org": "Government of Uganda",
+        "consultant": "Cedar Planning Collaborative",
+        "contractor": "BuildPro Construction Ltd",
+        "stage": "planning",
+        "cost_multiplier": Decimal("0.04"),
+    },
+    {
+        "name": "Mukono Water Treatment Upgrade",
+        "project_type": "water_treatment",
+        "contract_type": "cost_plus",
+        "location": "Mukono District",
+        "status": "on_hold",
+        "budget": Decimal("9800000000"),
+        "start_date": date(2025, 10, 15),
+        "end_date": date(2027, 3, 30),
+        "client_name": "National Water and Sewerage Corporation",
+        "client_org": "NWSC",
+        "consultant": "Aqua Systems East Africa",
+        "contractor": "BuildPro Construction Ltd",
+        "stage": "on_hold",
+        "cost_multiplier": Decimal("0.29"),
+    },
+    {
+        "name": "Karuma Staff Housing Cluster",
+        "project_type": "residential",
+        "contract_type": "design_build",
+        "location": "Kiryandongo",
+        "status": "active",
+        "budget": Decimal("3400000000"),
+        "start_date": date(2026, 3, 15),
+        "end_date": date(2027, 2, 28),
+        "client_name": "Karuma Operations Ltd",
+        "client_org": "Karuma Operations Ltd",
+        "consultant": "Vertex Housing Studio",
+        "contractor": "BuildPro Construction Ltd",
+        "stage": "early_work",
+        "cost_multiplier": Decimal("0.18"),
+    },
+    {
+        "name": "Soroti Regional Market Redevelopment",
+        "project_type": "commercial",
+        "contract_type": "lump_sum",
+        "location": "Soroti City",
+        "status": "active",
+        "budget": Decimal("6100000000"),
+        "start_date": date(2025, 9, 5),
+        "end_date": date(2026, 12, 20),
+        "client_name": "Soroti City Council",
+        "client_org": "Soroti City Council",
+        "consultant": "K2 Urban Projects",
+        "contractor": "BuildPro Construction Ltd",
+        "stage": "fit_out",
+        "cost_multiplier": Decimal("0.74"),
+    },
+    {
+        "name": "Lira Flood Control Dam Intake",
+        "project_type": "dam",
+        "contract_type": "bot",
+        "location": "Lira District",
+        "status": "active",
+        "budget": Decimal("18400000000"),
+        "start_date": date(2025, 6, 1),
+        "end_date": date(2027, 11, 30),
+        "client_name": "Ministry of Water and Environment",
+        "client_org": "Government of Uganda",
+        "consultant": "HydroWorks Africa",
+        "contractor": "BuildPro Construction Ltd",
+        "stage": "mid_execution",
+        "cost_multiplier": Decimal("0.38"),
+    },
 ]
 
 STAGE_PROGRESS = {
-    "early_work": {"completed": 0.12, "in_progress": 0.18, "delayed": 0.06},
-    "mid_execution": {"completed": 0.42, "in_progress": 0.28, "delayed": 0.08},
-    "fit_out": {"completed": 0.68, "in_progress": 0.18, "delayed": 0.04},
-    "finishing": {"completed": 0.82, "in_progress": 0.10, "delayed": 0.02},
-    "completed": {"completed": 1.0, "in_progress": 0.0, "delayed": 0.0},
+    "planning": {"completed": 0.0, "in_progress": 0.0, "delayed": 0.0, "on_hold": 0.0},
+    "early_work": {"completed": 0.12, "in_progress": 0.18, "delayed": 0.06, "on_hold": 0.0},
+    "mid_execution": {"completed": 0.42, "in_progress": 0.28, "delayed": 0.08, "on_hold": 0.0},
+    "fit_out": {"completed": 0.68, "in_progress": 0.18, "delayed": 0.04, "on_hold": 0.0},
+    "finishing": {"completed": 0.82, "in_progress": 0.10, "delayed": 0.02, "on_hold": 0.0},
+    "on_hold": {"completed": 0.34, "in_progress": 0.0, "delayed": 0.14, "on_hold": 0.34},
+    "completed": {"completed": 1.0, "in_progress": 0.0, "delayed": 0.0, "on_hold": 0.0},
 }
 
 BUDGET_WEIGHTS = [
@@ -163,11 +245,19 @@ PROJECT_RISKS = {
     "completed": [
         ("R-001", "Retention release documentation may slip", "financial", "low", "medium", "open"),
     ],
+    "planning": [
+        ("R-001", "Stakeholder approvals may extend preconstruction", "external", "medium", "medium", "open"),
+        ("R-002", "Cost assumptions may change after design freeze", "financial", "medium", "high", "open"),
+    ],
+    "on_hold": [
+        ("R-001", "Funding delay has paused active work fronts", "financial", "high", "high", "open"),
+        ("R-002", "Suspension may affect subcontractor remobilisation", "resource", "medium", "high", "open"),
+    ],
 }
 
 
 class Command(BaseCommand):
-    help = "Seed five editable demo projects for the current organisation."
+    help = "Seed multiple editable demo projects for the current organisation."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -269,6 +359,10 @@ class Command(BaseCommand):
         completed_count = min(total, max(0, round(total * profile["completed"])))
         in_progress_count = min(total - completed_count, round(total * profile["in_progress"]))
         delayed_count = min(total - completed_count - in_progress_count, round(total * profile["delayed"]))
+        on_hold_count = min(
+            total - completed_count - in_progress_count - delayed_count,
+            round(total * profile.get("on_hold", 0)),
+        )
 
         for index, task in enumerate(tasks):
             if index < completed_count:
@@ -280,6 +374,9 @@ class Command(BaseCommand):
             elif index < completed_count + in_progress_count + delayed_count:
                 task.progress = 20
                 task.status = "delayed"
+            elif index < completed_count + in_progress_count + delayed_count + on_hold_count:
+                task.progress = 35
+                task.status = "on_hold"
             else:
                 task.progress = 0
                 task.status = "not_started"
@@ -370,7 +467,7 @@ class Command(BaseCommand):
                 "date_raised": project.start_date + timedelta(days=45),
                 "due_date": project.start_date + timedelta(days=55),
                 "status": "closed" if stage == "completed" else "open",
-                "priority": "high" if stage in {"mid_execution", "early_work"} else "medium",
+                "priority": "high" if stage in {"mid_execution", "early_work", "on_hold"} else "medium",
                 "response": "Incorporate the latest consultant instruction in the updated site plan." if stage == "completed" else "",
                 "created_by": owner,
                 "updated_by": owner,
@@ -384,7 +481,7 @@ class Command(BaseCommand):
                 "title": "Client refinement package",
                 "category": "design",
                 "reason": "User requirements evolved during execution.",
-                "cost_impact": Decimal("8000000") if stage != "completed" else Decimal("0"),
+                "cost_impact": Decimal("8000000") if stage not in {"completed", "planning"} else Decimal("0"),
                 "time_impact_days": 4 if stage in {"mid_execution", "fit_out"} else 0,
                 "status": "approved" if stage in {"finishing", "completed"} else "submitted",
                 "requested_by": owner,
@@ -401,16 +498,16 @@ class Command(BaseCommand):
             defaults={
                 "weather": "Sunny intervals",
                 "workforce": "28 operatives and 4 supervisors on site",
-                "work_performed": f"Primary work fronts advanced for {project.name}.",
-                "delays": "Minor material coordination delay." if stage in {"mid_execution", "early_work"} else "",
+                "work_performed": "Preconstruction coordination and approvals continued." if stage == "planning" else f"Primary work fronts advanced for {project.name}.",
+                "delays": "Minor material coordination delay." if stage in {"mid_execution", "early_work", "on_hold"} else "",
                 "materials_notes": "Site materials checked and logged.",
-                "incidents": "No recordable incidents." if stage != "completed" else "Close-out inspections ongoing.",
+                "incidents": "Project remains paused pending remobilisation clearance." if stage == "on_hold" else "No recordable incidents." if stage != "completed" else "Close-out inspections ongoing.",
                 "created_by": owner,
                 "updated_by": owner,
             },
         )
 
-        if stage in {"mid_execution", "finishing", "completed"}:
+        if stage in {"mid_execution", "finishing", "completed", "on_hold"}:
             PunchItem.objects.get_or_create(
                 project=project,
                 title="Close-out touch-up package",
@@ -424,7 +521,7 @@ class Command(BaseCommand):
                 },
             )
 
-        if stage in {"mid_execution", "early_work"}:
+        if stage in {"mid_execution", "early_work", "on_hold"}:
             SafetyIncident.objects.get_or_create(
                 project=project,
                 incident_date=min(date.today(), project.start_date + timedelta(days=70)),
@@ -458,7 +555,7 @@ class Command(BaseCommand):
         )
 
     def _ensure_procurement(self, project: Project, owner: User, stage: str, suppliers: dict[str, Supplier]):
-        if stage == "completed":
+        if stage in {"completed", "planning"}:
             return
 
         steel_supplier = suppliers["steel"]

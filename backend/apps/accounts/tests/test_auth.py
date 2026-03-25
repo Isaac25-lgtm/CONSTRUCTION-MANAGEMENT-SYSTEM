@@ -9,6 +9,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.accounts.models import User, Organisation, SystemRole
+from apps.accounts.management.commands.seed_demo_projects import PROJECT_BLUEPRINTS
 from apps.documents.models import Document
 from apps.projects.models import Project
 from apps.scheduling.models import ProjectTask
@@ -240,7 +241,7 @@ class BootstrapOrgAdminTests(TestCase):
             ],
         )
 
-    def test_seed_demo_projects_creates_five_projects_without_extra_users(self):
+    def test_seed_demo_projects_creates_demo_projects_without_extra_users(self):
         org = Organisation.objects.create(name="Demo Org")
         role = SystemRole.objects.create(name="Demo Admin", permissions=["admin.full_access"])
         admin = User.objects.create_user(
@@ -259,7 +260,7 @@ class BootstrapOrgAdminTests(TestCase):
             "seed_demo_projects",
             username=admin.username,
         )
-        self.assertEqual(Project.objects.filter(organisation=org).count(), 5)
+        self.assertEqual(Project.objects.filter(organisation=org).count(), len(PROJECT_BLUEPRINTS))
         self.assertEqual(User.objects.filter(organisation=org).count(), 2)
         completed = Project.objects.filter(organisation=org, status="completed").count()
         self.assertGreaterEqual(completed, 1)
