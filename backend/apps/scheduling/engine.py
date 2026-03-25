@@ -13,7 +13,6 @@ It is the server-side authority -- the frontend never computes CPM values.
 from collections import defaultdict, deque
 from typing import NamedTuple
 
-from django.db.models import F
 
 from .models import ProjectTask, TaskDependency
 
@@ -29,20 +28,10 @@ def build_critical_path_codes(tasks) -> list[str]:
     """
     Return critical activity codes in display order.
 
-    The prototype summary lists every zero-slack activity, not just leaves.
-    Ordering by ES/EF keeps the displayed path aligned with the CPM timeline,
-    while sort_order/code provide stable ordering for ties.
+    Matches prototype exactly: critical = (slack === 0).
+    All zero-slack activities included (parents, children, milestones).
     """
-    critical_tasks = [
-        t
-        for t in tasks
-        if (
-            t.total_float == 0
-            and t.duration_days > 0
-            and t.early_finish == t.early_start + t.duration_days
-            and t.late_finish == t.late_start + t.duration_days
-        )
-    ]
+    critical_tasks = [t for t in tasks if t.total_float == 0]
     critical_tasks.sort(
         key=lambda t: (t.early_start, t.early_finish, t.sort_order, t.code)
     )
@@ -50,15 +39,12 @@ def build_critical_path_codes(tasks) -> list[str]:
 
 
 def get_critical_path_codes(project_id) -> list[str]:
-    """Return persisted critical activity codes for a project in display order."""
+    """Return persisted critical activity codes for a project in display order.
+
+    Matches prototype: all tasks with slack === 0, regardless of duration.
+    """
     tasks = list(
-        ProjectTask.objects.filter(
-            project_id=project_id,
-            total_float=0,
-            duration_days__gt=0,
-            early_finish=F("early_start") + F("duration_days"),
-            late_finish=F("late_start") + F("duration_days"),
-        )
+        ProjectTask.objects.filter(project_id=project_id, total_float=0)
         .order_by("early_start", "early_finish", "sort_order", "code")
     )
     return [task.code for task in tasks]
@@ -230,7 +216,7 @@ def run_cpm(project_id) -> CPMResult:
     # --- Phase 5: Float and critical path ---
     for task in tasks:
         task.total_float = task.late_start - task.early_start
-        task.is_critical = (task.total_float == 0 and task.duration_days > 0)
+        task.is_critical = (task.total_float == 0)
     critical_path = build_critical_path_codes(tasks)
 
     # --- Phase 6: Persist ---
