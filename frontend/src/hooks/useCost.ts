@@ -12,6 +12,16 @@ export interface BudgetLineData {
   linked_task: string | null; linked_task_code: string | null
 }
 
+export interface ExpenseAttachmentData {
+  id: string
+  expense: string
+  original_filename: string
+  file_size: number
+  content_type: string
+  download_url: string
+  created_at: string
+}
+
 export interface ExpenseData {
   id: string; description: string; amount: string
   expense_date: string; vendor: string; reference: string
@@ -19,6 +29,7 @@ export interface ExpenseData {
   status: string; status_display: string; notes: string
   budget_line: string | null; budget_line_name: string | null
   linked_task: string | null; linked_task_code: string | null
+  attachments: ExpenseAttachmentData[]
 }
 
 export interface CostSummary {
@@ -57,7 +68,27 @@ export function useExpenses(projectId: string | undefined) {
 
 export function useCreateExpense(projectId: string) {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: async (d: { description: string; amount: number; expense_date: string; budget_line?: string; vendor?: string; category?: string }) => { const { data } = await api.post(`/cost/${projectId}/expenses/`, d); return data }, onSuccess: () => qc.invalidateQueries({ queryKey: ['cost', projectId] }) })
+  return useMutation({
+    mutationFn: async (d: { description: string; amount: number; expense_date: string; budget_line?: string; vendor?: string; category?: string; files?: File[] }) => {
+      if (d.files?.length) {
+        const formData = new FormData()
+        formData.append('description', d.description)
+        formData.append('amount', String(d.amount))
+        formData.append('expense_date', d.expense_date)
+        if (d.budget_line) formData.append('budget_line', d.budget_line)
+        if (d.vendor) formData.append('vendor', d.vendor)
+        if (d.category) formData.append('category', d.category)
+        d.files.forEach((file) => formData.append('files', file))
+        const { data } = await api.post(`/cost/${projectId}/expenses/`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        return data
+      }
+      const { data } = await api.post(`/cost/${projectId}/expenses/`, d)
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cost', projectId] }),
+  })
 }
 
 export function useUpdateBudgetLine(projectId: string) {
@@ -127,9 +158,52 @@ export function useTaskExpenses(projectId: string | undefined, taskId: string | 
 export function useCreateTaskExpense(projectId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ taskId, data: d }: { taskId: string; data: { description: string; amount: number; expense_date: string; vendor?: string } }) => {
+    mutationFn: async ({ taskId, data: d }: { taskId: string; data: { description: string; amount: number; expense_date: string; vendor?: string; files?: File[] } }) => {
+      if (d.files?.length) {
+        const formData = new FormData()
+        formData.append('description', d.description)
+        formData.append('amount', String(d.amount))
+        formData.append('expense_date', d.expense_date)
+        if (d.vendor) formData.append('vendor', d.vendor)
+        d.files.forEach((file) => formData.append('files', file))
+        const { data } = await api.post(`/cost/${projectId}/tasks/${taskId}/expenses/`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        return data
+      }
       const { data } = await api.post(`/cost/${projectId}/tasks/${taskId}/expenses/`, d)
       return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cost', projectId] })
+    },
+  })
+}
+
+export function useUploadExpenseAttachments(projectId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ expenseId, files }: { expenseId: string; files: File[] }) => {
+      const formData = new FormData()
+      files.forEach((file) => formData.append('files', file))
+      const { data } = await api.post(
+        `/cost/${projectId}/expenses/${expenseId}/attachments/`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cost', projectId] })
+    },
+  })
+}
+
+export function useDeleteExpenseAttachment(projectId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ expenseId, attachmentId }: { expenseId: string; attachmentId: string }) => {
+      await api.delete(`/cost/${projectId}/expenses/${expenseId}/attachments/${attachmentId}/`)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cost', projectId] })

@@ -1,12 +1,15 @@
 """Tests for cost module: budget lines, expenses, summaries, EVM."""
 from decimal import Decimal
 from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.accounts.models import User, Organisation, SystemRole
 from apps.projects.models import Project
 from apps.scheduling.models import ProjectTask
-from apps.cost.models import BudgetLine, Expense
+from apps.cost.models import BudgetLine, Expense, ExpenseAttachment
 from apps.cost.services import get_cost_summary, get_evm_metrics, get_project_overview
+from apps.cost.views import expense_attachment_download
 
 
 class CostModelTests(TestCase):
@@ -370,3 +373,72 @@ class CostAPITests(TestCase):
         self.assertEqual(line.budget_amount, 0)
         self.assertFalse(Expense.objects.filter(pk=linked_expense.pk).exists())
         self.assertTrue(Expense.objects.filter(pk=unlinked_expense.pk).exists())
+
+    def test_create_task_expense_with_attachment(self):
+        self.client.force_login(self.user)
+        task = ProjectTask.objects.create(
+            project=self.project,
+            code="A",
+            name="Foundation",
+            duration_days=5,
+            budget=Decimal("300000"),
+        )
+        receipt = SimpleUploadedFile("receipt.txt", b"paid in cash", content_type="text/plain")
+        response = self.client.post(
+            f"/api/v1/cost/{self.project.id}/tasks/{task.id}/expenses/",
+            {
+                "description": "Cement",
+                "amount": "150000",
+                "expense_date": "2026-03-04",
+                "files": [receipt],
+            },
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(response.json()["attachments"]), 1)
+        self.assertEqual(ExpenseAttachment.objects.filter(expense__linked_task=task).count(), 1)
+
+    def test_upload_and_download_expense_attachment(self):
+        self.client.force_login(self.user)
+        expense = Expense.objects.create(
+            project=self.project,
+            description="Equipment hire",
+            amount=Decimal("90000"),
+            expense_date="2026-03-05",
+        )
+        receipt = SimpleUploadedFile("receipt.txt", b"receipt body", content_type="text/plain")
+        upload = self.client.post(
+            f"/api/v1/cost/{self.project.id}/expenses/{expense.id}/attachments/",
+            {"files": [receipt]},
+        )
+        self.assertEqual(upload.status_code, 201)
+        attachment_id = upload.json()[0]["id"]
+
+        factory = APIRequestFactory()
+        request = factory.get(
+            f"/api/v1/cost/{self.project.id}/expenses/{expense.id}/attachments/{attachment_id}/download/"
+        )
+        force_authenticate(request, user=self.user)
+        download = expense_attachment_download(request, self.project.id, expense.id, attachment_id)
+        self.assertEqual(download.status_code, 200)
+
+    def test_delete_expense_attachment(self):
+        self.client.force_login(self.user)
+        expense = Expense.objects.create(
+            project=self.project,
+            description="Equipment hire",
+            amount=Decimal("90000"),
+            expense_date="2026-03-05",
+        )
+        receipt = SimpleUploadedFile("receipt.txt", b"receipt body", content_type="text/plain")
+        upload = self.client.post(
+            f"/api/v1/cost/{self.project.id}/expenses/{expense.id}/attachments/",
+            {"files": [receipt]},
+        )
+        self.assertEqual(upload.status_code, 201)
+        attachment_id = upload.json()[0]["id"]
+
+        delete = self.client.delete(
+            f"/api/v1/cost/{self.project.id}/expenses/{expense.id}/attachments/{attachment_id}/"
+        )
+        self.assertEqual(delete.status_code, 204)
+        self.assertFalse(ExpenseAttachment.objects.filter(pk=attachment_id).exists())

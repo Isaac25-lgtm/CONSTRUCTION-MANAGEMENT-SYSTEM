@@ -1,14 +1,18 @@
 """
-Cost models -- BudgetLine, Expense.
+Cost models -- BudgetLine, Expense, ExpenseAttachment.
 
 BudgetLine represents a budget allocation within a project (flat with categories).
-Expense represents an actual cost entry against a budget line.
+Expense represents an actual cost entry against a budget line or task.
+ExpenseAttachment stores receipt/supporting files linked to an expense.
 Variance and EVM metrics are derived in the service layer, not stored.
 """
-from django.conf import settings
 from django.db import models
 
 from apps.core.models import TimestampedModel, AuditMixin
+
+
+def expense_attachment_upload_path(instance, filename):
+    return f"cost/expenses/{instance.expense_id}/{filename}"
 
 
 class BudgetLine(TimestampedModel, AuditMixin):
@@ -110,3 +114,24 @@ class Expense(TimestampedModel, AuditMixin):
 
     def __str__(self):
         return f"{self.description} - UGX {self.amount}"
+
+
+class ExpenseAttachment(TimestampedModel, AuditMixin):
+    """A receipt/supporting file attached to an expense."""
+
+    expense = models.ForeignKey(
+        Expense,
+        on_delete=models.CASCADE,
+        related_name="attachments",
+    )
+    file = models.FileField(upload_to=expense_attachment_upload_path, max_length=255)
+    original_filename = models.CharField(max_length=255, blank=True, default="")
+    file_size = models.PositiveBigIntegerField(default=0)
+    content_type = models.CharField(max_length=100, blank=True, default="")
+
+    class Meta:
+        db_table = "cost_expense_attachment"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return self.original_filename or self.file.name

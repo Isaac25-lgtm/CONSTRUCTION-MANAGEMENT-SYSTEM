@@ -1,8 +1,10 @@
 """Cost serializers."""
+from django.core.exceptions import DisallowedHost
+from django.urls import reverse
 from rest_framework import serializers
 
 from apps.core.serializers import ProjectScopedValidationMixin
-from .models import BudgetLine, Expense
+from .models import BudgetLine, Expense, ExpenseAttachment
 
 
 def _normalize_expense_links(attrs, instance=None):
@@ -67,11 +69,46 @@ class BudgetLineCreateSerializer(ProjectScopedValidationMixin, serializers.Model
         return attrs
 
 
+class ExpenseAttachmentSerializer(serializers.ModelSerializer):
+    download_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ExpenseAttachment
+        fields = [
+            "id",
+            "expense",
+            "original_filename",
+            "file_size",
+            "content_type",
+            "download_url",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_download_url(self, obj):
+        request = self.context.get("request")
+        url = reverse(
+            "expense-attachment-download",
+            kwargs={
+                "project_id": obj.expense.project_id,
+                "expense_id": obj.expense_id,
+                "attachment_id": obj.id,
+            },
+        )
+        if not request:
+            return url
+        try:
+            return request.build_absolute_uri(url)
+        except DisallowedHost:
+            return url
+
+
 class ExpenseSerializer(ProjectScopedValidationMixin, serializers.ModelSerializer):
     category_display = serializers.CharField(source="get_category_display", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     budget_line_name = serializers.CharField(source="budget_line.name", read_only=True, default=None)
     linked_task_code = serializers.CharField(source="linked_task.code", read_only=True, default=None)
+    attachments = ExpenseAttachmentSerializer(many=True, read_only=True)
 
     class Meta:
         model = Expense
@@ -79,11 +116,12 @@ class ExpenseSerializer(ProjectScopedValidationMixin, serializers.ModelSerialize
             "id", "project", "budget_line", "budget_line_name", "linked_task", "linked_task_code",
             "description", "amount", "expense_date", "vendor", "reference",
             "category", "category_display", "status", "status_display", "notes",
+            "attachments",
             "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "linked_task_code", "category_display", "status_display", "budget_line_name",
-            "created_at", "updated_at",
+            "attachments", "created_at", "updated_at",
         ]
 
     def validate(self, attrs):

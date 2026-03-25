@@ -10,6 +10,21 @@ urlpatterns = [
     # Expenses
     path("<uuid:project_id>/expenses/", views.expense_list, name="expense-list"),
     path("<uuid:project_id>/expenses/<uuid:expense_id>/", views.expense_detail, name="expense-detail"),
+    path(
+        "<uuid:project_id>/expenses/<uuid:expense_id>/attachments/",
+        views.expense_attachment_upload,
+        name="expense-attachment-upload",
+    ),
+    path(
+        "<uuid:project_id>/expenses/<uuid:expense_id>/attachments/<uuid:attachment_id>/",
+        views.expense_attachment_delete,
+        name="expense-attachment-delete",
+    ),
+    path(
+        "<uuid:project_id>/expenses/<uuid:expense_id>/attachments/<uuid:attachment_id>/download/",
+        views.expense_attachment_download,
+        name="expense-attachment-download",
+    ),
 
     # Summaries
     path("<uuid:project_id>/summary/", views.cost_summary, name="cost-summary"),

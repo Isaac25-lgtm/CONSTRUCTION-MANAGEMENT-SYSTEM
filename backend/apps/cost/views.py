@@ -1,16 +1,19 @@
 """Cost views -- budget lines, expenses, cost summary, EVM, project overview."""
 from django.db.models import Q
+from django.http import FileResponse
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.documents.validators import validate_upload
 from apps.projects.models import Project
 from apps.scheduling.models import ProjectTask
-from .models import BudgetLine, Expense
+from .models import BudgetLine, Expense, ExpenseAttachment
 from .serializers import (
     BudgetLineSerializer, BudgetLineCreateSerializer,
-    ExpenseSerializer, ExpenseCreateSerializer,
+    ExpenseAttachmentSerializer, ExpenseSerializer, ExpenseCreateSerializer,
 )
 from .services import build_task_cost_table, get_cost_summary, get_evm_metrics, get_project_overview
 
@@ -29,6 +32,51 @@ def _get_project_or_404(request, project_id):
 
 def _can_edit_budget(request, project):
     return request.user.has_project_perm(project, "budget.edit")
+
+
+def _get_expense_or_404(project, expense_id):
+    try:
+        return (
+            Expense.objects.filter(project=project)
+            .select_related("budget_line", "linked_task")
+            .prefetch_related("attachments")
+            .get(pk=expense_id)
+        )
+    except Expense.DoesNotExist:
+        return None
+
+
+def _get_attachment_or_404(expense, attachment_id):
+    try:
+        return expense.attachments.get(pk=attachment_id)
+    except ExpenseAttachment.DoesNotExist:
+        return None
+
+
+def _create_expense_attachments(expense, uploaded_files, user):
+    attachments = []
+    for uploaded_file in uploaded_files:
+        validate_upload(uploaded_file)
+        attachments.append(
+            ExpenseAttachment(
+                expense=expense,
+                file=uploaded_file,
+                original_filename=getattr(uploaded_file, "name", "") or "",
+                file_size=getattr(uploaded_file, "size", 0) or 0,
+                content_type=getattr(uploaded_file, "content_type", "") or "",
+                created_by=user,
+                updated_by=user,
+            )
+        )
+    if attachments:
+        ExpenseAttachment.objects.bulk_create(attachments)
+
+
+def _extract_uploaded_files(request):
+    files = list(request.FILES.getlist("files"))
+    if not files and request.FILES.get("files"):
+        files = [request.FILES["files"]]
+    return files
 
 
 # ---------------------------------------------------------------------------
@@ -97,25 +145,37 @@ def budget_line_detail(request, project_id, line_id):
 
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 def expense_list(request, project_id):
     project = _get_project_or_404(request, project_id)
     if not project:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "GET":
-        expenses = Expense.objects.filter(project=project).select_related("budget_line")
-        return Response(ExpenseSerializer(expenses, many=True).data)
+        expenses = (
+            Expense.objects.filter(project=project)
+            .select_related("budget_line", "linked_task")
+            .prefetch_related("attachments")
+        )
+        return Response(ExpenseSerializer(expenses, many=True, context={"request": request}).data)
 
     if not _can_edit_budget(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
+    data = request.data.copy()
+    data.pop("files", None)
     serializer = ExpenseCreateSerializer(
-        data=request.data,
+        data=data,
         context={"request": request, "project": project},
     )
     serializer.is_valid(raise_exception=True)
     exp = serializer.save(project=project, created_by=request.user)
-    return Response(ExpenseSerializer(exp).data, status=status.HTTP_201_CREATED)
+    _create_expense_attachments(exp, _extract_uploaded_files(request), request.user)
+    exp.refresh_from_db()
+    return Response(
+        ExpenseSerializer(exp, context={"request": request}).data,
+        status=status.HTTP_201_CREATED,
+    )
 
 
 @api_view(["GET", "PATCH", "DELETE"])
@@ -125,13 +185,12 @@ def expense_detail(request, project_id, expense_id):
     if not project:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
-    try:
-        exp = Expense.objects.get(pk=expense_id, project=project)
-    except Expense.DoesNotExist:
+    exp = _get_expense_or_404(project, expense_id)
+    if not exp:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "GET":
-        return Response(ExpenseSerializer(exp).data)
+        return Response(ExpenseSerializer(exp, context={"request": request}).data)
 
     if not _can_edit_budget(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
@@ -208,6 +267,7 @@ def task_cost_table(request, project_id):
 
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 def task_expenses(request, project_id, task_id):
     """List or create expenses linked to a specific task."""
     project = _get_project_or_404(request, project_id)
@@ -223,21 +283,101 @@ def task_expenses(request, project_id, task_id):
         expenses = Expense.objects.filter(project=project).filter(
             Q(linked_task=task) |
             Q(linked_task__isnull=True, budget_line__linked_task=task)
-        ).distinct()
-        return Response(ExpenseSerializer(expenses, many=True).data)
+        ).select_related("budget_line", "linked_task").prefetch_related("attachments").distinct()
+        return Response(ExpenseSerializer(expenses, many=True, context={"request": request}).data)
 
     if not _can_edit_budget(request, project):
         return Response(status=status.HTTP_403_FORBIDDEN)
 
     data = request.data.copy()
     data["linked_task"] = str(task.id)
+    data.pop("files", None)
     serializer = ExpenseCreateSerializer(
         data=data,
         context={"request": request, "project": project},
     )
     serializer.is_valid(raise_exception=True)
     exp = serializer.save(project=project, created_by=request.user)
-    return Response(ExpenseSerializer(exp).data, status=status.HTTP_201_CREATED)
+    _create_expense_attachments(exp, _extract_uploaded_files(request), request.user)
+    exp.refresh_from_db()
+    return Response(
+        ExpenseSerializer(exp, context={"request": request}).data,
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
+def expense_attachment_upload(request, project_id, expense_id):
+    project = _get_project_or_404(request, project_id)
+    if not project:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+    if not _can_edit_budget(request, project):
+        return Response(status=status.HTTP_403_FORBIDDEN)
+
+    expense = _get_expense_or_404(project, expense_id)
+    if not expense:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    uploaded_files = _extract_uploaded_files(request)
+    if not uploaded_files:
+        return Response({"files": "At least one file is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    _create_expense_attachments(expense, uploaded_files, request.user)
+    expense.refresh_from_db()
+    return Response(
+        ExpenseAttachmentSerializer(
+            expense.attachments.all(),
+            many=True,
+            context={"request": request},
+        ).data,
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def expense_attachment_delete(request, project_id, expense_id, attachment_id):
+    project = _get_project_or_404(request, project_id)
+    if not project:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+    if not _can_edit_budget(request, project):
+        return Response(status=status.HTTP_403_FORBIDDEN)
+
+    expense = _get_expense_or_404(project, expense_id)
+    if not expense:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    attachment = _get_attachment_or_404(expense, attachment_id)
+    if not attachment:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    attachment.file.delete(save=False)
+    attachment.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def expense_attachment_download(request, project_id, expense_id, attachment_id):
+    project = _get_project_or_404(request, project_id)
+    if not project:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    expense = _get_expense_or_404(project, expense_id)
+    if not expense:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    attachment = _get_attachment_or_404(expense, attachment_id)
+    if not attachment:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    return FileResponse(
+        attachment.file.open("rb"),
+        as_attachment=True,
+        filename=attachment.original_filename or attachment.file.name.rsplit("/", 1)[-1],
+    )
 
 
 @api_view(["POST"])
