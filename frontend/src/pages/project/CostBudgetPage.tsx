@@ -6,7 +6,7 @@ import {
 import {
   useTaskCostTable, useTaskExpenses, useCreateTaskExpense,
   useDeleteExpense, useUpdateExpense, useClearBudgets,
-  type TaskCostRow, type ExpenseData,
+  type TaskCostRow,
 } from '../../hooks/useCost'
 import { useUpdateTask, useDeleteTask, useCreateTask } from '../../hooks/useSchedule'
 import { useProject } from '../../hooks/useProjects'
@@ -15,7 +15,6 @@ import { useUIStore } from '../../stores/uiStore'
 import { formatUGX } from '../../lib/formatters'
 
 /* ---------- helpers ---------- */
-function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r }
 function toISO(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 
 const STATUS_OPTIONS = [
@@ -459,7 +458,7 @@ function ExpenseModal({ projectId, task, canEdit, onClose }: {
                       onBlur={e => { if (e.target.value !== exp.description) updateExp.mutate({ id: exp.id, data: { description: e.target.value } }) }}
                       className="flex-1 rounded border border-bp-border bg-[#0f172a] px-2 py-1 text-sm font-semibold text-bp-text" />
                     <input type="number" defaultValue={exp.amount}
-                      onBlur={e => { const v = parseFloat(e.target.value) || 0; if (String(v) !== exp.amount) updateExp.mutate({ id: exp.id, data: { amount: v } }) }}
+                      onBlur={e => { const v = parseFloat(e.target.value) || 0; if (String(v) !== exp.amount) updateExp.mutate({ id: exp.id, data: { amount: String(v) } }) }}
                       className="w-28 rounded border border-bp-border bg-[#0f172a] px-2 py-1 text-right font-mono text-sm text-bp-text" />
                     <input type="date" defaultValue={exp.expense_date}
                       onChange={e => updateExp.mutate({ id: exp.id, data: { expense_date: e.target.value } })}
