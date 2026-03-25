@@ -718,6 +718,27 @@ class ScheduleAPITests(TestCase):
         data = response.json()
         self.assertEqual(data["critical_path"], ["P", "Pa"])
 
+    def test_schedule_summary_excludes_positive_slack_even_if_critical_flag_is_stale(self):
+        ProjectTask.objects.create(
+            project=self.project,
+            code="C",
+            name="Stale Critical Flag",
+            duration_days=4,
+            early_start=1,
+            early_finish=5,
+            late_start=3,
+            late_finish=7,
+            total_float=2,
+            is_critical=True,
+            sort_order=1,
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(f"/api/v1/scheduling/{self.project.id}/summary/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertNotIn("C", data["critical_path"])
+
     def test_gantt_data(self):
         self.client.force_login(self.user)
         response = self.client.get(f"/api/v1/scheduling/{self.project.id}/gantt/")

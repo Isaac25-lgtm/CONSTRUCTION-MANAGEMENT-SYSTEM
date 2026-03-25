@@ -126,6 +126,24 @@ class CostModelTests(TestCase):
         overview = get_project_overview(self.project)
         self.assertEqual(overview["schedule"]["critical_path"], ["P", "Pa"])
 
+    def test_project_overview_excludes_positive_slack_when_critical_flag_is_stale(self):
+        ProjectTask.objects.create(
+            project=self.project,
+            code="C",
+            name="Should Not Be Critical",
+            duration_days=4,
+            early_start=2,
+            early_finish=6,
+            late_start=4,
+            late_finish=8,
+            total_float=2,
+            is_critical=True,
+            sort_order=1,
+        )
+
+        overview = get_project_overview(self.project)
+        self.assertNotIn("C", overview["schedule"]["critical_path"])
+
 
 class EVMTests(TestCase):
     def setUp(self):
