@@ -95,15 +95,36 @@ def task_detail(request, project_id, task_id):
     serializer.is_valid(raise_exception=True)
     serializer.save(updated_by=request.user)
 
-    # Auto-sync progress and status
+    # Keep row-level CPM-derived fields coherent during manual overrides.
     t = serializer.instance
+    update_fields = []
+    if any(
+        field in request.data
+        for field in [
+            "duration_days",
+            "early_start",
+            "early_finish",
+            "late_start",
+            "late_finish",
+            "planned_start",
+            "planned_end",
+        ]
+    ):
+        t.total_float = t.late_start - t.early_start
+        t.is_critical = t.total_float == 0
+        update_fields.extend(["total_float", "is_critical"])
+
+    # Auto-sync progress and status
     if t.progress >= 100 and t.status != "completed":
         t.status = "completed"
         t.progress = 100
-        t.save(update_fields=["status", "progress"])
+        update_fields.extend(["status", "progress"])
     elif t.progress > 0 and t.status == "not_started":
         t.status = "in_progress"
-        t.save(update_fields=["status"])
+        update_fields.append("status")
+
+    if update_fields:
+        t.save(update_fields=list(dict.fromkeys(update_fields)))
 
     return Response(TaskSerializer(t).data)
 
@@ -200,6 +221,48 @@ def recalculate_cpm(request, project_id):
         "cycle_detected": result.cycle_detected,
         "tasks_updated": result.tasks_updated,
     })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def clear_schedule(request, project_id):
+    """Reset manual schedule fields while preserving task identity and dependencies."""
+    project = _get_project_or_404(request, project_id)
+    if not project:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+    if not _can_edit_schedule(request, project):
+        return Response(status=status.HTTP_403_FORBIDDEN)
+
+    tasks = list(ProjectTask.objects.filter(project=project))
+    for task in tasks:
+        task.duration_days = 0
+        task.planned_start = None
+        task.planned_end = None
+        task.early_start = 0
+        task.early_finish = 0
+        task.late_start = 0
+        task.late_finish = 0
+        task.total_float = 0
+        task.is_critical = False
+        task.updated_by = request.user
+    if tasks:
+        ProjectTask.objects.bulk_update(
+            tasks,
+            [
+                "duration_days",
+                "planned_start",
+                "planned_end",
+                "early_start",
+                "early_finish",
+                "late_start",
+                "late_finish",
+                "total_float",
+                "is_critical",
+                "updated_by",
+            ],
+        )
+
+    return Response({"tasks_cleared": len(tasks)})
 
 
 # ---------------------------------------------------------------------------

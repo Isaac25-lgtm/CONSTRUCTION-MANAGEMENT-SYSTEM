@@ -52,13 +52,17 @@ export interface BaselineData {
   notes: string; snapshot_count: number; created_at: string
 }
 
+export interface TaskCreateInput extends Partial<Task> {
+  predecessors?: string
+}
+
 // --- Tasks ---
 export function useTasks(projectId: string | undefined) {
   return useQuery({ queryKey: ['schedule', projectId, 'tasks'], queryFn: async () => { const { data } = await api.get<Task[]>(`/scheduling/${projectId}/tasks/`); return data }, enabled: !!projectId })
 }
 export function useCreateTask(projectId: string) {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: async (data: Partial<Task>) => { const { data: r } = await api.post<Task>(`/scheduling/${projectId}/tasks/`, data); return r }, onSuccess: () => qc.invalidateQueries({ queryKey: ['schedule', projectId] }) })
+  return useMutation({ mutationFn: async (data: TaskCreateInput) => { const { data: r } = await api.post<Task>(`/scheduling/${projectId}/tasks/`, data); return r }, onSuccess: () => qc.invalidateQueries({ queryKey: ['schedule', projectId] }) })
 }
 export function useUpdateTask(projectId: string) {
   const qc = useQueryClient()
@@ -67,6 +71,16 @@ export function useUpdateTask(projectId: string) {
 export function useDeleteTask(projectId: string) {
   const qc = useQueryClient()
   return useMutation({ mutationFn: async (taskId: string) => { await api.delete(`/scheduling/${projectId}/tasks/${taskId}/`) }, onSuccess: () => qc.invalidateQueries({ queryKey: ['schedule', projectId] }) })
+}
+export function useClearSchedule(projectId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post<{ tasks_cleared: number }>(`/scheduling/${projectId}/clear/`)
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['schedule', projectId] }),
+  })
 }
 export function useRecalculateCPM(projectId: string) {
   const qc = useQueryClient()

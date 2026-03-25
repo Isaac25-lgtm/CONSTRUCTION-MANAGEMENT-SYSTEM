@@ -1,4 +1,6 @@
 """Tests for scheduling: CPM engine, tasks, milestones, baselines."""
+import json
+
 from django.test import TestCase
 from django.urls import reverse
 
@@ -181,6 +183,151 @@ class CycleRejectionAPITests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("cycle", response.json()["detail"].lower())
+
+
+class TaskAPITests(TestCase):
+    """Test task API behavior for manual overrides and schedule maintenance."""
+
+    def setUp(self):
+        self.org = Organisation.objects.create(name="Task API Org")
+        self.role = SystemRole.objects.create(name="Admin", permissions=["admin.full_access"])
+        self.user = User.objects.create_user(
+            username="taskadmin",
+            password="pass123",
+            organisation=self.org,
+            system_role=self.role,
+        )
+        self.project = Project.objects.create(
+            name="Task API Project",
+            project_type="residential",
+            contract_type="lump_sum",
+            organisation=self.org,
+        )
+        ProjectMembership.objects.create(
+            project=self.project,
+            user=self.user,
+            role="manager",
+            permissions=DEFAULT_PROJECT_ROLE_PERMISSIONS["manager"],
+        )
+        self.task = ProjectTask.objects.create(
+            project=self.project,
+            code="A",
+            name="Task A",
+            duration_days=5,
+            early_start=0,
+            early_finish=5,
+            late_start=0,
+            late_finish=5,
+            total_float=0,
+            is_critical=True,
+        )
+        self.client.force_login(self.user)
+
+    def test_task_patch_rejects_negative_cpm_values(self):
+        response = self.client.patch(
+            f"/api/v1/scheduling/{self.project.id}/tasks/{self.task.id}/",
+            data=json.dumps({"early_start": -1}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("early_start", response.json())
+
+    def test_task_patch_rejects_finish_before_start(self):
+        response = self.client.patch(
+            f"/api/v1/scheduling/{self.project.id}/tasks/{self.task.id}/",
+            data=json.dumps({"early_start": 4, "early_finish": 2}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("early_finish", response.json())
+
+    def test_task_patch_updates_float_and_critical(self):
+        response = self.client.patch(
+            f"/api/v1/scheduling/{self.project.id}/tasks/{self.task.id}/",
+            data=json.dumps(
+                {
+                    "early_start": 2,
+                    "early_finish": 7,
+                    "late_start": 6,
+                    "late_finish": 11,
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["total_float"], 4)
+        self.assertFalse(response.json()["is_critical"])
+
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.total_float, 4)
+        self.assertFalse(self.task.is_critical)
+
+    def test_task_create_accepts_predecessor_codes(self):
+        response = self.client.post(
+            f"/api/v1/scheduling/{self.project.id}/tasks/",
+            data=json.dumps(
+                {
+                    "code": "B",
+                    "name": "Task B",
+                    "duration_days": 3,
+                    "predecessors": "A",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        successor = ProjectTask.objects.get(project=self.project, code="B")
+        self.assertTrue(
+            TaskDependency.objects.filter(
+                project=self.project,
+                predecessor=self.task,
+                successor=successor,
+            ).exists()
+        )
+        self.assertEqual(response.json()["predecessor_codes"], ["A"])
+
+    def test_task_create_rejects_unknown_predecessor_codes(self):
+        response = self.client.post(
+            f"/api/v1/scheduling/{self.project.id}/tasks/",
+            data=json.dumps(
+                {
+                    "code": "B",
+                    "name": "Task B",
+                    "duration_days": 3,
+                    "predecessors": "ZZ",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("predecessors", response.json())
+
+    def test_clear_schedule_resets_manual_fields(self):
+        self.task.duration_days = 12
+        self.task.planned_start = "2026-01-02"
+        self.task.planned_end = "2026-01-14"
+        self.task.early_start = 1
+        self.task.early_finish = 13
+        self.task.late_start = 3
+        self.task.late_finish = 15
+        self.task.total_float = 2
+        self.task.is_critical = False
+        self.task.save()
+
+        response = self.client.post(f"/api/v1/scheduling/{self.project.id}/clear/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["tasks_cleared"], 1)
+
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.duration_days, 0)
+        self.assertIsNone(self.task.planned_start)
+        self.assertIsNone(self.task.planned_end)
+        self.assertEqual(self.task.early_start, 0)
+        self.assertEqual(self.task.early_finish, 0)
+        self.assertEqual(self.task.late_start, 0)
+        self.assertEqual(self.task.late_finish, 0)
+        self.assertEqual(self.task.total_float, 0)
+        self.assertFalse(self.task.is_critical)
 
 
 class MilestoneQualityTests(TestCase):

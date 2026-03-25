@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { PageHeader, SectionCard, MetricCard, LoadingState, Modal, ActionButton } from '../../components/ui'
 import {
   useTasks, useCreateTask, useUpdateTask, useDeleteTask,
-  useRecalculateCPM, useScheduleSummary, type Task,
+  useClearSchedule, useRecalculateCPM, useScheduleSummary, type Task,
 } from '../../hooks/useSchedule'
 import { useProject } from '../../hooks/useProjects'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
@@ -42,6 +42,7 @@ export function SchedulePage() {
   const recalculate = useRecalculateCPM(projectId!)
   const updateTask = useUpdateTask(projectId!)
   const createTask = useCreateTask(projectId!)
+  const clearSchedule = useClearSchedule(projectId!)
   const deleteTask = useDeleteTask(projectId!)
   const { showToast } = useUIStore()
 
@@ -131,7 +132,7 @@ export function SchedulePage() {
   }
 
   /* ---------- add task ---------- */
-  function handleAddTask() {
+  async function handleAddTask() {
     if (!newTask.code || !newTask.name) {
       showToast('Code and name are required', 'error')
       return
@@ -143,18 +144,20 @@ export function SchedulePage() {
       duration_days: newTask.duration_days,
       budget: newTask.budget,
       resource: newTask.resource,
+      predecessors: newTask.predecessors,
     }
-    createTask.mutate(payload as Parameters<typeof createTask.mutate>[0], {
-      onSuccess: () => {
-        setAddTaskOpen(false)
-        setNewTask({ code: '', name: '', description: '', duration_days: 5, budget: '0', resource: '', predecessors: '' })
-        showToast('Task created', 'success')
-      },
-    })
+    try {
+      await createTask.mutateAsync(payload)
+      setAddTaskOpen(false)
+      setNewTask({ code: '', name: '', description: '', duration_days: 5, budget: '0', resource: '', predecessors: '' })
+      showToast('Task created', 'success')
+    } catch {
+      showToast('Could not create task. Check the code and predecessor IDs.', 'error')
+    }
   }
 
   /* ---------- add sibling/child task ---------- */
-  function handleAddRelatedTask(parentTask: Task, isChild: boolean) {
+  async function handleAddRelatedTask(parentTask: Task, isChild: boolean) {
     if (!newTask.code || !newTask.name) {
       showToast('Code and name are required', 'error')
       return
@@ -167,14 +170,15 @@ export function SchedulePage() {
         ? { parent: parentTask.id }
         : parentTask.parent ? { parent: parentTask.parent } : {}),
     }
-    createTask.mutate(data as Parameters<typeof createTask.mutate>[0], {
-      onSuccess: () => {
-        setAddSiblingFor(null)
-        setAddChildFor(null)
-        setNewTask({ code: '', name: '', description: '', duration_days: 5, budget: '0', resource: '', predecessors: '' })
-        showToast(`Task created`, 'success')
-      },
-    })
+    try {
+      await createTask.mutateAsync(data)
+      setAddSiblingFor(null)
+      setAddChildFor(null)
+      setNewTask({ code: '', name: '', description: '', duration_days: 5, budget: '0', resource: '', predecessors: '' })
+      showToast('Task created', 'success')
+    } catch {
+      showToast('Could not create task. Check the code and predecessor IDs.', 'error')
+    }
   }
 
   /* ---------- delete task ---------- */
@@ -188,24 +192,15 @@ export function SchedulePage() {
   }
 
   /* ---------- clear schedule ---------- */
-  function handleClearSchedule() {
-    list.forEach(t => {
-      updateTask.mutate({
-        taskId: t.id,
-        data: {
-          duration_days: 0,
-          early_start: 0,
-          early_finish: 0,
-          late_start: 0,
-          late_finish: 0,
-          planned_start: null as unknown as string,
-          planned_end: null as unknown as string,
-        },
-      })
-    })
-    setManualOverride(true)
-    setClearScheduleOpen(false)
-    showToast('Schedule data cleared. Enter durations and recalculate CPM.', 'success')
+  async function handleClearSchedule() {
+    try {
+      const result = await clearSchedule.mutateAsync()
+      setManualOverride(true)
+      setClearScheduleOpen(false)
+      showToast(`Schedule data cleared for ${result.tasks_cleared} tasks. Enter durations and recalculate CPM.`, 'success')
+    } catch {
+      showToast('Could not clear the schedule right now.', 'error')
+    }
   }
 
   return (
@@ -338,6 +333,7 @@ export function SchedulePage() {
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <input
+                        key={`start-${t.id}-${startVal}`}
                         type="date"
                         defaultValue={startVal}
                         onChange={e => onStartDateChange(t, e.target.value)}
@@ -352,6 +348,7 @@ export function SchedulePage() {
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <input
+                        key={`end-${t.id}-${endVal}`}
                         type="date"
                         defaultValue={endVal}
                         onChange={e => onEndDateChange(t, e.target.value)}
@@ -366,6 +363,7 @@ export function SchedulePage() {
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <input
+                        key={`duration-${t.id}-${t.duration_days}-${t.early_start}-${t.late_start}`}
                         type="number"
                         defaultValue={t.duration_days}
                         onBlur={e => {
@@ -396,6 +394,7 @@ export function SchedulePage() {
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <input
+                        key={`es-${t.id}-${t.early_start}`}
                         type="number"
                         defaultValue={t.early_start}
                         onBlur={e => {
@@ -413,6 +412,7 @@ export function SchedulePage() {
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <input
+                        key={`ef-${t.id}-${t.early_finish}`}
                         type="number"
                         defaultValue={t.early_finish}
                         onBlur={e => {
@@ -430,6 +430,7 @@ export function SchedulePage() {
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <input
+                        key={`ls-${t.id}-${t.late_start}`}
                         type="number"
                         defaultValue={t.late_start}
                         onBlur={e => {
@@ -447,6 +448,7 @@ export function SchedulePage() {
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <input
+                        key={`lf-${t.id}-${t.late_finish}`}
                         type="number"
                         defaultValue={t.late_finish}
                         onBlur={e => {
@@ -472,6 +474,7 @@ export function SchedulePage() {
                     {canEditSchedule ? (
                       <div className="flex items-center gap-1">
                         <input
+                          key={`progress-${t.id}-${t.progress}`}
                           type="range"
                           min={0}
                           max={100}
@@ -499,6 +502,7 @@ export function SchedulePage() {
                   <td className="px-2 py-1.5">
                     {canEditSchedule ? (
                       <select
+                        key={`status-${t.id}-${t.status}`}
                         defaultValue={t.status}
                         onChange={e => onUpdate(t, 'status', e.target.value)}
                         style={{ ...sIL, width: 95, fontSize: 10, cursor: 'pointer' }}
@@ -824,8 +828,8 @@ export function SchedulePage() {
           </p>
           <div className="flex justify-end gap-2">
             <ActionButton variant="ghost" onClick={() => setClearScheduleOpen(false)}>Cancel</ActionButton>
-            <ActionButton variant="red" onClick={handleClearSchedule}>
-              Yes, Clear Schedule
+            <ActionButton variant="red" onClick={handleClearSchedule} disabled={clearSchedule.isPending}>
+              {clearSchedule.isPending ? 'Clearing...' : 'Yes, Clear Schedule'}
             </ActionButton>
           </div>
         </Modal>

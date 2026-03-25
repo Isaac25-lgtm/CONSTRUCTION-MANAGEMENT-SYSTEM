@@ -13,6 +13,7 @@ urlpatterns = [
 
     # CPM
     path("<uuid:project_id>/recalculate/", views.recalculate_cpm, name="schedule-recalculate"),
+    path("<uuid:project_id>/clear/", views.clear_schedule, name="schedule-clear"),
     path("<uuid:project_id>/summary/", views.schedule_summary, name="schedule-summary"),
 
     # Milestones
