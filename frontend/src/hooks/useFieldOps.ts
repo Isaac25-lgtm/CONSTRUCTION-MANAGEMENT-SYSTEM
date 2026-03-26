@@ -35,7 +35,7 @@ export function useDeleteRisk(pid: string) { return useProjectDelete(pid, 'risks
 export function useRestoreRisk(pid: string) { return useProjectRestore(pid, 'risks', 'risks') }
 
 // --- RFI ---
-export interface RFIData { id: string; code: string; subject: string; question: string; status: string; status_display: string; priority: string; priority_display: string; is_overdue: boolean; raised_by_name: string | null; assigned_to_name: string | null; date_raised: string; due_date: string | null; response: string; response_date: string | null }
+export interface RFIData { id: string; code: string; subject: string; question: string; status: string; status_display: string; priority: string; priority_display: string; is_overdue: boolean; raised_by: string | null; raised_by_name: string | null; assigned_to: string | null; assigned_to_name: string | null; date_raised: string; due_date: string | null; response: string; response_date: string | null }
 export function useRFIs(pid: string | undefined) { return useProjectList<RFIData>(pid, 'rfis', 'rfis') }
 export function useCreateRFI(pid: string) { return useProjectCreate<Partial<RFIData>>(pid, 'rfis', 'rfis') }
 export function useUpdateRFI(pid: string) { return useProjectUpdate<Partial<RFIData>>(pid, 'rfis', 'rfis') }

@@ -8,6 +8,7 @@ import {
   useRFIs, useCreateRFI, useUpdateRFI, useDeleteRFI,
   type RFIData,
 } from '../../hooks/useFieldOps'
+import { useProjectMembers } from '../../hooks/useProjects'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
 import { useUIStore } from '../../stores/uiStore'
 import { RFI_STATUS, RFI_PRIORITY, statusColor } from '../../types/fieldOpsChoices'
@@ -37,6 +38,7 @@ export function RFIsPage() {
     { key: 'code', header: 'Code', width: '70px', render: (r: RFIData) => <span className="font-mono text-xs text-bp-accent">{r.code}</span> },
     { key: 'subject', header: 'Subject', render: (r: RFIData) => <span className="font-medium text-bp-text">{r.subject}</span> },
     { key: 'raised', header: 'Raised By', render: (r: RFIData) => <span className="text-xs text-bp-muted">{r.raised_by_name || '-'}</span> },
+    { key: 'assigned', header: 'Assigned To', render: (r: RFIData) => <span className="text-xs text-bp-muted">{r.assigned_to_name || '-'}</span> },
     { key: 'priority', header: 'Priority', render: (r: RFIData) => <StatusBadge text={r.priority_display} color={statusColor(r.priority)} /> },
     { key: 'date_raised', header: 'Raised', render: (r: RFIData) => <span className="text-xs text-bp-muted">{r.date_raised}</span> },
     { key: 'due', header: 'Due', render: (r: RFIData) => (
@@ -88,6 +90,8 @@ function AddRFIModal({ projectId, onClose }: { projectId: string; onClose: () =>
   const [priority, setPriority] = useState<string>(RFI_PRIORITY[1].value)
   const [status, setStatus] = useState<string>(RFI_STATUS[0].value)
   const [dueDate, setDueDate] = useState('')
+  const [assignedTo, setAssignedTo] = useState('')
+  const { data: members } = useProjectMembers(projectId)
   const create = useCreateRFI(projectId)
   const { showToast } = useUIStore()
 
@@ -107,6 +111,15 @@ function AddRFIModal({ projectId, onClose }: { projectId: string; onClose: () =>
         <div>
           <label className="mb-1 block text-xs font-semibold text-bp-muted">Question *</label>
           <textarea value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="What information is needed?" rows={3} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">To Be Responded By</label>
+          <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
+            <option value="">-- Select Respondent --</option>
+            {(members || []).map(m => (
+              <option key={m.user} value={m.user}>{m.user_name} ({m.role_display || m.role})</option>
+            ))}
+          </select>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
@@ -128,7 +141,11 @@ function AddRFIModal({ projectId, onClose }: { projectId: string; onClose: () =>
         </div>
         <ActionButton variant="green" className="!w-full !mt-1" onClick={async () => {
           if (!code || !subject) { showToast('Code and subject required', 'warning'); return }
-          await create.mutateAsync({ code, subject, question, priority, status, due_date: dueDate || undefined })
+          await create.mutateAsync({
+            code, subject, question, priority, status,
+            due_date: dueDate || undefined,
+            assigned_to: assignedTo || undefined,
+          } as Parameters<typeof create.mutateAsync>[0])
           showToast('RFI created', 'success'); onClose()
         }} disabled={create.isPending}>{create.isPending ? 'Creating...' : 'Create RFI'}</ActionButton>
       </div>
@@ -143,6 +160,8 @@ function EditRFIModal({ projectId, rfi, onClose }: { projectId: string; rfi: RFI
   const [status, setStatus] = useState<string>(rfi.status)
   const [dueDate, setDueDate] = useState(rfi.due_date || '')
   const [response, setResponse] = useState(rfi.response || '')
+  const [assignedTo, setAssignedTo] = useState(rfi.assigned_to || '')
+  const { data: members } = useProjectMembers(projectId)
   const update = useUpdateRFI(projectId)
   const { showToast } = useUIStore()
 
@@ -156,6 +175,15 @@ function EditRFIModal({ projectId, rfi, onClose }: { projectId: string; rfi: RFI
         <div>
           <label className="mb-1 block text-xs font-semibold text-bp-muted">Question</label>
           <textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={2} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">To Be Responded By</label>
+          <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
+            <option value="">-- Select Respondent --</option>
+            {(members || []).map(m => (
+              <option key={m.user} value={m.user}>{m.user_name} ({m.role_display || m.role})</option>
+            ))}
+          </select>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
@@ -180,7 +208,15 @@ function EditRFIModal({ projectId, rfi, onClose }: { projectId: string; rfi: RFI
           <textarea value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Enter response to this RFI..." rows={3} />
         </div>
         <ActionButton variant="accent" className="!w-full !mt-1" onClick={async () => {
-          await update.mutateAsync({ id: rfi.id, data: { subject, question, priority, status, due_date: dueDate || null, response } })
+          await update.mutateAsync({
+            id: rfi.id,
+            data: {
+              subject, question, priority, status,
+              due_date: dueDate || null,
+              response,
+              assigned_to: assignedTo || null,
+            },
+          })
           showToast('RFI updated', 'success'); onClose()
         }} disabled={update.isPending}>{update.isPending ? 'Saving...' : 'Save Changes'}</ActionButton>
       </div>
