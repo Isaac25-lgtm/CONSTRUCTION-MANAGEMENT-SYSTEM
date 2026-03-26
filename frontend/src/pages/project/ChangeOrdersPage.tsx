@@ -96,6 +96,8 @@ function AddChangeOrderModal({ projectId, onClose }: { projectId: string; onClos
   const [reason, setReason] = useState('')
   const [costImpact, setCostImpact] = useState('')
   const [timeDays, setTimeDays] = useState('')
+  const [approvedBy, setApprovedBy] = useState('')
+  const { data: members } = useProjectMembers(projectId)
   const create = useCreateChangeOrder(projectId)
   const { showToast } = useUIStore()
 
@@ -144,9 +146,28 @@ function AddChangeOrderModal({ projectId, onClose }: { projectId: string; onClos
             <input type="number" value={timeDays} onChange={(e) => setTimeDays(e.target.value)} placeholder="0" />
           </div>
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">Approved By</label>
+          <select value={approvedBy} onChange={(e) => setApprovedBy(e.target.value)}>
+            <option value="">-- Select Approver --</option>
+            {(members || []).map(m => (
+              <option key={m.user} value={m.user}>{m.user_name} ({m.role_display || m.role})</option>
+            ))}
+          </select>
+        </div>
         <ActionButton variant="green" className="!w-full !mt-1" onClick={async () => {
           if (!code || !title) { showToast('Code and title required', 'warning'); return }
-          await create.mutateAsync({ code, title, description, category, status, reason, cost_impact: costImpact || '0', time_impact_days: parseInt(timeDays) || 0 })
+          await create.mutateAsync({
+            code,
+            title,
+            description,
+            category,
+            status,
+            reason,
+            cost_impact: costImpact || '0',
+            time_impact_days: parseInt(timeDays) || 0,
+            approved_by: approvedBy || undefined,
+          })
           showToast('Change order created', 'success'); onClose()
         }} disabled={create.isPending}>{create.isPending ? 'Creating...' : 'Create Change Order'}</ActionButton>
       </div>
