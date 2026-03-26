@@ -227,7 +227,7 @@ DEFAULT_PROJECT_ROLE_PERMISSIONS = {
         "budget.view",
         "field_ops.view",
         "procurement.view",
-        "documents.view",
+        "documents.view", "documents.upload",
         "risks.view",
         "rfis.view",
         "changes.view",
