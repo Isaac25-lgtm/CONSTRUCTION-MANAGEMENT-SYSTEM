@@ -368,10 +368,26 @@ def seed_tasks_from_setup(project):
     total_dur_p = sum(p.get("durP", 0.1) for p in phases) or 1.0
     total_bud_p = sum(p.get("budP", 0.1) for p in phases) or 1.0
 
+    # Look up the predecessor template for this project type
+    from apps.projects.setup import PREDECESSOR_TEMPLATES, DEFAULT_PREDECESSOR_TEMPLATE
+    ptype = project.project_type or "custom"
+    pred_template = PREDECESSOR_TEMPLATES.get(ptype, DEFAULT_PREDECESSOR_TEMPLATE)
+
+    # Handle Design & Build prefix: D1→D2→D3→first_construction_phase
+    has_design = config.has_design_phase
+    if has_design:
+        # Design phases are always sequential and critical
+        design_pred = {"D1": [], "D2": ["D1"], "D3": ["D2"]}
+        # First construction phase depends on D3 instead of being a start node
+        first_construction_id = phases[3]["id"] if len(phases) > 3 else phases[0]["id"]
+        pred_template = {**design_pred, **{k: v for k, v in pred_template.items()}}
+        if first_construction_id in pred_template and not pred_template[first_construction_id]:
+            pred_template[first_construction_id] = ["D3"]
+
     sort_idx = 0
-    prev_phase_task = None
     all_tasks = []
     used_codes = set()
+    phase_task_by_id = {}  # Maps phase template ID → created ProjectTask
 
     for phase in phases:
         phase_id = _unique_task_code(phase["id"], phase["id"], 0, used_codes)
@@ -400,15 +416,7 @@ def seed_tasks_from_setup(project):
         sort_idx += 1
         all_tasks.append(phase_task)
         used_codes.add(phase_task.code)
-
-        # Phase-to-phase FS dependency (prototype: parentPred)
-        if prev_phase_task:
-            TaskDependency.objects.create(
-                project=project,
-                predecessor=prev_phase_task,
-                successor=phase_task,
-                dependency_type="FS",
-            )
+        phase_task_by_id[phase["id"]] = phase_task
 
         # Create child tasks with weighted distribution
         if children:
@@ -471,7 +479,22 @@ def seed_tasks_from_setup(project):
                     )
                 prev_child = child_task
 
-        prev_phase_task = phase_task
+    # Assign phase-to-phase predecessors from the template (NOT sequential)
+    # This creates forks and joins for meaningful critical path classification
+    for phase in phases:
+        phase_task = phase_task_by_id.get(phase["id"])
+        if not phase_task:
+            continue
+        pred_ids = pred_template.get(phase["id"], [])
+        for pred_id in pred_ids:
+            pred_task = phase_task_by_id.get(pred_id)
+            if pred_task:
+                TaskDependency.objects.create(
+                    project=project,
+                    predecessor=pred_task,
+                    successor=phase_task,
+                    dependency_type="FS",
+                )
 
     # Run CPM to populate ES/EF/LS/LF/Slack/Critical (prototype: runCPM)
     run_cpm(project.id)

@@ -521,6 +521,92 @@ MILESTONE_TEMPLATES = {
     ],
 }
 
+# ---------------------------------------------------------------------------
+# Predecessor templates — parallel branching for correct CPM critical path
+# ---------------------------------------------------------------------------
+# Each template maps phase_id → list of predecessor phase_ids.
+# Phases not listed default to sequential (previous phase).
+# Forks create parallel paths; joins create convergence points.
+# This produces meaningful critical vs non-critical classification.
+# Reference: BuildPro Activity Distribution & Critical Path Algorithm v2.1
+
+PREDECESSOR_TEMPLATES = {
+    "residential": {
+        "A": [], "B": ["A"], "C": ["B"],
+        "D": ["C"],       # Roofing after walling
+        "E": ["C"],       # MEP PARALLEL: after walling, not roofing
+        "F": ["D", "E"],  # JOIN: needs both roof AND MEP
+        "G": ["D"],       # Doors/Windows PARALLEL: after roof only
+        "H": ["F", "G"],  # JOIN: needs finishes AND fittings
+        "I": ["H"],
+    },
+    "commercial": {
+        "A": [], "B": ["A"], "C": ["B"],
+        "D": ["C"],       # Envelope after frame
+        "E": ["C"],       # MEP PARALLEL: after frame, not envelope
+        "F": ["D", "E"],  # JOIN: needs envelope AND MEP
+        "G": ["E"],       # Specialist PARALLEL: after MEP, not fit-out
+        "H": ["F", "G"],  # JOIN: needs fit-out AND specialist
+    },
+    "road": {
+        "A": [], "B": ["A"], "C": ["B"],
+        "D": ["C"],       # Pavement after drainage
+        "E": ["D"],       # Road furniture after pavement
+        "F": ["C"],       # Ancillary PARALLEL: after drainage, not pavement
+        "G": ["E", "F"],  # JOIN: needs furniture AND ancillary
+    },
+    "bridge": {
+        "A": [], "B": ["A"],
+        "C": ["B"],       # Superstructure after substructure
+        "D": ["C"],       # Accessories after deck
+        "E": ["B"],       # Approach roads PARALLEL: after substructure, not deck
+        "F": ["D", "E"],  # JOIN: needs accessories AND approaches
+    },
+    "school": {
+        "A": [], "B": ["A"], "C": ["B"],
+        "D": ["C"],       # Roofing after walling
+        "E": ["C"],       # MEP PARALLEL: after walling
+        "F": ["D", "E"],  # JOIN: needs roof AND MEP
+        "G": ["D"],       # Furniture PARALLEL: after roof only
+        "H": ["F", "G"],  # JOIN: needs finishes AND furniture
+    },
+    "hospital": {
+        "A": [], "B": ["A"], "C": ["B"],
+        "D": ["C"],       # Envelope after frame
+        "E": ["C"],       # MEP PARALLEL: after frame, not envelope
+        "F": ["D", "E"],  # JOIN: needs envelope AND MEP
+        "G": ["E"],       # Specialist PARALLEL: after MEP, not fit-out
+        "H": ["F", "G"],  # JOIN: needs fit-out AND specialist
+    },
+    "water_treatment": {
+        "A": [], "B": ["A"],
+        "C": ["B"],       # Civil construction after foundation
+        "D": ["C"],       # M&E after civil
+        "E": ["B"],       # Pipework PARALLEL: after foundation, not civil
+        "F": ["C"],       # Finishing after civil
+        "G": ["D", "E", "F"],  # JOIN: needs M&E, pipework, AND finishing
+    },
+    "dam": {
+        "A": [],
+        "B": ["A"],       # Foundation treatment after pre-con
+        "C": ["B"],       # Dam body after foundation
+        "D": ["B"],       # Spillway PARALLEL: after foundation, not dam body
+        "E": ["C"],       # Instrumentation after dam body
+        "F": ["A"],       # Ancillary PARALLEL: after pre-con only
+        "G": ["C", "D", "E", "F"],  # JOIN: needs all complete
+    },
+}
+
+# Default/Custom predecessor template — at least one parallel branch
+DEFAULT_PREDECESSOR_TEMPLATE = {
+    "A": [], "B": ["A"],
+    "C": ["B"],       # Main construction after foundation
+    "D": ["C"],       # Systems after main
+    "E": ["B"],       # Secondary PARALLEL: after foundation, not main
+    "F": ["C"],       # Finishing after main
+    "G": ["D", "E", "F"],  # JOIN: needs all complete
+}
+
 DEFAULT_MILESTONES = MILESTONE_TEMPLATES["custom"]
 
 ALL_WORKSPACE_MODULES = [
