@@ -4,7 +4,10 @@ from decimal import Decimal
 from django.test import TestCase
 from apps.accounts.models import User, Organisation, SystemRole
 from apps.projects.models import Project
-from apps.procurement.models import Supplier, RFQ, Quotation, QuotationItem, PurchaseOrder
+from apps.procurement.models import (
+    Supplier, RFQ, Quotation, QuotationItem, PurchaseOrder, POItem,
+    ProcurementInvoice, ProcurementPayment,
+)
 
 
 class ProcurementBaseTestCase(TestCase):
@@ -148,10 +151,52 @@ class PurchaseOrderTests(ProcurementBaseTestCase):
 
 class ProcurementSummaryTests(ProcurementBaseTestCase):
     def test_procurement_summary(self):
+        po = PurchaseOrder.objects.create(
+            project=self.project,
+            supplier=self.supplier,
+            code="PO-001",
+            status="issued",
+        )
+        POItem.objects.create(
+            purchase_order=po,
+            description="Cement",
+            unit="bags",
+            quantity=Decimal("10"),
+            unit_price=Decimal("30000"),
+        )
+        invoice = ProcurementInvoice.objects.create(
+            project=self.project,
+            supplier=self.supplier,
+            purchase_order=po,
+            code="INV-001",
+            invoice_date=date(2026, 3, 14),
+            due_date=date(2026, 3, 30),
+            amount=Decimal("300000"),
+            status="pending",
+        )
+        ProcurementPayment.objects.create(
+            project=self.project,
+            supplier=self.supplier,
+            invoice=invoice,
+            payment_date=date(2026, 3, 20),
+            amount=Decimal("100000"),
+            status="completed",
+            method="bank_transfer",
+        )
+
         self.client.force_login(self.admin)
         r = self.client.get(f"/api/v1/procurement/{self.project.id}/procurement-summary/")
         self.assertEqual(r.status_code, 200)
         data = r.json()
+        self.assertEqual(data["total_pos"], 1)
+        self.assertEqual(data["pending_deliveries"], 1)
+        self.assertEqual(data["unpaid_invoices_count"], 1)
+        self.assertEqual(data["workflow_counts"]["pos"], 1)
+        self.assertEqual(data["workflow_counts"]["invoices"], 1)
+        self.assertEqual(data["workflow_counts"]["payments"], 1)
+        self.assertEqual(len(data["recent_pos"]), 1)
+        self.assertEqual(len(data["unpaid_invoices"]), 1)
+        self.assertEqual(len(data["top_suppliers"]), 1)
         self.assertIn("total_pos", data)
         self.assertIn("total_po_value", data)
         self.assertIn("total_invoiced", data)

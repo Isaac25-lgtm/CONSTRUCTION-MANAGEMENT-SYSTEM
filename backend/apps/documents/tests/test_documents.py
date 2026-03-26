@@ -10,6 +10,7 @@ JPEG_BYTES = (
     b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00"
     b"\xff\xd9"
 )
+HEIC_BYTES = b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00heicmif1"
 
 
 class DocumentBaseTestCase(TestCase):
@@ -31,7 +32,7 @@ class DocumentBaseTestCase(TestCase):
         )
         ProjectMembership.objects.create(
             project=self.project, user=self.viewer, role="viewer",
-            permissions=["project.view", "documents.view"],
+            permissions=["project.view", "documents.view", "documents.upload"],
         )
 
 
@@ -92,17 +93,17 @@ class DocumentCRUDTests(DocumentBaseTestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["total_documents"], 2)
 
-    def test_viewer_can_list_but_not_upload(self):
+    def test_viewer_can_list_and_upload(self):
         self.client.force_login(self.viewer)
         r = self.client.get(f"/api/v1/documents/{self.project.id}/documents/")
         self.assertEqual(r.status_code, 200)
 
-        test_file = SimpleUploadedFile("test.pdf", b"content", content_type="application/pdf")
+        test_file = SimpleUploadedFile("site.jpg", JPEG_BYTES, content_type="image/jpeg")
         r = self.client.post(
             f"/api/v1/documents/{self.project.id}/documents/",
-            {"title": "Forbidden", "category": "other", "file": test_file},
+            {"title": "Viewer Upload", "category": "photos", "file": test_file},
         )
-        self.assertEqual(r.status_code, 403)
+        self.assertEqual(r.status_code, 201)
 
 
 class DocumentVersionTests(DocumentBaseTestCase):
@@ -158,6 +159,15 @@ class FileValidationTests(DocumentBaseTestCase):
         r = self.client.post(
             f"/api/v1/documents/{self.project.id}/documents/",
             {"title": "Site Photo", "category": "photos", "file": img},
+        )
+        self.assertEqual(r.status_code, 201)
+
+    def test_accept_heic_for_photos(self):
+        self.client.force_login(self.admin)
+        img = SimpleUploadedFile("photo.heic", HEIC_BYTES, content_type="image/heic")
+        r = self.client.post(
+            f"/api/v1/documents/{self.project.id}/documents/",
+            {"title": "HEIC Site Photo", "category": "photos", "file": img},
         )
         self.assertEqual(r.status_code, 201)
 

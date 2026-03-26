@@ -1,11 +1,12 @@
 import { useParams } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   PageHeader, ActionButton, Modal, LoadingState, EmptyState,
 } from '../../components/ui'
 import { useDocuments, useUploadDocument, type DocumentData } from '../../hooks/useDocuments'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
 import { useUIStore } from '../../stores/uiStore'
+import { getApiErrorMessage } from '../../api/client'
 
 /**
  * Site Photos page -- filtered view of documents with category='photos'.
@@ -39,20 +40,13 @@ export function SitePhotosPage() {
               className="cursor-pointer rounded-lg border border-bp-border bg-bp-card p-2 hover:border-bp-accent transition-colors"
               onClick={() => setPreview(photo)}
             >
-              {photo.latest_content_type?.startsWith('image/') && photo.latest_download_url ? (
-                <div className="mb-2 h-32 overflow-hidden rounded bg-bp-surface flex items-center justify-center">
-                  <img
-                    src={photo.latest_download_url}
-                    alt={photo.name}
-                    className="h-full w-full object-cover"
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                  />
-                </div>
-              ) : (
-                <div className="mb-2 flex h-32 items-center justify-center rounded bg-bp-surface text-3xl text-bp-muted">
-                  &#128247;
-                </div>
-              )}
+              <PhotoMedia
+                url={photo.latest_download_url}
+                name={photo.name}
+                contentType={photo.latest_content_type}
+                className="h-full w-full object-cover"
+                containerClassName="mb-2 h-32 overflow-hidden rounded bg-bp-surface flex items-center justify-center"
+              />
               <div className="text-[13px] font-medium text-bp-text truncate">{photo.name}</div>
               <div className="mt-0.5 flex items-center gap-2 text-[10px] text-bp-muted">
                 <span>v{photo.current_version_number}</span>
@@ -73,11 +67,14 @@ export function SitePhotosPage() {
       {preview && (
         <Modal open={true} onClose={() => setPreview(null)} title={preview.name} width={600}>
           <div className="grid gap-3">
-            {preview.latest_download_url && (
-              <div className="rounded bg-bp-surface p-2 flex justify-center">
-                <img src={preview.latest_download_url} alt={preview.name} className="max-h-[400px] object-contain" />
-              </div>
-            )}
+            <PhotoMedia
+              url={preview.latest_download_url}
+              name={preview.name}
+              contentType={preview.latest_content_type}
+              className="max-h-[400px] object-contain"
+              containerClassName="rounded bg-bp-surface p-2 flex min-h-[220px] justify-center"
+              showUnsupportedNote
+            />
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div><span className="text-bp-muted">File:</span> <span className="text-bp-text">{preview.latest_file_name}</span></div>
               <div><span className="text-bp-muted">Version:</span> <span className="text-bp-text">v{preview.current_version_number}</span></div>
@@ -99,8 +96,23 @@ function UploadPhotoModal({ projectId, onClose }: { projectId: string; onClose: 
   const [name, setName] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [notes, setNotes] = useState('')
+  const [previewUrl, setPreviewUrl] = useState('')
   const upload = useUploadDocument(projectId)
   const { showToast } = useUIStore()
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl('')
+      return
+    }
+    if (!(file.type.startsWith('image/') || /\.(heic|heif)$/i.test(file.name))) {
+      setPreviewUrl('')
+      return
+    }
+    const nextUrl = URL.createObjectURL(file)
+    setPreviewUrl(nextUrl)
+    return () => URL.revokeObjectURL(nextUrl)
+  }, [file])
 
   return (
     <Modal open={true} onClose={onClose} title="Upload Site Photo" width={420}>
@@ -111,8 +123,22 @@ function UploadPhotoModal({ projectId, onClose }: { projectId: string; onClose: 
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold text-bp-muted">Photo File *</label>
-          <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} className="text-xs" />
+          <input type="file" accept="image/*,.heic,.heif" onChange={e => setFile(e.target.files?.[0] || null)} className="text-xs" />
+          <div className="mt-1 text-[10px] text-bp-muted">JPEG, PNG, WEBP, HEIC and other image formats supported up to 20 MB.</div>
         </div>
+        {(file || previewUrl) && (
+          <div className="rounded border border-bp-border bg-bp-surface p-2">
+            <div className="mb-2 text-[11px] text-bp-muted">{file?.name}</div>
+            <PhotoMedia
+              url={previewUrl}
+              name={file?.name || 'Selected photo'}
+              contentType={file?.type || ''}
+              className="max-h-56 object-contain"
+              containerClassName="flex min-h-[140px] items-center justify-center rounded bg-bp-card"
+              showUnsupportedNote
+            />
+          </div>
+        )}
         <div>
           <label className="mb-1 block text-xs font-semibold text-bp-muted">Notes</label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Description or context..." />
@@ -124,10 +150,54 @@ function UploadPhotoModal({ projectId, onClose }: { projectId: string; onClose: 
           fd.append('category', 'photos')
           fd.append('notes', notes)
           fd.append('file', file)
-          await upload.mutateAsync(fd)
-          showToast('Photo uploaded', 'success'); onClose()
+          try {
+            await upload.mutateAsync(fd)
+            showToast('Photo uploaded', 'success'); onClose()
+          } catch (error) {
+            showToast(getApiErrorMessage(error, 'Photo upload failed'), 'error')
+          }
         }} disabled={upload.isPending}>{upload.isPending ? 'Uploading...' : 'Upload Photo'}</ActionButton>
       </div>
     </Modal>
+  )
+}
+
+function PhotoMedia({
+  url,
+  name,
+  contentType,
+  className,
+  containerClassName,
+  showUnsupportedNote = false,
+}: {
+  url?: string
+  name: string
+  contentType?: string
+  className: string
+  containerClassName: string
+  showUnsupportedNote?: boolean
+}) {
+  const [failed, setFailed] = useState(false)
+  const canRenderImage = !!url && !!contentType?.startsWith('image/') && !failed
+
+  useEffect(() => {
+    setFailed(false)
+  }, [url, contentType])
+
+  return (
+    <div className={containerClassName}>
+      {canRenderImage ? (
+        <img src={url} alt={name} className={className} onError={() => setFailed(true)} />
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-2 px-4 text-center">
+          <span className="text-3xl text-bp-muted">&#128247;</span>
+          {showUnsupportedNote && (
+            <span className="text-[11px] text-bp-muted">
+              Preview not available in this browser. You can still upload and download the original photo.
+            </span>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

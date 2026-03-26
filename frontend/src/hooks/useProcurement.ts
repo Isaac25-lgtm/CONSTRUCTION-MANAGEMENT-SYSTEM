@@ -183,6 +183,39 @@ export interface ProcurementSummary {
   total_invoiced: number
   total_paid: number
   outstanding: number
+  pending_deliveries: number
+  unpaid_invoices_count: number
+  workflow_counts: {
+    rfqs: number
+    quotations: number
+    pos: number
+    grns: number
+    invoices: number
+    payments: number
+  }
+  recent_pos: {
+    id: string
+    code: string
+    supplier_name: string | null
+    order_date: string
+    status: string
+    status_display: string
+    total_amount: number
+  }[]
+  unpaid_invoices: {
+    id: string
+    code: string
+    supplier_name: string | null
+    amount: number
+    due_date: string | null
+    status: string
+    status_display: string
+  }[]
+  top_suppliers: {
+    supplier_name: string
+    total_value: number
+    po_count: number
+  }[]
 }
 
 /* ------------------------------------------------------------------ */

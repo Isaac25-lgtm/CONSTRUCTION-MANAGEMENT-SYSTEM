@@ -20,11 +20,11 @@ ALLOWED_EXTENSIONS = {
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv",
     ".ppt", ".pptx", ".txt", ".rtf",
     ".dwg", ".dxf", ".ifc",  # CAD/BIM
-    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".svg",
+    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".svg", ".heic", ".heif",
     ".zip", ".rar", ".7z",
 }
 
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".heic", ".heif"}
 
 ALLOWED_CONTENT_TYPES = {
     "application/pdf",
@@ -38,15 +38,15 @@ ALLOWED_CONTENT_TYPES = {
     "application/zip", "application/x-rar-compressed", "application/x-7z-compressed",
     "application/octet-stream",  # CAD files often report this
     "image/jpeg", "image/png", "image/gif", "image/bmp", "image/tiff",
-    "image/webp", "image/svg+xml",
+    "image/webp", "image/svg+xml", "image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence",
 }
 
 IMAGE_CONTENT_TYPES = {
     "image/jpeg", "image/png", "image/gif", "image/bmp",
-    "image/tiff", "image/webp",
+    "image/tiff", "image/webp", "image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence",
 }
 
-SNIFFED_IMAGE_KINDS = {"jpeg", "png", "gif", "bmp", "tiff", "webp"}
+SNIFFED_IMAGE_KINDS = {"jpeg", "png", "gif", "bmp", "tiff", "webp", "heic"}
 ALLOWED_SNIFFED_KINDS = SNIFFED_IMAGE_KINDS | {
     "pdf",
     "text",
@@ -86,6 +86,8 @@ EXPECTED_KINDS_BY_EXTENSION = {
     ".tiff": {"tiff"},
     ".tif": {"tiff"},
     ".webp": {"webp"},
+    ".heic": {"heic"},
+    ".heif": {"heic"},
     ".svg": {"svg"},
     ".zip": {"zip"},
     ".rar": {"rar"},
@@ -100,6 +102,7 @@ COMPATIBLE_CONTENT_TYPES = {
     "bmp": {"image/bmp"},
     "tiff": {"image/tiff"},
     "webp": {"image/webp"},
+    "heic": {"image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"},
     "svg": {"image/svg+xml", "text/plain"},
     "text": {"text/plain", "text/csv"},
     "rtf": {"application/rtf", "text/plain"},
@@ -187,6 +190,14 @@ def _sniff_kind(uploaded_file):
         return "tiff"
     if head.startswith(b"RIFF") and head[8:12] == b"WEBP":
         return "webp"
+    if len(head) >= 16 and head[4:8] == b"ftyp":
+        compatible_brands = {head[8:12].lower()}
+        for idx in range(16, min(len(head), 64), 4):
+            brand = head[idx:idx + 4]
+            if len(brand) == 4:
+                compatible_brands.add(brand.lower())
+        if compatible_brands & {b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"heif"}:
+            return "heic"
     if head.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")):
         members = _zip_members(uploaded_file)
         if any(name.startswith("word/") for name in members):

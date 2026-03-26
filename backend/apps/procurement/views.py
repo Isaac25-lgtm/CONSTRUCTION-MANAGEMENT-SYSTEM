@@ -357,24 +357,83 @@ def procurement_summary(request, project_id):
 
     rfq_count = RFQ.objects.filter(project=project).count()
     quotation_count = Quotation.objects.filter(project=project).count()
-    po_count = PurchaseOrder.objects.filter(project=project).count()
 
-    # Calculate total PO value by summing all PO item line totals
-    from .models import POItem
-    po_value = POItem.objects.filter(
-        purchase_order__project=project,
-    ).aggregate(
-        total=Sum(F("quantity") * F("unit_price"))
-    )["total"] or 0
+    purchase_orders = list(
+        PurchaseOrder.objects.filter(project=project)
+        .select_related("supplier")
+        .prefetch_related("items")
+        .order_by("-order_date", "-created_at")
+    )
+    po_count = len(purchase_orders)
 
-    invoiced = ProcurementInvoice.objects.filter(
-        project=project,
-    ).aggregate(total=Sum("amount"))["total"] or 0
+    po_value = 0.0
+    pending_deliveries = 0
+    supplier_rollup = {}
+    recent_pos = []
+    open_po_statuses = {"draft", "issued", "partially_delivered"}
 
-    paid = ProcurementPayment.objects.filter(
-        project=project,
-        status="completed",
-    ).aggregate(total=Sum("amount"))["total"] or 0
+    for po in purchase_orders:
+        total_amount = float(po.total_amount or 0)
+        po_value += total_amount
+        if po.status in open_po_statuses:
+            pending_deliveries += 1
+
+        supplier_name = po.supplier.name if po.supplier else "Unknown Supplier"
+        bucket = supplier_rollup.setdefault(
+            supplier_name,
+            {"supplier_name": supplier_name, "total_value": 0.0, "po_count": 0},
+        )
+        bucket["total_value"] += total_amount
+        bucket["po_count"] += 1
+
+        if len(recent_pos) < 5:
+            recent_pos.append(
+                {
+                    "id": str(po.id),
+                    "code": po.code,
+                    "supplier_name": supplier_name,
+                    "order_date": po.order_date,
+                    "status": po.status,
+                    "status_display": po.get_status_display(),
+                    "total_amount": total_amount,
+                }
+            )
+
+    invoices = list(
+        ProcurementInvoice.objects.filter(project=project)
+        .select_related("supplier")
+        .order_by("due_date", "-invoice_date")
+    )
+    invoiced = float(sum(inv.amount for inv in invoices))
+    unpaid_invoices_count = 0
+    unpaid_invoices = []
+    unpaid_statuses = {"pending", "approved"}
+
+    for invoice in invoices:
+        if invoice.status not in unpaid_statuses:
+            continue
+        unpaid_invoices_count += 1
+        if len(unpaid_invoices) < 5:
+            unpaid_invoices.append(
+                {
+                    "id": str(invoice.id),
+                    "code": invoice.code,
+                    "supplier_name": invoice.supplier.name if invoice.supplier else "Unknown Supplier",
+                    "amount": float(invoice.amount or 0),
+                    "due_date": invoice.due_date,
+                    "status": invoice.status,
+                    "status_display": invoice.get_status_display(),
+                }
+            )
+
+    payments = list(ProcurementPayment.objects.filter(project=project))
+    paid = float(sum(payment.amount for payment in payments if payment.status == "completed"))
+
+    top_suppliers = sorted(
+        supplier_rollup.values(),
+        key=lambda item: (item["total_value"], item["po_count"]),
+        reverse=True,
+    )[:5]
 
     return Response({
         "total_rfqs": rfq_count,
@@ -384,6 +443,19 @@ def procurement_summary(request, project_id):
         "total_invoiced": invoiced,
         "total_paid": paid,
         "outstanding": invoiced - paid,
+        "pending_deliveries": pending_deliveries,
+        "unpaid_invoices_count": unpaid_invoices_count,
+        "workflow_counts": {
+            "rfqs": rfq_count,
+            "quotations": quotation_count,
+            "pos": po_count,
+            "grns": GoodsReceipt.objects.filter(project=project).count(),
+            "invoices": len(invoices),
+            "payments": len(payments),
+        },
+        "recent_pos": recent_pos,
+        "unpaid_invoices": unpaid_invoices,
+        "top_suppliers": top_suppliers,
     })
 
 

@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   PageHeader, CostCard, DataTable, StatusBadge, ActionButton,
   Modal, LoadingState, EmptyState, Tabs,
@@ -18,7 +18,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
 import { useUIStore } from '../../stores/uiStore'
-import { formatUGX } from '../../lib/formatters'
+import { formatDate, formatUGX } from '../../lib/formatters'
 import { api } from '../../api/client'
 
 /**
@@ -28,7 +28,7 @@ import { api } from '../../api/client'
  */
 
 const TABS = [
-  { key: 'summary', label: 'Summary' },
+  { key: 'summary', label: 'Dashboard' },
   { key: 'suppliers', label: 'Suppliers' },
   { key: 'rfqs', label: 'RFQs' },
   { key: 'quotations', label: 'Quotations' },
@@ -62,6 +62,19 @@ export function ProcurementPage() {
   const [showAddPayment, setShowAddPayment] = useState(false)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const toggleRow = (id: string) => setExpandedRow(expandedRow === id ? null : id)
+  const poStatusColor = (status: string) => {
+    if (status === 'delivered') return '#22c55e'
+    if (status === 'cancelled') return '#ef4444'
+    if (status === 'partially_delivered') return '#f97316'
+    if (status === 'issued') return '#3b82f6'
+    return '#f59e0b'
+  }
+  const invoiceStatusColor = (status: string) => {
+    if (status === 'paid') return '#22c55e'
+    if (status === 'disputed') return '#ef4444'
+    if (status === 'approved') return '#3b82f6'
+    return '#f59e0b'
+  }
 
   /* ---- column definitions ---- */
 
@@ -170,56 +183,109 @@ export function ProcurementPage() {
         )}
       </PageHeader>
 
-      {/* Summary cards -- always visible above tabs */}
-      {summary && (
-        <div className="mb-5 grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2.5">
-          <CostCard label="RFQs" value={String(summary.total_rfqs)} color="#6366f1" />
-          <CostCard label="Quotations" value={String(summary.total_quotations)} color="#8b5cf6" />
-          <CostCard label="Purchase Orders" value={String(summary.total_pos)} color="#3b82f6" />
-          <CostCard label="PO Value" value={formatUGX(summary.total_po_value)} color="#f97316" />
-          <CostCard label="Invoiced" value={formatUGX(summary.total_invoiced)} color="#a855f7" />
-          <CostCard label="Paid" value={formatUGX(summary.total_paid)} color="#22c55e" />
-          <CostCard label="Outstanding" value={formatUGX(summary.outstanding)} color="#ef4444" />
-        </div>
-      )}
-
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
       {/* Summary tab */}
       {tab === 'summary' && (
         loadingSummary ? <LoadingState rows={4} /> :
         summary ? (
-          <div className="mt-4 rounded-lg border border-bp-border bg-bp-card p-5">
-            <h3 className="mb-4 text-sm font-semibold text-bp-text">Procurement Overview</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex justify-between border-b border-bp-border pb-2">
-                <span className="text-bp-muted">Total RFQs</span>
-                <span className="font-semibold text-bp-text">{summary.total_rfqs}</span>
-              </div>
-              <div className="flex justify-between border-b border-bp-border pb-2">
-                <span className="text-bp-muted">Total Quotations</span>
-                <span className="font-semibold text-bp-text">{summary.total_quotations}</span>
-              </div>
-              <div className="flex justify-between border-b border-bp-border pb-2">
-                <span className="text-bp-muted">Purchase Orders</span>
-                <span className="font-semibold text-bp-text">{summary.total_pos}</span>
-              </div>
-              <div className="flex justify-between border-b border-bp-border pb-2">
-                <span className="text-bp-muted">Total PO Value</span>
-                <span className="font-mono font-semibold text-bp-info">{formatUGX(summary.total_po_value)}</span>
-              </div>
-              <div className="flex justify-between border-b border-bp-border pb-2">
-                <span className="text-bp-muted">Total Invoiced</span>
-                <span className="font-mono font-semibold text-bp-warning">{formatUGX(summary.total_invoiced)}</span>
-              </div>
-              <div className="flex justify-between border-b border-bp-border pb-2">
-                <span className="text-bp-muted">Total Paid</span>
-                <span className="font-mono font-semibold text-bp-success">{formatUGX(summary.total_paid)}</span>
-              </div>
-              <div className="col-span-2 flex justify-between pt-1">
-                <span className="font-semibold text-bp-muted">Outstanding</span>
-                <span className="font-mono font-bold text-bp-danger">{formatUGX(summary.outstanding)}</span>
-              </div>
+          <div className="mt-4 grid gap-4">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2.5">
+              <CostCard label="Total POs" value={String(summary.total_pos)} color="#3b82f6" />
+              <CostCard label="PO Value" value={formatUGX(summary.total_po_value)} color="#f59e0b" />
+              <CostCard label="Pending Delivery" value={String(summary.pending_deliveries)} color="#f97316" />
+              <CostCard label="Unpaid Invoices" value={String(summary.unpaid_invoices_count)} color="#ef4444" />
+              <CostCard label="Total Invoiced" value={formatUGX(summary.total_invoiced)} color="#a855f7" />
+              <CostCard label="Total Paid" value={formatUGX(summary.total_paid)} color="#22c55e" />
+              <CostCard label="Outstanding" value={formatUGX(summary.outstanding)} color="#ef4444" />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DashboardPanel title="Recent Purchase Orders">
+                {summary.recent_pos.length > 0 ? (
+                  <div className="grid gap-2">
+                    {summary.recent_pos.map(po => (
+                      <div key={po.id} className="flex items-center justify-between border-b border-bp-border pb-2 last:border-b-0 last:pb-0">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[11px] font-bold text-bp-accent">{po.code}</span>
+                            <span className="truncate text-[11px] text-bp-muted">{po.supplier_name || '-'}</span>
+                          </div>
+                          <div className="mt-1 text-[10px] text-bp-muted">{formatDate(po.order_date)}</div>
+                        </div>
+                        <div className="text-right">
+                          <StatusBadge text={po.status_display} color={poStatusColor(po.status)} />
+                          <div className="mt-1 font-mono text-[11px] text-bp-text">{formatUGX(po.total_amount)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <DashboardEmpty text="No purchase orders yet." />
+                )}
+              </DashboardPanel>
+
+              <DashboardPanel title="Unpaid Invoices">
+                {summary.unpaid_invoices.length > 0 ? (
+                  <div className="grid gap-2">
+                    {summary.unpaid_invoices.map(invoice => (
+                      <div key={invoice.id} className="flex items-center justify-between border-b border-bp-border pb-2 last:border-b-0 last:pb-0">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[11px] font-bold text-bp-danger">{invoice.code}</span>
+                            <span className="truncate text-[11px] text-bp-muted">{invoice.supplier_name || '-'}</span>
+                          </div>
+                          <div className="mt-1 text-[10px] text-bp-danger">Due: {invoice.due_date ? formatDate(invoice.due_date) : '-'}</div>
+                        </div>
+                        <div className="text-right">
+                          <StatusBadge text={invoice.status_display} color={invoiceStatusColor(invoice.status)} />
+                          <div className="mt-1 font-mono text-[11px] text-bp-text">{formatUGX(invoice.amount)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <DashboardEmpty text="No unpaid invoices." />
+                )}
+              </DashboardPanel>
+
+              <DashboardPanel title="Workflow">
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                  {[
+                    { label: `RFQ (${summary.workflow_counts.rfqs})`, color: '#3b82f6' },
+                    { label: `Quotes (${summary.workflow_counts.quotations})`, color: '#f59e0b' },
+                    { label: `PO (${summary.workflow_counts.pos})`, color: '#22c55e' },
+                    { label: `GRN (${summary.workflow_counts.grns})`, color: '#f97316' },
+                    { label: `Invoice (${summary.workflow_counts.invoices})`, color: '#ef4444' },
+                    { label: `Payment (${summary.workflow_counts.payments})`, color: '#10b981' },
+                  ].map((step, idx) => (
+                    <div key={step.label} className="flex items-center gap-2">
+                      {idx > 0 && <span className="text-bp-muted">&rarr;</span>}
+                      <span className="rounded-full border px-3 py-1 font-semibold" style={{ color: step.color, borderColor: `${step.color}66`, backgroundColor: `${step.color}22` }}>
+                        {step.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </DashboardPanel>
+
+              <DashboardPanel title="Top Suppliers">
+                {summary.top_suppliers.length > 0 ? (
+                  <div className="grid gap-2">
+                    {summary.top_suppliers.map(supplier => (
+                      <div key={supplier.supplier_name} className="flex items-center justify-between border-b border-bp-border pb-2 last:border-b-0 last:pb-0">
+                        <div className="min-w-0">
+                          <div className="truncate text-[11px] text-bp-text">{supplier.supplier_name}</div>
+                          <div className="mt-1 text-[10px] text-bp-muted">{supplier.po_count} purchase order{supplier.po_count === 1 ? '' : 's'}</div>
+                        </div>
+                        <div className="font-mono text-[11px] text-bp-accent">{formatUGX(supplier.total_value)}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <DashboardEmpty text="Supplier rankings will appear once POs are raised." />
+                )}
+              </DashboardPanel>
             </div>
           </div>
         ) : <EmptyState icon="&#128230;" title="No summary data" description="Procurement summary will appear once data is available." />
@@ -334,6 +400,19 @@ export function ProcurementPage() {
       {showAddPayment && <AddPaymentModal projectId={pid} onClose={() => setShowAddPayment(false)} />}
     </div>
   )
+}
+
+function DashboardPanel({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-bp-border bg-bp-card p-4">
+      <h3 className="mb-3 text-sm font-semibold text-bp-accent">{title}</h3>
+      {children}
+    </div>
+  )
+}
+
+function DashboardEmpty({ text }: { text: string }) {
+  return <div className="text-xs text-bp-muted">{text}</div>
 }
 
 /* ------------------------------------------------------------------ */
