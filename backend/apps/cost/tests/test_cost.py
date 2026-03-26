@@ -93,7 +93,7 @@ class CostModelTests(TestCase):
         self.assertEqual(summary["variance"], 450000)
         self.assertEqual(summary["budget_lines_count"], 1)
 
-    def test_project_overview_critical_path_includes_non_leaf_zero_slack_activities(self):
+    def test_project_overview_critical_path_uses_top_level_phase_chain(self):
         parent = ProjectTask.objects.create(
             project=self.project,
             code="P",
@@ -124,7 +124,7 @@ class CostModelTests(TestCase):
         )
 
         overview = get_project_overview(self.project)
-        self.assertEqual(overview["schedule"]["critical_path"], ["P", "Pa"])
+        self.assertEqual(overview["schedule"]["critical_path"], ["P"])
 
     def test_project_overview_excludes_positive_slack_when_critical_flag_is_stale(self):
         ProjectTask.objects.create(

@@ -158,7 +158,7 @@ class CPMEngineTests(TestCase):
         self.assertEqual(result.duration, 15)
 
     def test_parent_task_with_zero_slack_is_critical(self):
-        """Prototype rule: critical = (slack === 0). Parents included."""
+        """Parent CPM drives the displayed path; children inherit the flag/float."""
         parent = self._make_task("P", 10, is_parent=True)
         child = self._make_task("Pa", 10)
         child.parent = parent
@@ -176,7 +176,7 @@ class CPMEngineTests(TestCase):
         self.assertEqual(child.total_float, 0)
         self.assertTrue(child.is_critical)
         self.assertIn("P", result.critical_path)
-        self.assertIn("Pa", result.critical_path)
+        self.assertNotIn("Pa", result.critical_path)
 
     def test_positive_slack_task_not_critical(self):
         """Tasks with positive slack must NOT be critical."""
@@ -197,9 +197,8 @@ class CPMEngineTests(TestCase):
         t.refresh_from_db()
         self.assertFalse(t.is_critical)
 
-    def test_network_data_returns_parent_and_child_tasks(self):
-        """Network endpoint must return ALL tasks, including parents."""
-        from django.test import TestCase as TC
+    def test_network_data_returns_top_level_cpm_tasks_only(self):
+        """Network endpoint should expose the phase/top-level CPM graph only."""
         org = Organisation.objects.create(name="Net Test Org")
         role = SystemRole.objects.create(name="NetAdmin", permissions=["admin.full_access"])
         user = User.objects.create_user(
@@ -222,7 +221,7 @@ class CPMEngineTests(TestCase):
         self.assertEqual(response.status_code, 200)
         codes = [n["code"] for n in response.json()["nodes"]]
         self.assertIn("P", codes)
-        self.assertIn("Pa", codes)
+        self.assertNotIn("Pa", codes)
         # Verify is_parent field is included
         parent_node = next(n for n in response.json()["nodes"] if n["code"] == "P")
         self.assertTrue(parent_node["is_parent"])
@@ -641,6 +640,78 @@ class TaskSeedingTests(TestCase):
         self.assertTrue(TaskDependency.objects.filter(project=proj).exists())
         self.assertTrue(Milestone.objects.filter(project=proj).exists())
 
+    def test_seeded_parent_phases_gain_meaningful_float_differences(self):
+        proj = Project.objects.create(
+            name="Residential Branching",
+            project_type="residential",
+            contract_type="lump_sum",
+            organisation=self.org,
+            start_date="2026-04-01",
+            end_date="2027-02-15",
+            budget=500000000,
+        )
+        initialize_project(proj)
+        seed_tasks_from_setup(proj)
+
+        phases = {
+            task.code: task
+            for task in ProjectTask.objects.filter(project=proj, parent__isnull=True)
+        }
+        g_children = list(
+            ProjectTask.objects.filter(project=proj, parent__code="G").order_by("sort_order", "code")
+        )
+        self.assertGreater(phases["G"].total_float, 0)
+        self.assertTrue(
+            phases["D"].total_float > 0 or phases["E"].total_float > 0,
+            msg="Residential branching should make either Roofing or MEP non-critical",
+        )
+        self.assertEqual(phases["F"].total_float, 0)
+        self.assertTrue(g_children)
+        self.assertTrue(all(child.total_float == phases["G"].total_float for child in g_children))
+
+    def test_all_project_types_create_a_real_branch_with_non_critical_top_level_phases(self):
+        project_types = [
+            "residential", "commercial", "road", "bridge", "school",
+            "hospital", "water_treatment", "dam", "custom",
+        ]
+        for project_type in project_types:
+            proj = Project.objects.create(
+                name=f"{project_type} branch test",
+                project_type=project_type,
+                contract_type="lump_sum",
+                organisation=self.org,
+                start_date="2026-01-01",
+                end_date="2027-01-01",
+                budget=1000000,
+            )
+            initialize_project(proj)
+            seed_tasks_from_setup(proj)
+
+            top_level = list(
+                ProjectTask.objects.filter(project=proj, parent__isnull=True).order_by("sort_order", "code")
+            )
+            self.assertGreaterEqual(
+                sum(1 for task in top_level if task.total_float > 0),
+                1,
+                msg=f"{project_type} still has no non-critical top-level phase",
+            )
+            dep_counts = {
+                task.code: TaskDependency.objects.filter(project=proj, predecessor=task, successor__parent__isnull=True).count()
+                for task in top_level
+            }
+            self.assertTrue(
+                any(count > 1 for count in dep_counts.values()),
+                msg=f"{project_type} has no fork in its top-level dependency graph",
+            )
+            incoming_counts = {
+                task.code: TaskDependency.objects.filter(project=proj, successor=task, predecessor__parent__isnull=True).count()
+                for task in top_level
+            }
+            self.assertTrue(
+                any(count > 1 for count in incoming_counts.values()),
+                msg=f"{project_type} has no join in its top-level dependency graph",
+            )
+
     def test_seed_road_project_uses_weighted_prototype_distribution(self):
         proj = Project.objects.create(
             name="Road Weights",
@@ -786,8 +857,8 @@ class ScheduleAPITests(TestCase):
         response = self.client.get(f"/api/v1/scheduling/{self.project.id}/summary/")
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        # setUp task "A" also has total_float=0 and duration>0, so it appears too
-        self.assertEqual(data["critical_path"], ["A", "P", "Pa"])
+        # The displayed path is top-level only; child tasks inherit criticality
+        self.assertEqual(data["critical_path"], ["A", "P"])
 
     def test_schedule_summary_excludes_positive_slack_even_if_critical_flag_is_stale(self):
         ProjectTask.objects.create(

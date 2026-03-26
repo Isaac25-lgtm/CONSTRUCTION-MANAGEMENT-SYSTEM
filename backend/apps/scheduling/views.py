@@ -439,13 +439,14 @@ def schedule_summary(request, project_id):
 
     # Use leaf tasks only (is_parent=False) for execution KPIs
     leaf_tasks = ProjectTask.objects.filter(project=project, is_parent=False)
+    top_level_tasks = ProjectTask.objects.filter(project=project, parent__isnull=True)
     all_tasks = ProjectTask.objects.filter(project=project)
     total = leaf_tasks.count()
     completed = leaf_tasks.filter(status="completed").count()
     in_progress = leaf_tasks.filter(status="in_progress").count()
     delayed = leaf_tasks.filter(status="delayed").count()
-    critical = leaf_tasks.filter(is_critical=True).count()
-    duration = max((t.early_finish for t in all_tasks), default=0)
+    critical = top_level_tasks.filter(is_critical=True).count()
+    duration = max((t.early_finish for t in top_level_tasks), default=0)
     progress = round(sum(t.progress for t in leaf_tasks) / max(total, 1))
     crit_path = get_critical_path_codes(project.id)
 
@@ -644,7 +645,7 @@ def network_data(request, project_id):
     if not project:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
-    tasks = ProjectTask.objects.filter(project=project).order_by("sort_order")
+    tasks = ProjectTask.objects.filter(project=project, parent__isnull=True).order_by("sort_order")
     deps = TaskDependency.objects.filter(project=project).select_related("predecessor", "successor")
 
     nodes = [
@@ -673,6 +674,7 @@ def network_data(request, project_id):
             "lag": d.lag_days,
         }
         for d in deps
+        if d.predecessor.parent_id is None and d.successor.parent_id is None
     ]
 
     return Response({"nodes": nodes, "edges": edges})

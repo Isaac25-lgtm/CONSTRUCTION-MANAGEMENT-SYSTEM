@@ -29,8 +29,9 @@ def build_critical_path_codes(tasks) -> list[str]:
 
     Prototype rule: critical = (slack === 0).
     Guard: duration_days > 0 prevents cleared/untouched rows from appearing.
-    Parents are NOT excluded — they participate in the critical path
-    like any other task when their slack is genuinely zero.
+    For seeded projects, CPM runs on top-level phase tasks only, so the
+    displayed path should be the parent/top-level chain rather than the
+    inherited child breakdown.
     """
     critical_tasks = [
         t for t in tasks
@@ -45,12 +46,13 @@ def build_critical_path_codes(tasks) -> list[str]:
 def get_critical_path_codes(project_id) -> list[str]:
     """Return persisted critical activity codes for a project in display order.
 
-    Matches prototype: all tasks with slack == 0 and duration > 0.
-    Parents included when they are genuinely critical.
+    Matches the phase-level CPM model used for seeded projects:
+    only top-level activities participate in the displayed critical path.
     """
     tasks = list(
         ProjectTask.objects.filter(
             project_id=project_id,
+            parent__isnull=True,
             total_float=0,
             duration_days__gt=0,
         )
@@ -121,13 +123,33 @@ def run_cpm(project_id) -> CPMResult:
       FF (Finish-to-Finish): succ.EF >= pred.EF + lag => succ.ES >= pred.EF + lag - succ.dur
       SF (Start-to-Finish):  succ.EF >= pred.ES + lag => succ.ES >= pred.ES + lag - succ.dur
     """
-    tasks = list(
+    all_tasks = list(
         ProjectTask.objects.filter(project_id=project_id)
         .order_by("sort_order", "code")
     )
 
-    if not tasks:
+    if not all_tasks:
         return CPMResult(duration=0, critical_path=[], cycle_detected=False, tasks_updated=0)
+
+    # Phase-level CPM truth:
+    # - top-level tasks/summary phases (parent__isnull) participate in the network
+    # - child tasks inherit timing and float from their parent phase
+    tasks = [t for t in all_tasks if t.parent_id is None]
+    if not tasks:
+        tasks = all_tasks
+
+    children_by_parent = defaultdict(list)
+    for task in all_tasks:
+        if task.parent_id:
+            children_by_parent[task.parent_id].append(task)
+    for child_list in children_by_parent.values():
+        child_list.sort(key=lambda t: (t.sort_order, t.code))
+
+    # Parent phases inherit duration from the sum of their child breakdown.
+    for task in tasks:
+        children = children_by_parent.get(task.id, [])
+        if children:
+            task.duration_days = sum(child.duration_days for child in children)
 
     task_map = {t.id: t for t in tasks}
 
@@ -222,24 +244,42 @@ def run_cpm(project_id) -> CPMResult:
             task.late_finish = project_duration
         task.late_start = task.late_finish - task.duration_days
 
-    # --- Phase 5: Float and critical path ---
+    # --- Phase 5: Float and critical path (top-level CPM tasks) ---
     for task in tasks:
         task.total_float = task.late_start - task.early_start
         task.is_critical = (task.total_float == 0 and task.duration_days > 0)
     critical_path = build_critical_path_codes(tasks)
 
+    # Child tasks do not participate in CPM. They subdivide the parent phase
+    # window and inherit the parent's total float / criticality.
+    for parent in tasks:
+        child_list = children_by_parent.get(parent.id, [])
+        if not child_list:
+            continue
+
+        cursor = parent.early_start
+        for child in child_list:
+            child.early_start = cursor
+            child.early_finish = child.early_start + child.duration_days
+            child.late_start = child.early_start + parent.total_float
+            child.late_finish = child.early_finish + parent.total_float
+            child.total_float = parent.total_float if child.duration_days > 0 else 0
+            child.is_critical = parent.is_critical and child.duration_days > 0
+            cursor = child.early_finish
+
     # --- Phase 6: Persist ---
     bulk_fields = [
+        "duration_days",
         "early_start", "early_finish", "late_start", "late_finish",
         "total_float", "is_critical",
     ]
-    ProjectTask.objects.bulk_update(tasks, bulk_fields)
+    ProjectTask.objects.bulk_update(all_tasks, bulk_fields)
 
     return CPMResult(
         duration=project_duration,
         critical_path=critical_path,
         cycle_detected=cycle_detected,
-        tasks_updated=len(tasks),
+        tasks_updated=len(all_tasks),
     )
 
 
@@ -389,7 +429,9 @@ def seed_tasks_from_setup(project):
     used_codes = set()
     phase_task_by_id = {}  # Maps phase template ID → created ProjectTask
 
-    for phase in phases:
+    allocated_phase_days = 0
+    allocated_phase_budget = 0
+    for phase_index, phase in enumerate(phases):
         phase_id = _unique_task_code(phase["id"], phase["id"], 0, used_codes)
         phase_name = phase["name"]
         children = phase.get("children", [])
@@ -398,8 +440,14 @@ def seed_tasks_from_setup(project):
         phase_res = phase.get("res", "")
 
         # Weighted phase duration and budget (prototype: phaseDur, phaseBud)
-        phase_dur = max(_prototype_round(total_days * (phase_dur_p / total_dur_p)), 1)
-        phase_bud = _prototype_round(total_budget * (phase_bud_p / total_bud_p))
+        if phase_index == len(phases) - 1:
+            phase_dur = max(total_days - allocated_phase_days, 1)
+            phase_bud = max(_prototype_round(total_budget - allocated_phase_budget), 0)
+        else:
+            phase_dur = max(_prototype_round(total_days * (phase_dur_p / total_dur_p)), 1)
+            phase_bud = max(_prototype_round(total_budget * (phase_bud_p / total_bud_p)), 0)
+            allocated_phase_days += phase_dur
+            allocated_phase_budget += phase_bud
 
         # Create parent phase task
         phase_task = ProjectTask.objects.create(
@@ -424,6 +472,8 @@ def seed_tasks_from_setup(project):
             child_total_bud_p = sum(c.get("budP", 0.01) for c in children) or 1.0
 
             prev_child = None
+            allocated_child_days = 0
+            allocated_child_budget = 0
             for ci, child in enumerate(children):
                 # Support both old format (string name) and new format (dict with weights)
                 if isinstance(child, str):
@@ -440,8 +490,14 @@ def seed_tasks_from_setup(project):
                     child_code_id = child.get("id", "")
 
                 # Weighted child duration and budget (prototype: cDur, cBud)
-                c_dur = max(_prototype_round(phase_dur * (child_dur_p / child_total_dur_p)), 1)
-                c_bud = _prototype_round(phase_bud * (child_bud_p / child_total_bud_p))
+                if ci == len(children) - 1:
+                    c_dur = max(phase_dur - allocated_child_days, 1)
+                    c_bud = max(_prototype_round(phase_bud - allocated_child_budget), 0)
+                else:
+                    c_dur = max(_prototype_round(phase_dur * (child_dur_p / child_total_dur_p)), 1)
+                    c_bud = max(_prototype_round(phase_bud * (child_bud_p / child_total_bud_p)), 0)
+                    allocated_child_days += c_dur
+                    allocated_child_budget += c_bud
 
                 # Child code: prefer prototype id, but keep project codes unique.
                 child_code = _unique_task_code(child_code_id, phase_id, ci, used_codes)

@@ -53,9 +53,10 @@ def _add_schedule_context(project, sections):
     """Add schedule summary to context."""
     from apps.scheduling.models import ProjectTask, Milestone
     tasks = ProjectTask.objects.filter(project=project, is_parent=False)
+    top_level_tasks = ProjectTask.objects.filter(project=project, parent__isnull=True)
     total = tasks.count()
     completed = tasks.filter(status="completed").count()
-    critical = tasks.filter(is_critical=True).count()
+    critical = top_level_tasks.filter(is_critical=True).count()
     avg_progress = 0
     if total > 0:
         from django.db.models import Avg

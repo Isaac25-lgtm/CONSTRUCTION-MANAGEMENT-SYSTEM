@@ -275,13 +275,14 @@ def get_project_overview(project):
 
     # Schedule summary -- use leaf tasks for execution KPIs
     all_tasks = ProjectTask.objects.filter(project=project)
+    top_level_tasks = all_tasks.filter(parent__isnull=True)
     leaf_tasks = all_tasks.filter(is_parent=False)
     total_tasks = leaf_tasks.count()
     completed = leaf_tasks.filter(status="completed").count()
     in_progress = leaf_tasks.filter(status="in_progress").count()
     delayed = leaf_tasks.filter(status="delayed").count()
-    critical = leaf_tasks.filter(is_critical=True).count()
-    duration = max((t.early_finish for t in all_tasks), default=0)
+    critical = top_level_tasks.filter(is_critical=True).count()
+    duration = max((t.early_finish for t in top_level_tasks), default=0)
     progress = round(sum(t.progress for t in leaf_tasks) / max(total_tasks, 1))
     critical_path = get_critical_path_codes(project.id)
 
