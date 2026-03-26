@@ -40,6 +40,7 @@ class DailyLog(BaseModel):
     log_date = models.DateField()
     weather = models.CharField(max_length=100, blank=True, default="")
     workforce = models.TextField(blank=True, default="", help_text="Workforce count/summary")
+    equipment = models.TextField(blank=True, default="", help_text="Equipment on site")
     work_performed = models.TextField()
     delays = models.TextField(blank=True, default="")
     materials_notes = models.TextField(blank=True, default="")

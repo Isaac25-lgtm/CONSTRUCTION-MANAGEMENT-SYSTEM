@@ -8,6 +8,7 @@ import {
   useChangeOrders, useCreateChangeOrder, useUpdateChangeOrder, useDeleteChangeOrder,
   type ChangeOrderData,
 } from '../../hooks/useFieldOps'
+import { useProjectMembers } from '../../hooks/useProjects'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
 import { useUIStore } from '../../stores/uiStore'
 import { formatUGX } from '../../lib/formatters'
@@ -47,6 +48,7 @@ export function ChangeOrdersPage() {
     )},
     { key: 'status', header: 'Status', render: (c: ChangeOrderData) => <StatusBadge text={c.status_display} color={statusColor(c.status)} /> },
     { key: 'requested', header: 'Requested By', render: (c: ChangeOrderData) => <span className="text-xs text-bp-muted">{c.requested_by_name || '-'}</span> },
+    { key: 'approved', header: 'Approved By', render: (c: ChangeOrderData) => <span className="text-xs text-bp-muted">{c.approved_by_name || '-'}</span> },
     ...(canEditChanges ? [
       { key: 'edit', header: '', width: '30px', render: (c: ChangeOrderData) => <button onClick={() => setEditItem(c)} className="cursor-pointer border-none bg-transparent text-bp-info text-sm" title="Edit">&#9998;</button> },
       { key: 'del', header: '', width: '30px', render: (c: ChangeOrderData) => <button onClick={() => { if (confirm(`Delete "${c.code}"?`)) { deleteCO.mutate(c.id); showToast('Change order deleted', 'success') } }} className="cursor-pointer border-none bg-transparent text-bp-danger text-sm">&#10005;</button> },
@@ -160,6 +162,8 @@ function EditChangeOrderModal({ projectId, co, onClose }: { projectId: string; c
   const [reason, setReason] = useState<string>(co.reason)
   const [costImpact, setCostImpact] = useState<string>(co.cost_impact)
   const [timeDays, setTimeDays] = useState(String(co.time_impact_days))
+  const [approvedBy, setApprovedBy] = useState(co.approved_by || '')
+  const { data: members } = useProjectMembers(projectId)
   const update = useUpdateChangeOrder(projectId)
   const { showToast } = useUIStore()
 
@@ -202,8 +206,17 @@ function EditChangeOrderModal({ projectId, co, onClose }: { projectId: string; c
             <input type="number" value={timeDays} onChange={(e) => setTimeDays(e.target.value)} />
           </div>
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">Approved By</label>
+          <select value={approvedBy} onChange={(e) => setApprovedBy(e.target.value)}>
+            <option value="">-- Select Approver --</option>
+            {(members || []).map(m => (
+              <option key={m.user} value={m.user}>{m.user_name} ({m.role_display || m.role})</option>
+            ))}
+          </select>
+        </div>
         <ActionButton variant="accent" className="!w-full !mt-1" onClick={async () => {
-          await update.mutateAsync({ id: co.id, data: { title, description, category, status, reason, cost_impact: costImpact, time_impact_days: parseInt(timeDays) || 0 } })
+          await update.mutateAsync({ id: co.id, data: { title, description, category, status, reason, cost_impact: costImpact, time_impact_days: parseInt(timeDays) || 0, approved_by: approvedBy || null } })
           showToast('Change order updated', 'success'); onClose()
         }} disabled={update.isPending}>{update.isPending ? 'Saving...' : 'Save Changes'}</ActionButton>
       </div>

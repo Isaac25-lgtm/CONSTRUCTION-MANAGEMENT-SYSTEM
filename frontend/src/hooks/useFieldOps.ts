@@ -43,7 +43,7 @@ export function useDeleteRFI(pid: string) { return useProjectDelete(pid, 'rfis',
 export function useRestoreRFI(pid: string) { return useProjectRestore(pid, 'rfis', 'rfis') }
 
 // --- Change Order ---
-export interface ChangeOrderData { id: string; code: string; title: string; description: string; category: string; category_display: string; reason: string; cost_impact: string; time_impact_days: number; status: string; status_display: string; requested_by_name: string | null; approved_by_name: string | null; requested_date: string }
+export interface ChangeOrderData { id: string; code: string; title: string; description: string; category: string; category_display: string; reason: string; cost_impact: string; time_impact_days: number; status: string; status_display: string; requested_by: string | null; requested_by_name: string | null; approved_by: string | null; approved_by_name: string | null; requested_date: string }
 export function useChangeOrders(pid: string | undefined) { return useProjectList<ChangeOrderData>(pid, 'changes', 'change-orders') }
 export function useCreateChangeOrder(pid: string) { return useProjectCreate<Partial<ChangeOrderData>>(pid, 'changes', 'change-orders') }
 export function useUpdateChangeOrder(pid: string) { return useProjectUpdate<Partial<ChangeOrderData>>(pid, 'changes', 'change-orders') }
@@ -51,7 +51,7 @@ export function useDeleteChangeOrder(pid: string) { return useProjectDelete(pid,
 export function useRestoreChangeOrder(pid: string) { return useProjectRestore(pid, 'changes', 'change-orders') }
 
 // --- Punch Item ---
-export interface PunchItemData { id: string; title: string; description: string; location: string; priority: string; priority_display: string; status: string; status_display: string; assigned_to_name: string | null; due_date: string | null; closed_at: string | null }
+export interface PunchItemData { id: string; title: string; description: string; location: string; priority: string; priority_display: string; status: string; status_display: string; assigned_to: string | null; assigned_to_name: string | null; due_date: string | null; closed_at: string | null }
 export function usePunchItems(pid: string | undefined) { return useProjectList<PunchItemData>(pid, 'field-ops', 'punch-items') }
 export function useCreatePunchItem(pid: string) { return useProjectCreate<Partial<PunchItemData>>(pid, 'field-ops', 'punch-items') }
 export function useUpdatePunchItem(pid: string) { return useProjectUpdate<Partial<PunchItemData>>(pid, 'field-ops', 'punch-items') }
@@ -59,7 +59,7 @@ export function useDeletePunchItem(pid: string) { return useProjectDelete(pid, '
 export function useRestorePunchItem(pid: string) { return useProjectRestore(pid, 'field-ops', 'punch-items') }
 
 // --- Daily Log ---
-export interface DailyLogData { id: string; log_date: string; weather: string; workforce: string; work_performed: string; delays: string; materials_notes: string; visitors: string; incidents: string; author_name: string | null }
+export interface DailyLogData { id: string; log_date: string; weather: string; workforce: string; equipment: string; work_performed: string; delays: string; materials_notes: string; visitors: string; incidents: string; author_name: string | null }
 export function useDailyLogs(pid: string | undefined) { return useProjectList<DailyLogData>(pid, 'field-ops', 'daily-logs') }
 export function useCreateDailyLog(pid: string) { return useProjectCreate<Partial<DailyLogData>>(pid, 'field-ops', 'daily-logs') }
 export function useUpdateDailyLog(pid: string) { return useProjectUpdate<Partial<DailyLogData>>(pid, 'field-ops', 'daily-logs') }

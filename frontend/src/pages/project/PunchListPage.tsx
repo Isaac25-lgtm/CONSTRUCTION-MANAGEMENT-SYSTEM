@@ -8,6 +8,7 @@ import {
   usePunchItems, useCreatePunchItem, useUpdatePunchItem, useDeletePunchItem,
   type PunchItemData,
 } from '../../hooks/useFieldOps'
+import { useProjectMembers } from '../../hooks/useProjects'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
 import { useUIStore } from '../../stores/uiStore'
 import { PUNCH_STATUS, PUNCH_PRIORITY, statusColor } from '../../types/fieldOpsChoices'
@@ -85,6 +86,8 @@ function AddPunchItemModal({ projectId, onClose }: { projectId: string; onClose:
   const [priority, setPriority] = useState<string>(PUNCH_PRIORITY[1].value)
   const [status, setStatus] = useState<string>(PUNCH_STATUS[0].value)
   const [dueDate, setDueDate] = useState('')
+  const [assignedTo, setAssignedTo] = useState('')
+  const { data: members } = useProjectMembers(projectId)
   const create = useCreatePunchItem(projectId)
   const { showToast } = useUIStore()
 
@@ -123,9 +126,18 @@ function AddPunchItemModal({ projectId, onClose }: { projectId: string; onClose:
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">Assigned To</label>
+          <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
+            <option value="">-- Select Assignee --</option>
+            {(members || []).map(m => (
+              <option key={m.user} value={m.user}>{m.user_name} ({m.role_display || m.role})</option>
+            ))}
+          </select>
+        </div>
         <ActionButton variant="green" className="!w-full !mt-1" onClick={async () => {
           if (!title) { showToast('Title required', 'warning'); return }
-          await create.mutateAsync({ title, description, location, priority, status, due_date: dueDate || undefined })
+          await create.mutateAsync({ title, description, location, priority, status, due_date: dueDate || undefined, assigned_to: assignedTo || undefined } as Parameters<typeof create.mutateAsync>[0])
           showToast('Punch item added', 'success'); onClose()
         }} disabled={create.isPending}>{create.isPending ? 'Adding...' : 'Add Item'}</ActionButton>
       </div>
@@ -140,6 +152,8 @@ function EditPunchItemModal({ projectId, item, onClose }: { projectId: string; i
   const [priority, setPriority] = useState<string>(item.priority)
   const [status, setStatus] = useState<string>(item.status)
   const [dueDate, setDueDate] = useState(item.due_date || '')
+  const [assignedTo, setAssignedTo] = useState(item.assigned_to || '')
+  const { data: members } = useProjectMembers(projectId)
   const update = useUpdatePunchItem(projectId)
   const { showToast } = useUIStore()
 
@@ -178,8 +192,17 @@ function EditPunchItemModal({ projectId, item, onClose }: { projectId: string; i
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">Assigned To</label>
+          <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
+            <option value="">-- Select Assignee --</option>
+            {(members || []).map(m => (
+              <option key={m.user} value={m.user}>{m.user_name} ({m.role_display || m.role})</option>
+            ))}
+          </select>
+        </div>
         <ActionButton variant="accent" className="!w-full !mt-1" onClick={async () => {
-          const payload: Record<string, unknown> = { title, description, location, priority, status, due_date: dueDate || null }
+          const payload: Record<string, unknown> = { title, description, location, priority, status, due_date: dueDate || null, assigned_to: assignedTo || null }
           if (status === 'completed' && item.status !== 'completed') {
             payload.closed_at = new Date().toISOString()
           }

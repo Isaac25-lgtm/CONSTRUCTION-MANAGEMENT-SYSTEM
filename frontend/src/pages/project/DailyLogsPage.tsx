@@ -40,6 +40,9 @@ export function DailyLogsPage() {
                   {log.workforce && (
                     <div><span className="font-semibold text-bp-muted">Workforce:</span> <span className="text-bp-text">{log.workforce}</span></div>
                   )}
+                  {log.equipment && (
+                    <div><span className="font-semibold text-bp-muted">Equipment:</span> <span className="text-bp-text">{log.equipment}</span></div>
+                  )}
                   {log.work_performed && (
                     <div><span className="font-semibold text-bp-muted">Work Performed:</span> <span className="text-bp-text whitespace-pre-line">{log.work_performed}</span></div>
                   )}
@@ -73,6 +76,7 @@ function AddDailyLogModal({ projectId, onClose }: { projectId: string; onClose: 
   const [logDate, setLogDate] = useState(new Date().toISOString().slice(0, 10))
   const [weather, setWeather] = useState('')
   const [workforce, setWorkforce] = useState('')
+  const [equipment, setEquipment] = useState('')
   const [workPerformed, setWorkPerformed] = useState('')
   const [delays, setDelays] = useState('')
   const [materialsNotes, setMaterialsNotes] = useState('')
@@ -94,9 +98,15 @@ function AddDailyLogModal({ projectId, onClose }: { projectId: string; onClose: 
             <input value={weather} onChange={(e) => setWeather(e.target.value)} placeholder="e.g. Sunny, 28C" />
           </div>
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-bp-muted">Workforce</label>
-          <input value={workforce} onChange={(e) => setWorkforce(e.target.value)} placeholder="e.g. 15 workers, 2 supervisors" />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-bp-muted">Workforce</label>
+            <input value={workforce} onChange={(e) => setWorkforce(e.target.value)} placeholder="e.g. 15 workers, 2 supervisors" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-bp-muted">Equipment</label>
+            <input value={equipment} onChange={(e) => setEquipment(e.target.value)} placeholder="e.g. 1 excavator, 2 mixers" />
+          </div>
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold text-bp-muted">Work Performed *</label>
@@ -122,7 +132,7 @@ function AddDailyLogModal({ projectId, onClose }: { projectId: string; onClose: 
         </div>
         <ActionButton variant="green" className="!w-full !mt-1" onClick={async () => {
           if (!logDate || !workPerformed) { showToast('Date and work performed required', 'warning'); return }
-          await create.mutateAsync({ log_date: logDate, weather, workforce, work_performed: workPerformed, delays, materials_notes: materialsNotes, visitors, incidents })
+          await create.mutateAsync({ log_date: logDate, weather, workforce, equipment, work_performed: workPerformed, delays, materials_notes: materialsNotes, visitors, incidents })
           showToast('Daily log recorded', 'success'); onClose()
         }} disabled={create.isPending}>{create.isPending ? 'Saving...' : 'Save Log'}</ActionButton>
       </div>

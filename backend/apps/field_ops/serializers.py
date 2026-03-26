@@ -61,7 +61,7 @@ class DailyLogSerializer(ProjectScopedValidationMixin, serializers.ModelSerializ
     class Meta:
         model = DailyLog
         fields = [
-            "id", "project", "log_date", "weather", "workforce",
+            "id", "project", "log_date", "weather", "workforce", "equipment",
             "work_performed", "delays", "materials_notes",
             "visitors", "incidents",
             "author", "author_name",
@@ -81,7 +81,7 @@ class DailyLogCreateSerializer(ProjectScopedValidationMixin, serializers.ModelSe
     class Meta:
         model = DailyLog
         fields = [
-            "log_date", "weather", "workforce", "work_performed",
+            "log_date", "weather", "workforce", "equipment", "work_performed",
             "delays", "materials_notes", "visitors", "incidents", "author",
         ]
 
