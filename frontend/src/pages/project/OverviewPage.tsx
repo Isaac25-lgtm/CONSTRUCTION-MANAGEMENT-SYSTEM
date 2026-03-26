@@ -4,6 +4,7 @@ import {
   CostCard,
   LoadingState,
   MetricCard,
+  PageHeader,
   ProgressBar,
   SectionCard,
   StatusBadge,
@@ -38,6 +39,8 @@ export function OverviewPage() {
 
   return (
     <div>
+      <PageHeader title="Overview & EVM" icon="&#128202;" />
+
       <SectionCard className="mb-4" padding="compact">
         <div className="flex flex-wrap items-start justify-between gap-4 px-1">
           <div>
