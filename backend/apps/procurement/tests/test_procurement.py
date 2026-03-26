@@ -141,12 +141,18 @@ class PurchaseOrderTests(ProcurementBaseTestCase):
             {
                 "supplier": str(self.supplier.id),
                 "code": "PO-001",
+                "delivery_address": "Kampala Site Yard",
                 "delivery_date": "2026-04-15",
+                "payment_terms": "30 days net",
+                "instructions": "Deliver before noon",
             },
             content_type="application/json")
         self.assertEqual(r.status_code, 201)
         self.assertEqual(r.json()["code"], "PO-001")
         self.assertEqual(r.json()["supplier_name"], "Acme Supplies")
+        self.assertEqual(r.json()["delivery_address"], "Kampala Site Yard")
+        self.assertEqual(r.json()["payment_terms"], "30 days net")
+        self.assertEqual(r.json()["instructions"], "Deliver before noon")
 
 
 class ProcurementSummaryTests(ProcurementBaseTestCase):

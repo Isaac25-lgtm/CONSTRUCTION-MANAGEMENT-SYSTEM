@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   PageHeader, CostCard, DataTable, StatusBadge, ActionButton,
   Modal, LoadingState, EmptyState, Tabs,
@@ -15,10 +15,12 @@ import {
   type QuotationData, type GoodsReceiptData,
   type ProcurementInvoiceData, type ProcurementPaymentData,
 } from '../../hooks/useProcurement'
+import { useProject } from '../../hooks/useProjects'
 import { useQueryClient } from '@tanstack/react-query'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
 import { useUIStore } from '../../stores/uiStore'
 import { formatDate, formatUGX } from '../../lib/formatters'
+import { downloadText } from '../../lib/download'
 import { api } from '../../api/client'
 
 /**
@@ -44,6 +46,7 @@ export function ProcurementPage() {
   const [tab, setTab] = useState<string>('summary')
   const { canEditProcurement } = useProjectPermissions(projectId)
   const { addRFQItem, deleteRFQItem, addQuotationItem, deleteQuotationItem, addPOItem, deletePOItem, addGRNItem, deleteGRNItem } = useItemActions()
+  const { data: project } = useProject(projectId)
 
   const { data: summary, isLoading: loadingSummary } = useProcurementSummary(projectId)
   const { data: suppliers, isLoading: loadingSuppliers } = useSuppliers()
@@ -344,11 +347,11 @@ export function ProcurementPage() {
           <DataTable columns={poColumns} data={orders} emptyText="No purchase orders"
             onRowClick={(r: PurchaseOrderData) => toggleRow(r.id)}
             renderExpanded={(r: PurchaseOrderData) => expandedRow === r.id ? (
-              <ItemsPanel
-                items={r.items.map(i => ({ id: i.id, description: i.description, unit: i.unit, qty: i.quantity, price: i.unit_price, total: i.line_total }))}
-                showPrice={true}
-                onAdd={canEditProcurement ? (d) => addPOItem(pid, r.id, d) : undefined}
-                onDelete={canEditProcurement ? (itemId) => deletePOItem(pid, r.id, itemId) : undefined}
+              <PODetailPanel
+                po={r}
+                projectName={project?.name || 'Project'}
+                onAddItem={canEditProcurement ? (d) => addPOItem(pid, r.id, d) : undefined}
+                onDeleteItem={canEditProcurement ? (itemId) => deletePOItem(pid, r.id, itemId) : undefined}
               />
             ) : null}
           />
@@ -394,7 +397,7 @@ export function ProcurementPage() {
       {/* Modals */}
       {showAddRFQ && <AddRFQModal projectId={pid} onClose={() => setShowAddRFQ(false)} />}
       {showAddQuotation && <AddQuotationModal projectId={pid} onClose={() => setShowAddQuotation(false)} />}
-      {showAddPO && <AddPOModal projectId={pid} onClose={() => setShowAddPO(false)} />}
+      {showAddPO && <AddPOModal projectId={pid} projectLocation={project?.location || ''} onClose={() => setShowAddPO(false)} />}
       {showAddGRN && <AddGRNModal projectId={pid} onClose={() => setShowAddGRN(false)} />}
       {showAddInvoice && <AddInvoiceModal projectId={pid} onClose={() => setShowAddInvoice(false)} />}
       {showAddPayment && <AddPaymentModal projectId={pid} onClose={() => setShowAddPayment(false)} />}
@@ -413,6 +416,153 @@ function DashboardPanel({ title, children }: { title: string; children: ReactNod
 
 function DashboardEmpty({ text }: { text: string }) {
   return <div className="text-xs text-bp-muted">{text}</div>
+}
+
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function formatPOFigure(value: string | number) {
+  const numeric = typeof value === 'number' ? value : Number.parseFloat(value || '0')
+  if (!Number.isFinite(numeric)) return '0'
+  return numeric.toLocaleString(undefined, { maximumFractionDigits: 2 })
+}
+
+function buildPurchaseOrderDocument(po: PurchaseOrderData, projectName: string) {
+  const css = [
+    'body{font-family:Calibri;padding:30px;max-width:800px;margin:auto}',
+    'h1{color:#f59e0b;border-bottom:3px solid #f59e0b;padding-bottom:8px}',
+    'h2{color:#3b82f6;margin-top:16px}',
+    'table{width:100%;border-collapse:collapse;margin:10px 0}',
+    'th{background:#0f172a;color:#f59e0b;padding:6px 10px;font-size:10px;text-align:left}',
+    'td{padding:5px 10px;border:1px solid #ddd;font-size:11px}',
+    '.row{display:flex;gap:16px;margin-bottom:4px}',
+    '.label{color:#666;width:150px;font-size:11px}',
+    '.val{font-weight:600;font-size:11px}',
+    '.foot{margin-top:20px;color:#999;font-size:9px;text-align:center}',
+    '@media print{@page{size:A4;margin:15mm}}',
+  ].join('')
+
+  const itemRows = po.items.map(item => (
+    `<tr><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.quantity)}</td><td>${escapeHtml(item.unit)}</td><td>UGX ${formatPOFigure(item.unit_price)}</td><td>UGX ${formatPOFigure(item.line_total)}</td></tr>`
+  )).join('')
+
+  return [
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><style>',
+    css,
+    '</style></head><body>',
+    '<h1>Purchase Order</h1>',
+    `<div class="row"><span class="label">PO Number:</span><span class="val" style="font-size:16px;color:#f59e0b">${escapeHtml(po.code)}</span></div>`,
+    `<div class="row"><span class="label">Date:</span><span class="val">${escapeHtml(po.order_date)}</span></div>`,
+    `<div class="row"><span class="label">Project:</span><span class="val">${escapeHtml(projectName)}</span></div>`,
+    `<div class="row"><span class="label">Supplier:</span><span class="val">${escapeHtml(po.supplier_name || '')}</span></div>`,
+    `<div class="row"><span class="label">Delivery To:</span><span class="val">${escapeHtml(po.delivery_address)}</span></div>`,
+    `<div class="row"><span class="label">Delivery Date:</span><span class="val">${escapeHtml(po.delivery_date || 'TBD')}</span></div>`,
+    `<div class="row"><span class="label">Payment Terms:</span><span class="val">${escapeHtml(po.payment_terms)}</span></div>`,
+    '<h2>Items</h2>',
+    '<table><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Unit Price</th><th>Total</th></tr>',
+    itemRows,
+    '</table>',
+    `<div style="text-align:right;margin-top:10px;font-size:14px"><strong>Total: UGX ${formatPOFigure(po.total_amount)}</strong></div>`,
+    `<div class="foot">${escapeHtml(projectName)} | Generated by BuildPro - ${escapeHtml(new Date().toLocaleString())}</div>`,
+    '</body></html>',
+  ].join('')
+}
+
+function downloadPurchaseOrder(po: PurchaseOrderData, projectName: string, format: 'word' | 'pdf') {
+  const html = buildPurchaseOrderDocument(po, projectName)
+  if (format === 'word') {
+    downloadText(`\uFEFF${html}`, `BuildPro_${po.code}.doc`, 'application/msword;charset=utf-8')
+    return
+  }
+  // Prototype "PDF" export is a print-ready HTML file.
+  downloadText(html, `BuildPro_${po.code}.html`, 'text/html;charset=utf-8')
+}
+
+function PODetailPanel({
+  po,
+  projectName,
+  onAddItem,
+  onDeleteItem,
+}: {
+  po: PurchaseOrderData
+  projectName: string
+  onAddItem?: (d: ItemPayload) => Promise<void>
+  onDeleteItem?: (itemId: number) => Promise<void>
+}) {
+  const { showToast } = useUIStore()
+
+  return (
+    <div className="border-t border-bp-border bg-[#0d1526]" onClick={(e) => e.stopPropagation()}>
+      <div className="grid gap-4 px-4 py-3 md:grid-cols-[1.35fr_auto] md:items-start">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <MetaRow label="PO Number" value={po.code} accent />
+          <MetaRow label="Date" value={po.order_date} />
+          <MetaRow label="Supplier" value={po.supplier_name || '-'} />
+          <MetaRow label="Delivery To" value={po.delivery_address || '-'} />
+          <MetaRow label="Delivery Date" value={po.delivery_date || 'TBD'} />
+          <MetaRow label="Payment Terms" value={po.payment_terms || '-'} />
+          <MetaRow label="Status" value={po.status_display} />
+          <MetaRow label="Total" value={formatUGX(parseFloat(po.total_amount))} accent />
+          {po.instructions && <MetaRow label="Special Instructions" value={po.instructions} fullWidth />}
+        </div>
+
+        <div className="flex flex-wrap gap-2 md:justify-end">
+          <ActionButton
+            variant="blue"
+            size="sm"
+            onClick={() => {
+              downloadPurchaseOrder(po, projectName, 'word')
+              showToast(`${po.code} downloaded as Word`, 'success')
+            }}
+          >
+            &#11015; Word
+          </ActionButton>
+          <ActionButton
+            variant="blue"
+            size="sm"
+            onClick={() => {
+              downloadPurchaseOrder(po, projectName, 'pdf')
+              showToast(`${po.code} downloaded in prototype PDF format`, 'success')
+            }}
+          >
+            &#11015; PDF
+          </ActionButton>
+        </div>
+      </div>
+
+      <ItemsPanel
+        items={po.items.map(i => ({ id: i.id, description: i.description, unit: i.unit, qty: i.quantity, price: i.unit_price, total: i.line_total }))}
+        showPrice={true}
+        onAdd={onAddItem}
+        onDelete={onDeleteItem}
+      />
+    </div>
+  )
+}
+
+function MetaRow({
+  label,
+  value,
+  accent,
+  fullWidth,
+}: {
+  label: string
+  value: string
+  accent?: boolean
+  fullWidth?: boolean
+}) {
+  return (
+    <div className={fullWidth ? 'sm:col-span-2' : ''}>
+      <div className="mb-1 text-[10px] uppercase tracking-wider text-bp-muted">{label}</div>
+      <div className={accent ? 'font-mono text-sm font-semibold text-bp-accent' : 'text-sm text-bp-text'}>{value}</div>
+    </div>
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -618,16 +768,30 @@ function AddQuotationModal({ projectId, onClose }: { projectId: string; onClose:
 /* Add PO Modal                                                        */
 /* ------------------------------------------------------------------ */
 
-function AddPOModal({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+function AddPOModal({
+  projectId,
+  projectLocation,
+  onClose,
+}: {
+  projectId: string
+  projectLocation: string
+  onClose: () => void
+}) {
   const [supplier, setSupplier] = useState('')
+  const [deliveryAddress, setDeliveryAddress] = useState(projectLocation)
   const [deliveryDate, setDeliveryDate] = useState('')
-  const [notes, setNotes] = useState('')
+  const [paymentTerms, setPaymentTerms] = useState('30 days net')
+  const [instructions, setInstructions] = useState('')
   const { data: suppliers, isLoading: loadingSuppliers } = useSuppliers()
   const create = useCreatePO(projectId)
   const { showToast } = useUIStore()
 
+  useEffect(() => {
+    if (!deliveryAddress && projectLocation) setDeliveryAddress(projectLocation)
+  }, [deliveryAddress, projectLocation])
+
   return (
-    <Modal open={true} onClose={onClose} title="Create Purchase Order" width={420}>
+    <Modal open={true} onClose={onClose} title="Create Purchase Order" width={480}>
       <div className="grid gap-3">
         <div>
           <label className="mb-1 block text-xs font-semibold text-bp-muted">Supplier *</label>
@@ -641,16 +805,32 @@ function AddPOModal({ projectId, onClose }: { projectId: string; onClose: () => 
           )}
         </div>
         <div>
-          <label className="mb-1 block text-xs font-semibold text-bp-muted">Delivery Date</label>
-          <input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">Delivery Address</label>
+          <input value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="Site delivery location" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-bp-muted">Delivery Date</label>
+            <input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-bp-muted">Payment Terms</label>
+            <input value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="30 days net" />
+          </div>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-semibold text-bp-muted">Notes</label>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Additional notes..." rows={3} />
+          <label className="mb-1 block text-xs font-semibold text-bp-muted">Special Instructions</label>
+          <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Optional delivery or handling instructions..." rows={3} />
         </div>
         <ActionButton variant="green" className="!w-full !mt-1" onClick={async () => {
           if (!supplier) { showToast('Please select a supplier', 'warning'); return }
-          await create.mutateAsync({ supplier, delivery_date: deliveryDate || undefined, notes: notes || undefined })
+          await create.mutateAsync({
+            supplier,
+            delivery_address: deliveryAddress || undefined,
+            delivery_date: deliveryDate || undefined,
+            payment_terms: paymentTerms || undefined,
+            instructions: instructions || undefined,
+          })
           showToast('Purchase order created', 'success'); onClose()
         }} disabled={create.isPending}>{create.isPending ? 'Creating...' : 'Create PO'}</ActionButton>
       </div>

@@ -186,7 +186,8 @@ class PurchaseOrderSerializer(ProjectScopedValidationMixin, serializers.ModelSer
         model = PurchaseOrder
         fields = [
             "id", "project", "supplier", "supplier_name",
-            "code", "order_date", "delivery_date",
+            "code", "order_date", "delivery_address", "delivery_date",
+            "payment_terms", "instructions",
             "status", "status_display",
             "notes", "approved_by", "approved_by_name",
             "total_amount", "items",
@@ -211,7 +212,9 @@ class PurchaseOrderCreateSerializer(ProjectScopedValidationMixin, serializers.Mo
     class Meta:
         model = PurchaseOrder
         fields = [
-            "supplier", "code", "delivery_date", "status", "notes", "approved_by",
+            "supplier", "code", "delivery_address", "delivery_date",
+            "payment_terms", "instructions",
+            "status", "notes", "approved_by",
         ]
 
     def validate(self, attrs):

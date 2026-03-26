@@ -101,7 +101,10 @@ export interface PurchaseOrderData {
   supplier_name: string | null
   code: string
   order_date: string
+  delivery_address: string
   delivery_date: string | null
+  payment_terms: string
+  instructions: string
   status: string
   status_display: string
   notes: string
@@ -251,7 +254,10 @@ export function useCreatePO(projectId: string) {
     mutationFn: async (d: {
       supplier: string
       code?: string
+      delivery_address?: string
       delivery_date?: string
+      payment_terms?: string
+      instructions?: string
       status?: string
       notes?: string
       approved_by?: string
