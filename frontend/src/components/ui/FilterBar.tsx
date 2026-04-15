@@ -26,9 +26,9 @@ export function FilterChip({ label, active, count, onClick }: FilterChipProps) {
       onClick={onClick}
       className="cursor-pointer rounded-lg border px-2.5 py-1.5 text-center transition-colors"
       style={{
-        background: active ? 'rgba(245,158,11,0.13)' : '#1e293b',
-        borderColor: active ? '#f59e0b' : '#334155',
-        color: active ? '#f59e0b' : '#e2e8f0',
+        background: active ? 'var(--bp-accent-soft)' : 'var(--bp-surface)',
+        borderColor: active ? 'var(--bp-accent)' : 'var(--bp-border)',
+        color: active ? 'var(--bp-accent)' : 'var(--bp-text)',
       }}
     >
       {count !== undefined && (

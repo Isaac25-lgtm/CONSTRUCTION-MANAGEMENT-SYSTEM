@@ -16,12 +16,12 @@ export function StatStrip({ items }: StatStripProps) {
         <div
           key={item.label}
           className="rounded-md px-3 py-2 text-center"
-          style={{ background: '#1e293b' }}
+          style={{ background: 'var(--bp-surface)' }}
         >
           <div className="text-[9px] text-bp-muted">{item.label}</div>
           <div
             className="font-mono text-xs font-bold"
-            style={{ color: item.color || '#e2e8f0' }}
+            style={{ color: item.color || 'var(--bp-text)' }}
           >
             {item.value}
           </div>

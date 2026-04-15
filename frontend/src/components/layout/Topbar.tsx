@@ -1,5 +1,6 @@
 import { useLocation, useParams, useNavigate } from 'react-router-dom'
 import { ActionButton } from '../ui'
+import { ThemeToggle } from '../ui/ThemeToggle'
 import { useUIStore } from '../../stores/uiStore'
 import { useAuth } from '../../hooks/useAuth'
 import { useProject } from '../../hooks/useProjects'
@@ -99,6 +100,7 @@ export function Topbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <ThemeToggle compact />
         {showNewProject && hasSystemPerm('projects.create') && (
           <ActionButton variant="accent" onClick={() => navigate('/app/projects?create=1')}>
             + New Project

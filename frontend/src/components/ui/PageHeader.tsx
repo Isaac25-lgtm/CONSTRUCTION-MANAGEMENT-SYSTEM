@@ -30,7 +30,12 @@ export function PageHeader({ title, count, icon, children, infoText }: PageHeade
               aria-label={`About ${title}`}
               aria-expanded={showInfo}
               onClick={() => setShowInfo((current) => !current)}
-              className="flex h-6 w-6 items-center justify-center rounded-full border border-[#3b82f666] bg-[#3b82f622] text-xs font-bold text-[#3b82f6] transition-colors hover:bg-[#3b82f633]"
+              className="flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold transition-colors"
+              style={{
+                borderColor: 'var(--bp-info-border)',
+                background: 'var(--bp-info-soft)',
+                color: 'var(--color-bp-info)',
+              }}
             >
               i
             </button>
@@ -40,8 +45,14 @@ export function PageHeader({ title, count, icon, children, infoText }: PageHeade
       </div>
 
       {resolvedInfo && showInfo && (
-        <div className="mt-3 rounded-lg border border-[#f59e0b55] bg-[#f59e0b14] px-4 py-3">
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#f59e0b]">
+        <div
+          className="mt-3 rounded-lg border px-4 py-3"
+          style={{
+            borderColor: 'var(--bp-accent)',
+            background: 'var(--bp-accent-soft)',
+          }}
+        >
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-bp-accent">
             Section Info
           </div>
           <div className="text-sm leading-relaxed text-bp-text">{resolvedInfo}</div>

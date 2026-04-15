@@ -176,7 +176,7 @@ export function Sidebar() {
           >
             <div
               className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-base"
-              style={{ background: 'rgba(245,158,11,0.13)' }}
+              style={{ background: 'var(--bp-accent-soft)' }}
             >
               🧑‍💻
             </div>

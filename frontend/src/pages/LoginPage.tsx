@@ -8,6 +8,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../api/client'
+import { ThemeToggle } from '../components/ui/ThemeToggle'
 
 export function LoginPage() {
   const [username, setUsername] = useState('')
@@ -48,18 +49,23 @@ export function LoginPage() {
 
   if (checkingSetup) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#0b1120' }}>
-        <div className="text-bp-muted text-sm">Checking system status...</div>
+      <div className="relative flex min-h-screen items-center justify-center bg-bp-bg">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle compact />
+        </div>
+        <div className="text-sm text-bp-muted">Checking system status...</div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ background: '#0b1120' }}>
+    <div className="relative flex min-h-screen items-center justify-center bg-bp-bg px-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle compact />
+      </div>
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-xl border border-bp-border p-8"
-        style={{ background: '#111827' }}
+        className="w-full max-w-sm rounded-xl border border-bp-border bg-bp-bg2 p-8 shadow-[var(--bp-shadow-soft)]"
       >
         <div className="mb-6 text-center">
           <span className="text-3xl">&#127959;&#65039;</span>
@@ -99,8 +105,7 @@ export function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full cursor-pointer rounded-md border-none px-4 py-2.5 text-[13px] font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: '#f59e0b' }}
+          className="w-full cursor-pointer rounded-md border-none bg-bp-accent px-4 py-2.5 text-[13px] font-semibold text-[var(--bp-accent-contrast)] transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {loading ? 'Signing in...' : 'Sign In'}
         </button>

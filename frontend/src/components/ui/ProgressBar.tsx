@@ -12,7 +12,7 @@ export function ProgressBar({ value, height = 6, showLabel = false }: ProgressBa
     <div className="flex items-center gap-2">
       <div
         className="flex-1 overflow-hidden rounded"
-        style={{ background: '#1e293b', height }}
+        style={{ background: 'var(--bp-surface)', height }}
       >
         <div
           className="h-full rounded transition-all"

@@ -26,9 +26,10 @@ export function Toast() {
     <div
       className="fixed bottom-6 right-6 z-[300] rounded-lg border px-4 py-3 text-sm font-semibold shadow-lg"
       style={{
-        background: '#111827',
+        background: 'var(--bp-bg2)',
         borderColor: color,
         color,
+        boxShadow: 'var(--bp-shadow-soft)',
       }}
     >
       {toast.message}

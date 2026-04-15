@@ -24,7 +24,7 @@ export function Modal({ open, onClose, title, children, width = 480 }: ModalProp
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.6)' }}
+      style={{ background: 'var(--bp-overlay)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div

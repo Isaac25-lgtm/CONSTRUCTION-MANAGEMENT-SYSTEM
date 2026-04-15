@@ -8,6 +8,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
+import { ThemeToggle } from '../components/ui/ThemeToggle'
 
 export function SetupPage() {
   const navigate = useNavigate()
@@ -47,8 +48,11 @@ export function SetupPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#0b1120' }}>
-        <div className="w-full max-w-md rounded-xl border border-bp-border p-8 text-center" style={{ background: '#111827' }}>
+      <div className="relative flex min-h-screen items-center justify-center bg-bp-bg px-4">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle compact />
+        </div>
+        <div className="w-full max-w-md rounded-xl border border-bp-border bg-bp-bg2 p-8 text-center shadow-[var(--bp-shadow-soft)]">
           <div className="mb-4 text-4xl">&#9989;</div>
           <h2 className="mb-2 text-lg font-bold text-bp-text">System Initialized</h2>
           <p className="mb-4 text-sm text-bp-muted">
@@ -56,8 +60,7 @@ export function SetupPage() {
           </p>
           <button
             onClick={() => navigate('/login', { replace: true })}
-            className="rounded-md border-none px-6 py-2.5 text-sm font-semibold text-black cursor-pointer"
-            style={{ background: '#f59e0b' }}
+            className="cursor-pointer rounded-md border-none bg-bp-accent px-6 py-2.5 text-sm font-semibold text-[var(--bp-accent-contrast)]"
           >
             Go to Login
           </button>
@@ -67,11 +70,13 @@ export function SetupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ background: '#0b1120' }}>
+    <div className="relative flex min-h-screen items-center justify-center bg-bp-bg px-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle compact />
+      </div>
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-xl border border-bp-border p-8"
-        style={{ background: '#111827' }}
+        className="w-full max-w-md rounded-xl border border-bp-border bg-bp-bg2 p-8 shadow-[var(--bp-shadow-soft)]"
       >
         <div className="mb-6 text-center">
           <span className="text-3xl">&#127959;</span>
@@ -157,8 +162,7 @@ export function SetupPage() {
 
         <button
           type="submit" disabled={loading}
-          className="w-full cursor-pointer rounded-md border-none px-4 py-2.5 text-[13px] font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: '#f59e0b' }}
+          className="w-full cursor-pointer rounded-md border-none bg-bp-accent px-4 py-2.5 text-[13px] font-semibold text-[var(--bp-accent-contrast)] transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {loading ? 'Initializing...' : 'Initialize System'}
         </button>

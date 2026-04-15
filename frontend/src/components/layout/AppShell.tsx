@@ -14,7 +14,7 @@ export function AppShell() {
   const { sidebarOpen } = useUIStore()
 
   return (
-    <div className="flex min-h-screen" style={{ background: '#0b1120' }}>
+    <div className="flex min-h-screen bg-bp-bg text-bp-text">
       <Sidebar />
       {/* Main content: offset on desktop when sidebar is visible, full-width on mobile */}
       <main

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import { bootstrapCsrf } from './api/client'
+import { initializeTheme } from './lib/theme'
 import './styles/index.css'
 
 const queryClient = new QueryClient({
@@ -15,6 +16,8 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+initializeTheme()
 
 // Await CSRF cookie before rendering so no mutating request races it
 async function init() {
