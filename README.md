@@ -245,7 +245,7 @@ flowchart TB
 
     PROMPT --> PROVIDER{{"🔌 Provider\nRouter"}}
 
-    PROVIDER -->|"Production"| GEMINI["💎 Google Gemini\ngemini-2.0-flash"]
+    PROVIDER -->|"Production"| GEMINI["💎 Google Gemini\ngemini-flash-latest"]
     PROVIDER -->|"Testing"| STUB["🧪 Stub Provider\nNo API key needed"]
 
     GEMINI --> LOG["📊 AIRequestLog\nUser · Project · Feature\nProvider · Duration · Status"]

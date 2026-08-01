@@ -62,7 +62,7 @@ def generate_text(prompt, *, system_prompt="", provider_name=None, max_tokens=20
 @register_provider("gemini")
 class GeminiProvider:
     name = "gemini"
-    default_model = "gemini-2.0-flash"
+    default_model = "gemini-flash-latest"
 
     def __init__(self):
         self.api_key = os.environ.get("GEMINI_API_KEY", "")

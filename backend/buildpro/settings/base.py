@@ -183,7 +183,7 @@ CELERY_TASK_TRACK_STARTED = True
 # ---------------------------------------------------------------------------
 
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "gemini")
-AI_MODEL = os.environ.get("AI_MODEL", "gemini-2.0-flash")
+AI_MODEL = os.environ.get("AI_MODEL", "gemini-flash-latest")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # ---------------------------------------------------------------------------

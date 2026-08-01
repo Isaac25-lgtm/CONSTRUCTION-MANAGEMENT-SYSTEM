@@ -48,7 +48,7 @@ This document records the approved architecture decisions. These are frozen and 
 
 ### AI Layer
 - **Provider-agnostic service layer** -- abstracts AI provider behind internal interface
-- Initial provider: Google Gemini (gemini-2.0-flash) -- switchable via AI_PROVIDER env var
+- Initial provider: Google Gemini (gemini-flash-latest) -- switchable via AI_PROVIDER env var
 - Stub provider available for testing without API keys
 - AI features are assistive, not authoritative
 - All AI interactions logged and auditable via AIRequestLog
