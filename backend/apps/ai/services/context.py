@@ -49,6 +49,59 @@ def assemble_project_context(project, *, user_perms=None,
     return "\n".join(sections)
 
 
+def assemble_org_context(projects):
+    """Build a portfolio-level text context from the given projects.
+
+    Callers must pass only projects the user is allowed to see -- this
+    function does no permission filtering of its own.
+    """
+    from django.db.models import Avg
+    from apps.scheduling.models import ProjectTask
+    from apps.risks.models import Risk
+    from apps.rfis.models import RFI
+
+    sections = ["ORGANISATION PORTFOLIO:", f"Projects visible to this user: {len(projects)}", ""]
+
+    for project in projects:
+        sections.append(f"PROJECT: {project.name} ({project.code})")
+        sections.append(
+            f"  Type: {project.get_project_type_display()} | Contract: {project.get_contract_type_display()}"
+            f" | Status: {project.get_status_display()}"
+        )
+        sections.append(
+            f"  Client: {project.client_name or 'N/A'} | Location: {project.location or 'N/A'}"
+            f" | Start: {project.start_date or 'TBD'} | End: {project.end_date or 'TBD'}"
+        )
+
+        tasks = ProjectTask.objects.filter(project=project, is_parent=False)
+        total = tasks.count()
+        completed = tasks.filter(status="completed").count()
+        avg_progress = tasks.aggregate(avg=Avg("progress"))["avg"] or 0
+
+        try:
+            overview = get_project_overview(project)
+            evm = get_evm_metrics(project)
+            cost = overview.get("cost", {})
+            sections.append(
+                f"  Budget: {cost.get('total_budget', 0):,.0f} | Actual: {cost.get('total_actual', 0):,.0f}"
+                f" | CPI: {evm.get('cpi', 0):.2f} | SPI: {evm.get('spi', 0):.2f} | EAC: {evm.get('eac', 0):,.0f}"
+            )
+        except Exception:
+            sections.append("  Cost summary: not available")
+
+        risks = Risk.objects.filter(project=project, deleted_at__isnull=True)
+        open_rfis = RFI.objects.filter(project=project, status="open").count()
+        sections.append(
+            f"  Tasks: {total} total, {completed} completed, avg progress {avg_progress:.0f}%"
+            f" | Risks: {risks.filter(status='open').count()} open"
+            f" ({risks.filter(impact__in=['high', 'critical']).count()} high/critical)"
+            f" | Open RFIs: {open_rfis}"
+        )
+        sections.append("")
+
+    return "\n".join(sections)
+
+
 def _add_schedule_context(project, sections):
     """Add schedule summary to context."""
     from apps.scheduling.models import ProjectTask, Milestone

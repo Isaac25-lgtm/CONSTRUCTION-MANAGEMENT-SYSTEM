@@ -25,3 +25,15 @@ export function renderAIMarkdown(text: string): string {
 
   return '<p style="margin:8px 0">' + html + '</p>'
 }
+
+/** Strip AI markdown down to clean plain text for copying into documents. */
+export function aiMarkdownToPlainText(text: string): string {
+  return text
+    .replace(/^#{1,3} (.+)$/gm, '$1')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/^[\-\*] /gm, '- ')
+    .replace(/^---+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}

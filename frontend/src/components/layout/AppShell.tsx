@@ -1,7 +1,8 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useMatch } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { Toast } from '../ui'
+import { FloatingProjectCopilot } from '../ai/FloatingProjectCopilot'
 import { useUIStore } from '../../stores/uiStore'
 
 /**
@@ -12,6 +13,9 @@ import { useUIStore } from '../../stores/uiStore'
  */
 export function AppShell() {
   const { sidebarOpen } = useUIStore()
+  // Project workspace mounts its own project-scoped copilot; show the
+  // org-level one everywhere else so AI is available across the app.
+  const inProjectWorkspace = useMatch('/app/projects/:projectId/*')
 
   return (
     <div className="flex min-h-screen bg-bp-bg text-bp-text">
@@ -32,6 +36,7 @@ export function AppShell() {
           </div>
         </div>
       </main>
+      {!inProjectWorkspace && <FloatingProjectCopilot />}
       <Toast />
     </div>
   )

@@ -212,6 +212,15 @@ export function useCopilotQuery(projectId: string | undefined) {
   })
 }
 
+export function useOrgCopilotQuery() {
+  return useMutation({
+    mutationFn: async (question: string) => {
+      const { data } = await api.post<AIResponse>('/ai/org/copilot/', { question })
+      return data
+    },
+  })
+}
+
 /**
  * Async AI hooks -- call endpoint with ?async=true, get job ID back.
  * Requires Celery worker + Redis/Key Value running.

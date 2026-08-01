@@ -4,6 +4,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("org/copilot/", views.org_copilot_query, name="ai-org-copilot"),
     path("<uuid:project_id>/intelligence/", views.project_intelligence, name="ai-intelligence"),
     path("<uuid:project_id>/narrative/", views.generate_narrative, name="ai-narrative"),
     path("<uuid:project_id>/report-draft/", views.generate_report_draft, name="ai-report-draft"),

@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getApiErrorMessage } from '../../api/client'
-import { renderAIMarkdown } from '../../lib/aiMarkdown'
+import { aiMarkdownToPlainText, renderAIMarkdown } from '../../lib/aiMarkdown'
 import { ActionButton, StatusBadge } from '../ui'
-import { useCopilotQuery, useProjectIntelligence } from '../../hooks/useAI'
+import { useCopilotQuery, useOrgCopilotQuery, useProjectIntelligence } from '../../hooks/useAI'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
 import { useUIStore } from '../../stores/uiStore'
 
 interface FloatingProjectCopilotProps {
-  projectId: string
+  projectId?: string
 }
 
 interface ChatMessage {
@@ -23,18 +23,37 @@ const FALLBACK_PROMPTS = [
   'Draft a short progress update for management.',
 ]
 
+const ORG_PROMPTS = [
+  'Which projects need management attention right now?',
+  'Compare cost performance (CPI) across the portfolio.',
+  'Summarize the top portfolio risks and their projects.',
+]
+
+const ORG_WELCOME =
+  'I can answer questions across every project you have access to -- ' +
+  'schedule and CPM status, cost and EVM performance, risks, RFIs, and procurement. ' +
+  'Ask a portfolio question or pick a quick prompt below.'
+
 export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProps) {
+  const isOrgMode = !projectId
   const [open, setOpen] = useState(false)
   const [question, setQuestion] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const scrollRef = useRef<HTMLDivElement | null>(null)
-  const copilot = useCopilotQuery(projectId)
+  const projectCopilot = useCopilotQuery(projectId)
+  const orgCopilot = useOrgCopilotQuery()
+  const copilot = isOrgMode ? orgCopilot : projectCopilot
   const { showToast } = useUIStore()
   const { canUseAI } = useProjectPermissions(projectId)
-  const { data: intelligence } = useProjectIntelligence(projectId, open && canUseAI)
+  const { data: intelligence } = useProjectIntelligence(projectId, open && !isOrgMode && canUseAI)
 
   useEffect(() => {
-    if (!open || !intelligence || messages.length > 0) return
+    if (!open || messages.length > 0) return
+    if (isOrgMode) {
+      setMessages([{ id: 'welcome', role: 'assistant', text: ORG_WELCOME }])
+      return
+    }
+    if (!intelligence) return
     setMessages([
       {
         id: 'welcome',
@@ -42,7 +61,7 @@ export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProp
         text: `${intelligence.narrative.summary} ${intelligence.narrative.guidance}`,
       },
     ])
-  }, [intelligence, messages.length, open])
+  }, [intelligence, isOrgMode, messages.length, open])
 
   useEffect(() => {
     if (!open || !scrollRef.current) return
@@ -58,14 +77,23 @@ export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProp
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [open])
 
-  const quickPrompts = useMemo(
-    () => intelligence?.suggested_questions?.length ? intelligence.suggested_questions : FALLBACK_PROMPTS,
-    [intelligence],
-  )
+  const quickPrompts = useMemo(() => {
+    if (isOrgMode) return ORG_PROMPTS
+    return intelligence?.suggested_questions?.length ? intelligence.suggested_questions : FALLBACK_PROMPTS
+  }, [intelligence, isOrgMode])
+
+  const copyMessage = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(aiMarkdownToPlainText(text))
+      showToast('Copied to clipboard', 'success')
+    } catch {
+      showToast('Could not copy to clipboard', 'error')
+    }
+  }
 
   const askQuestion = async (input: string) => {
     const trimmed = input.trim()
-    if (!trimmed || !canUseAI) return
+    if (!trimmed || (!isOrgMode && !canUseAI)) return
 
     const userMessage = {
       id: `user-${Date.now()}`,
@@ -90,7 +118,7 @@ export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProp
     }
   }
 
-  if (!canUseAI) return null
+  if (!isOrgMode && !canUseAI) return null
 
   return (
     <div className="fixed bottom-5 right-5 z-[90]">
@@ -108,10 +136,16 @@ export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProp
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/70">Project Copilot</div>
-                <div className="mt-1 text-base font-bold text-white">BuildPro Field Advisor</div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/70">
+                  {isOrgMode ? 'Portfolio Copilot' : 'Project Copilot'}
+                </div>
+                <div className="mt-1 text-base font-bold text-white">
+                  {isOrgMode ? 'BuildPro Portfolio Advisor' : 'BuildPro Field Advisor'}
+                </div>
                 <div className="mt-1 text-xs leading-relaxed text-white/80">
-                  Ask about this project’s progress, risks, spending, reports, and next actions.
+                  {isOrgMode
+                    ? 'Ask about any project you can access -- progress, cost performance, risks, and priorities.'
+                    : 'Ask about this project’s progress, risks, spending, reports, and next actions.'}
                 </div>
               </div>
               <button
@@ -168,7 +202,15 @@ export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProp
                   }}
                 >
                   {message.role === 'assistant' ? (
-                    <div dangerouslySetInnerHTML={{ __html: renderAIMarkdown(message.text) }} />
+                    <>
+                      <div dangerouslySetInnerHTML={{ __html: renderAIMarkdown(message.text) }} />
+                      <button
+                        onClick={() => copyMessage(message.text)}
+                        className="mt-2 cursor-pointer rounded-md border border-white/15 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/70 transition hover:bg-white/15 hover:text-white"
+                      >
+                        Copy
+                      </button>
+                    </>
                   ) : (
                     message.text
                   )}
@@ -201,12 +243,14 @@ export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProp
                 >
                   Ask
                 </ActionButton>
-                <Link
-                  to={`/app/projects/${projectId}/ai`}
-                  className="rounded-md border border-bp-border px-3 py-1.5 text-center text-[11px] font-semibold text-bp-muted transition hover:border-bp-accent hover:text-white"
-                >
-                  Open AI HQ
-                </Link>
+                {!isOrgMode && (
+                  <Link
+                    to={`/app/projects/${projectId}/ai`}
+                    className="rounded-md border border-bp-border px-3 py-1.5 text-center text-[11px] font-semibold text-bp-muted transition hover:border-bp-accent hover:text-white"
+                  >
+                    Open AI HQ
+                  </Link>
+                )}
               </div>
             </div>
           </div>

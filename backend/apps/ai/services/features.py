@@ -10,7 +10,7 @@ import logging
 import time
 
 from ..models import AIRequestLog
-from .context import assemble_project_context
+from .context import assemble_org_context, assemble_project_context
 from .provider import generate_text
 
 logger = logging.getLogger("buildpro.ai")
@@ -155,11 +155,21 @@ def answer_copilot_query(project, user, question, *, async_job=None, user_perms=
     )
 
     system_prompt = (
-        "You are a construction project copilot for BuildPro. "
+        "You are BuildPro's construction project copilot, answering as a seasoned "
+        "construction project management engineer. "
         "Answer the user's question using ONLY the project data provided below. "
-        "If the data does not contain enough information to answer, say so clearly. "
-        "Do not make up numbers or speculate beyond the data. "
-        "Be concise and professional. Use UGX as currency."
+        "Ground every statement in that data: quote the specific figures (budget, "
+        "actual cost, EVM indices, task counts, dates) that support each conclusion. "
+        "Apply recognised project management methods correctly -- CPM scheduling, "
+        "Earned Value Management per PMBOK/AACE conventions (SPI = EV/PV, CPI = EV/AC, "
+        "EAC = BAC/CPI), and standard risk management practice -- and interpret the "
+        "indices rigorously (e.g. SPI below 1.0 means behind schedule). "
+        "Structure the answer in markdown: short ### section headings, bullet points "
+        "for findings, and end with a 'Recommended actions' list ranked by priority, "
+        "each action tied to the data that justifies it. "
+        "Be thorough and analytical, not padded. If the data is insufficient to "
+        "answer, state exactly what is missing. Never invent numbers. "
+        "Use UGX as currency."
     )
 
     prompt = f"Project data:\n{context}\n\nUser question: {question}"
@@ -174,7 +184,61 @@ def answer_copilot_query(project, user, question, *, async_job=None, user_perms=
     )
 
     try:
-        result = generate_text(prompt, system_prompt=system_prompt, max_tokens=1000)
+        result = generate_text(prompt, system_prompt=system_prompt, max_tokens=2500)
+        log.status = "completed"
+        log.provider = result["provider"]
+        log.model_id = result["model"]
+        log.response_summary = result["text"][:200]
+        log.response_length = len(result["text"])
+        log.duration_ms = result["duration_ms"]
+        log.save()
+        return {"text": result["text"], "log_id": str(log.id)}
+    except Exception as e:
+        log.status = "failed"
+        log.response_summary = str(e)[:500]
+        log.save()
+        raise
+
+
+def answer_org_copilot_query(user, projects, question):
+    """Organisation-level copilot.
+
+    Answers portfolio questions across the projects the user may access.
+    `projects` must already be permission-filtered by the caller.
+    """
+    context = assemble_org_context(projects)
+
+    system_prompt = (
+        "You are BuildPro's organisation-level construction portfolio copilot, "
+        "answering as a seasoned construction project management engineer. "
+        "Answer the user's question using ONLY the portfolio data provided below. "
+        "Ground every statement in that data: quote the specific figures (budgets, "
+        "actual costs, EVM indices, progress, risk counts) that support each "
+        "conclusion, and name the projects they belong to. "
+        "Apply recognised project management methods correctly -- CPM scheduling, "
+        "Earned Value Management per PMBOK/AACE conventions (SPI = EV/PV, "
+        "CPI = EV/AC, EAC = BAC/CPI), and standard risk management practice. "
+        "When comparing projects, rank them and say why. "
+        "Structure the answer in markdown: short ### section headings, bullet "
+        "points for findings, and end with a 'Recommended actions' list ranked by "
+        "priority, each action tied to the data that justifies it. "
+        "Be thorough and analytical, not padded. If the data is insufficient to "
+        "answer, state exactly what is missing. Never invent numbers. "
+        "Use UGX as currency."
+    )
+
+    prompt = f"Portfolio data:\n{context}\n\nUser question: {question}"
+
+    log = AIRequestLog.objects.create(
+        user=user,
+        project=None,
+        feature="copilot",
+        request_summary=f"Org copilot: {question[:100]}",
+        context_token_estimate=len(prompt) // 4,
+    )
+
+    try:
+        result = generate_text(prompt, system_prompt=system_prompt, max_tokens=2500)
         log.status = "completed"
         log.provider = result["provider"]
         log.model_id = result["model"]

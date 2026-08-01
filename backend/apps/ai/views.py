@@ -194,6 +194,35 @@ def copilot_query(request, project_id):
         return _safe_error_response(e)
 
 
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def org_copilot_query(request):
+    """Answer an organisation-wide portfolio question via AI.
+
+    Only includes projects where the user holds ai.use, so the AI can never
+    surface data the user could not already open in a project workspace.
+    """
+    question = request.data.get("question", "").strip()
+    if not question:
+        return Response({"detail": "question is required."}, status=status.HTTP_400_BAD_REQUEST)
+    if len(question) > 500:
+        return Response({"detail": "Question too long (max 500 characters)."}, status=status.HTTP_400_BAD_REQUEST)
+
+    projects = list(
+        Project.objects.filter(organisation=request.user.organisation).order_by("name")
+    )
+    allowed = [p for p in projects if request.user.has_project_perm(p, "ai.use")][:25]
+    if not allowed:
+        return Response({"detail": "AI access requires ai.use permission."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        from .services.features import answer_org_copilot_query
+        result = answer_org_copilot_query(request.user, allowed, question)
+        return Response({"text": result["text"], "log_id": result["log_id"]})
+    except Exception as e:
+        return _safe_error_response(e)
+
+
 # ---------------------------------------------------------------------------
 # Job status polling
 # ---------------------------------------------------------------------------
