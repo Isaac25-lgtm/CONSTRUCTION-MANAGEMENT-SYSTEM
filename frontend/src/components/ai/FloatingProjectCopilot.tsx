@@ -48,6 +48,15 @@ export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProp
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, open])
 
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [open])
+
   const quickPrompts = useMemo(
     () => intelligence?.suggested_questions?.length ? intelligence.suggested_questions : FALLBACK_PROMPTS,
     [intelligence],
@@ -86,7 +95,7 @@ export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProp
     <div className="fixed bottom-5 right-5 z-[90]">
       {open && (
         <div
-          className="mb-3 w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-[22px] border border-white/10 shadow-2xl"
+          className="mb-3 flex max-h-[calc(100dvh-7.5rem)] w-[min(420px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[22px] border border-white/10 shadow-2xl"
           style={{
             background: 'linear-gradient(180deg, rgba(7,18,34,0.98) 0%, rgba(13,27,42,0.98) 100%)',
             boxShadow: '0 30px 80px rgba(2, 6, 23, 0.55)',
@@ -140,7 +149,7 @@ export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProp
             </div>
           </div>
 
-          <div ref={scrollRef} className="max-h-[340px] overflow-y-auto px-4 py-4">
+          <div ref={scrollRef} className="min-h-[96px] flex-1 overflow-y-auto px-4 py-4">
             <div className="space-y-3">
               {messages.map((message) => (
                 <div
