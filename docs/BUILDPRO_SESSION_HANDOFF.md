@@ -1,10 +1,25 @@
 # BuildPro Session Handoff
 
-> **Last updated:** 2026-03-16 (Final Production Completion)
-> **Phase:** Deployment-ready -- all blockers resolved
+> **Last updated:** 2026-08-01 (Live on Render + AI copilot upgrade)
+> **Phase:** Deployed and runtime-verified on Render
 > **Build status:** 190 tests pass, build clean, lint clean
 
 ---
+
+## Live Deployment (2026-08-01)
+
+- **Live URL:** https://buildpro-web-vc24.onrender.com (Blueprint deploy: buildpro-web, buildpro-worker, buildpro-kv; Neon PostgreSQL)
+- Env admin account is seeded from TEST_ADMIN_* vars on every deploy (username is TEST_ADMIN_USERNAME; login is by username, not email)
+- Demo portfolio (10 projects) seeded into production via `seed_demo_projects --replace --username <admin>`; SEED_DEMO_PROJECTS stays false so it persists across deploys
+- AI model switched to `gemini-flash-latest` rolling alias everywhere (gemini-2.0-flash was retired by Google and broke AI features)
+- R2 storage not yet configured (REQUIRE_REMOTE_STORAGE=false): uploads are ephemeral until AWS_* vars are set
+
+## AI Copilot Upgrade (2026-08-01)
+
+- Copilot prompts rewritten for engineering rigor: data-cited findings, PMBOK/AACE EVM conventions, markdown structure, prioritized recommended actions; copilot max_tokens 1000 -> 2500
+- New org-level endpoint `POST /api/v1/ai/org/copilot/` -- portfolio Q&A over only the projects where the user holds ai.use (server-side filtered)
+- Floating copilot now app-wide: org mode on global pages (AppShell), project mode in workspaces; panel is viewport-capped, closes via button/Escape/toggle
+- Assistant replies render markdown (shared lib/aiMarkdown.ts) and have a Copy button (copies markdown-stripped plain text)
 
 ## Current Status
 
