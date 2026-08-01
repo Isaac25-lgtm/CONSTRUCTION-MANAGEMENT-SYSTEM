@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getApiErrorMessage } from '../../api/client'
+import { renderAIMarkdown } from '../../lib/aiMarkdown'
 import { ActionButton, StatusBadge } from '../ui'
 import { useCopilotQuery, useProjectIntelligence } from '../../hooks/useAI'
 import { useProjectPermissions } from '../../hooks/useProjectPermissions'
@@ -166,7 +167,11 @@ export function FloatingProjectCopilot({ projectId }: FloatingProjectCopilotProp
                       : '1px solid rgba(245,158,11,0.35)',
                   }}
                 >
-                  {message.text}
+                  {message.role === 'assistant' ? (
+                    <div dangerouslySetInnerHTML={{ __html: renderAIMarkdown(message.text) }} />
+                  ) : (
+                    message.text
+                  )}
                 </div>
               ))}
               {copilot.isPending && (
